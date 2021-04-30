@@ -11,12 +11,11 @@
 ### BINDING PHRASE: ###
 # Uncomment the line below to use a hardcoded binding phrase
 # Leave commented to use traditional binding
-#-DMY_BINDING_PHRASE="default ExpressLRS binding phrase"
-
+-DMY_BINDING_PHRASE="default ExpressLRS binding phrase"
 
 ### REGULATORY DOMAIN: ###
 
-#-DRegulatory_Domain_AU_915
+-DRegulatory_Domain_AU_915
 #-DRegulatory_Domain_EU_868
 #-DRegulatory_Domain_IN_866
 #-DRegulatory_Domain_AU_433
@@ -66,3 +65,7 @@
 
 #If commented out the LED is RGB otherwise GRB
 #-DWS2812_IS_GRB
+
+#Experimental bluetooth joystick support 
+-DBLE_HID_JOYSTICK 
+
