@@ -534,12 +534,13 @@ void HandleUpdateParameter()
       // BeginWebUpdate();
 
       //hwTimer.stop();
-      BluetoothJoystickBegin();
       hwTimer.callbackTock = &SendRCdataToBLE;
-      Radio.End();
-      crsf.setSyncParams(8000); // 125hz
-      hwTimer.updateInterval(8000);
       crsf.RCdataCallback = &BluetoothJoystickUpdateValues;
+      hwTimer.updateInterval(8000);
+      crsf.setSyncParams(8000); // 125hz
+      Radio.SetMode(SX1280_MODE_SLEEP);
+      Radio.End();
+      BluetoothJoystickBegin();
       BLEjoystickActive = true; 
 #else
       webUpdateMode = false;
