@@ -396,7 +396,7 @@ void ICACHE_RAM_ATTR timerCallbackIdle()
 void sendLuaParams()
 {
   uint8_t luaParams[] = {0xFF,
-                         (uint8_t)(InBindingMode | (webUpdateMode << 1)),
+                         (uint8_t)(InBindingMode | (webUpdateMode << 1) | (BLEjoystickActive << 2)),
                          (uint8_t)ExpressLRS_currAirRate_Modparams->enum_rate,
                          (uint8_t)(ExpressLRS_currAirRate_Modparams->TLMinterval),
                          (uint8_t)(POWERMGNT.currPower()),
@@ -507,17 +507,12 @@ void HandleUpdateParameter()
   case 4:
     break;
 
-  case 0xFE:
+  case 0xFD:
     if (crsf.ParameterUpdateData[1] == 1)
     {
 #ifdef PLATFORM_ESP32
-      // webUpdateMode = true;
-      // Serial.println("Wifi Update Mode Requested!");
-      // sendLuaParams();
-      // sendLuaParams();
-      // BeginWebUpdate();
-
-      //hwTimer.stop();
+      BLEjoystickActive = true; 
+      Serial.println("BLE Joystick Mode Requested!");
       hwTimer.callbackTock = &SendRCdataToBLE;
       crsf.RCdataCallback = &BluetoothJoystickUpdateValues;
       hwTimer.updateInterval(8000);
@@ -525,7 +520,24 @@ void HandleUpdateParameter()
       Radio.SetMode(SX1280_MODE_SLEEP);
       Radio.End();
       BluetoothJoystickBegin();
+      sendLuaParams();
+      sendLuaParams();
+#else
       BLEjoystickActive = true; 
+      Serial.println("BLE Joystick Mode Requested but not supported on this platform!");
+#endif
+      break;
+    }
+
+  case 0xFE:
+    if (crsf.ParameterUpdateData[1] == 1)
+    {
+#ifdef PLATFORM_ESP32
+      webUpdateMode = true;
+      Serial.println("Wifi Update Mode Requested!");
+      sendLuaParams();
+      sendLuaParams();
+      BeginWebUpdate();
 #else
       webUpdateMode = false;
       Serial.println("Wifi Update Mode Requested but not supported on this platform!");

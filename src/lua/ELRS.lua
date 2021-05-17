@@ -20,6 +20,7 @@ local StopUpdate = false;
 local force_use_lua = false;
 local bindmode = false;
 local wifiupdatemode = false;
+local blejoystickmode = fasle;
 
 local SX127x_RATES = {
     list = {'25Hz(-123dbm)', '50Hz(-120dbm)', '100Hz(-117dbm)', '200Hz(-112dbm)'},
@@ -124,6 +125,27 @@ local WebServer = {
     offsets = {left=65, right=0, top=5, bottom=5},
 }
 
+local function ble_joystick_start(item, event)
+    crossfireTelemetryPush(0x2D, {0xEE, 0xEA, 0xFD, 0x01})
+    playTone(2000, 50, 0)
+    item.exec = false
+    return 0
+end
+
+local BLEJoystick = {
+    index = 6,
+    editable = false,
+    name = '[Joystick]',
+    exec = false,
+    func = ble_joystick_start,
+    selected = 99,
+    list = {},
+    values = {},
+    max_allowed = 0,
+    offsets = {left=65, right=0, top=5, bottom=5},
+}
+
+
 -- local exit_script = {
     -- index = 7,
     -- editable = false,
@@ -140,7 +162,7 @@ local menu = {
     selected = 1,
     modify = false,
     -- Note: list indexes must match to param handling in tx_main!
-    list = {AirRate, TLMinterval, MaxPower, RFfreq, Bind, WebServer},
+    list = {AirRate, TLMinterval, MaxPower, RFfreq, Bind, WebServer, BLEJoystick},
     --list = {AirRate, TLMinterval, MaxPower, RFfreq, WebServer, exit_script},
 }
 
@@ -353,6 +375,7 @@ local function processResp()
             if (#data == 12 or force_use_lua == true) then
                 bindmode = bit32.btest(0x01, data[4]) -- bind mode active
                 wifiupdatemode = bit32.btest(0x02, data[4])
+                blejoystickmode = bit32.btest(0x04, data[4])
                 if StopUpdate == false then
                     TLMinterval.selected = GetIndexOf(TLMinterval.values,data[6])
                     MaxPower.selected = GetIndexOf(MaxPower.values,data[7])
