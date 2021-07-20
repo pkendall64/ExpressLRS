@@ -39,11 +39,11 @@ SX1280Driver Radio;
 
 #ifdef PLATFORM_ESP32
 #include "ESP32_WebUpdate.h"
-#ifdef BLE_HID_JOYSTICK 
+#endif
+#ifdef BLE_HID_JOYSTICK
 #include "ESP32_BLE_HID.h"
 bool BLEjoystickActive = false;
 volatile bool BLEjoystickRefresh = false;
-#endif
 #endif
 
 #if defined(GPIO_PIN_BUTTON) && (GPIO_PIN_BUTTON != UNDEF_PIN)
@@ -533,13 +533,17 @@ void HandleUpdateParameter()
       crsf.RCdataCallback = &BluetoothJoystickUpdateValues;
       hwTimer.updateInterval(8000);
       crsf.setSyncParams(8000); // 125hz
-      Radio.SetMode(SX1280_MODE_SLEEP);
+#if defined(Regulatory_Domain_ISM_2400)
+          Radio.SetMode(SX1280_MODE_SLEEP);
+#else
+          Radio.SetMode(SX127x_OPMODE_SLEEP);
+#endif
       Radio.End();
       BluetoothJoystickBegin();
       sendLuaParams();
       sendLuaParams();
 #else
-      BLEjoystickActive = true; 
+      BLEjoystickActive = false; 
       Serial.println("BLE Joystick Mode Requested but not supported on this platform!");
 #endif
       break;

@@ -75,4 +75,6 @@ void BluetoothJoystickUpdateValues()
     }
 }
 
+#else
+inline void BluetoothJoystickSendReport() {}
 #endif
