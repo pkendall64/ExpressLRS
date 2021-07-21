@@ -20,7 +20,7 @@ local StopUpdate = false;
 local force_use_lua = false;
 local bindmode = false;
 local wifiupdatemode = false;
-local blejoystickmode = fasle;
+local blejoystickmode = false;
 
 local SX127x_RATES = {
     list = {'25Hz(-123dbm)', '50Hz(-120dbm)', '100Hz(-117dbm)', '200Hz(-112dbm)'},
