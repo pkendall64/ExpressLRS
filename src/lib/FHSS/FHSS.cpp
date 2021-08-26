@@ -2,6 +2,14 @@
 #include "logging.h"
 #include <string.h>
 
+#if defined(DEBUG_LOG_FHSS) || defined(DEBUG_LOG_VERBOSE)
+  #define DBG_FHSS(...)   DBG(__VA_ARGS__)
+  #define DBGLN_FHSS(...) DBGLN(__VA_ARGS__)
+#else
+  #define DBG_FHSS(...)
+  #define DBGLN_FHSS(...)
+#endif
+
 uint8_t volatile FHSSptr;
 uint8_t FHSSsequence[NR_SEQUENCE_ENTRIES];
 int32_t FreqCorrection;

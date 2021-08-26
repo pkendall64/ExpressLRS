@@ -74,8 +74,13 @@
 
 # Turn on debug messages, if disabled then all debugging options (starting with DEBUG_) are disabled
 #-DDEBUG_LOG
-# Use DEBUG_LOG_VERBOSE instead (or both) to see verbose debug logging (spammy stuff)
+#-DDEBUG_LOG_CRSF
+#-DDEBUG_LOG_FHSS
+
+# Use DEBUG_LOG_VERBOSE to see verbose debug logging, all the debug features above are enabled (spammy stuff)
 #-DDEBUG_LOG_VERBOSE
+
+# The following debug options are not controlled via DEBUG_LOG_VERBOSE
 
 # Print a letter for each packet received or missed (RX debugging)
 #-DDEBUG_RX_SCOREBOARD

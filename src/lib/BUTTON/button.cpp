@@ -1,6 +1,12 @@
 #include "button.h"
 #include "logging.h"
 
+#if defined(DEBUG_LOG_BUTTON) || defined(DEBUG_LOG_VERBOSE)
+  #define DBGLN_BUTTON(...) DBGLN(__VA_ARGS__)
+#else
+  #define DBGLN_BUTTON(...)
+#endif
+
 void inline button::nullCallback(void) {}
 void (*button::buttonShortPress)() = &nullCallback; // callbacks
 void (*button::buttonLongPress)() = &nullCallback;  // callbacks
@@ -54,7 +60,7 @@ void button::sampleButton()
         { //button release
             if (buttonIsDown and (!buttonIsDownLong))
             {
-                DBGLN("button short pressed");
+                DBGLN_BUTTON("button short pressed");
                 buttonShortPress();
                 buttonLastPressedShort = now;
                 shortPressTime++;
@@ -69,7 +75,7 @@ void button::sampleButton()
         { //button release
             if (buttonIsDown and (!buttonIsDownLong))
             {
-                DBGLN("button short pressed");
+                DBGLN_BUTTON("button short pressed");
                 buttonShortPress();
                 buttonLastPressedShort = now;
                 shortPressTime++;
@@ -113,7 +119,7 @@ void button::sampleButton()
     {
         if (buttonIsDown)
         {
-            DBGLN("button pressed long");
+            DBGLN_BUTTON("button pressed long");
             buttonLastPressedLong = now;
             buttonIsDownLong = true;
             buttonLongPress();
@@ -122,7 +128,7 @@ void button::sampleButton()
 
     if (shortPressTime == 3)
     {
-        DBGLN("button triple pressed");
+        DBGLN_BUTTON("button triple pressed");
         buttonTriplePress();
         shortPressTime = 0;    
     }
