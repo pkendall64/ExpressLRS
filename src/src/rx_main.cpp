@@ -1178,7 +1178,11 @@ static void setupSerial()
         // For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
         #if defined(DEBUG_LOG)
         Serial.begin(serialBaud);
+        #if defined(PLATFORM_ESP32)
+        SerialLogger = new BufferedStream(&Serial);
+        #else
         SerialLogger = &Serial;
+        #endif
         #else
         SerialLogger = new NullStream();
         #endif
@@ -1274,7 +1278,11 @@ static void setupSerial()
     {
         serialIO = new SerialCRSF(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
+#if defined(PLATFORM_ESP32)
+    SerialLogger = new BufferedStream(&Serial);
+#else
     SerialLogger = &Serial;
+#endif
 }
 
 static void serialShutdown()
