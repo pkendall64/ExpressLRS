@@ -396,6 +396,10 @@ static bool options_LoadProductAndDeviceName(EspFlashStream &strmFlash)
 
 bool options_init()
 {
+    #if defined(DEBUG_INIT)
+    // Stick a delay here in debug mode so we can see all the debug messages
+    delay(5000);
+    #endif
     debugCreateInitLogger();
 
     uint32_t baseAddr = 0;
