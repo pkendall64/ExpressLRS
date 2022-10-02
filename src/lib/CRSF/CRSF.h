@@ -62,16 +62,16 @@ public:
 
     #ifdef CRSF_TX_MODULE
     static bool IsArmed() { return CRSF_to_BIT(ChannelData[4]); } // AUX1
-    static void ICACHE_RAM_ATTR sendLinkStatisticsToTX();
-    static void ICACHE_RAM_ATTR sendTelemetryToTX(uint8_t *data);
+    static void sendLinkStatisticsToTX();
+    static void sendTelemetryToTX(uint8_t *data);
 
     static void packetQueueExtended(uint8_t type, void *data, uint8_t len);
 
     ///// Variables for OpenTX Syncing //////////////////////////
     #define OpenTXsyncPacketInterval 200 // in ms
-    static void ICACHE_RAM_ATTR setSyncParams(int32_t PacketInterval);
-    static void ICACHE_RAM_ATTR JustSentRFpacket();
-    static void ICACHE_RAM_ATTR sendSyncPacketToTX();
+    static void setSyncParams(int32_t PacketInterval);
+    static void JustSentRFpacket();
+    static void sendSyncPacketToTX();
     static void disableOpentxSync();
     static void enableOpentxSync();
 
@@ -88,8 +88,8 @@ public:
     static uint8_t GetMaxPacketBytes() { return maxPacketBytes; }
     static uint32_t GetCurrentBaudRate() { return UARTrequestedBaud; }
 
-    static uint32_t ICACHE_RAM_ATTR GetRCdataLastRecv();
-    static void ICACHE_RAM_ATTR RcPacketToChannelsData();
+    static uint32_t GetRCdataLastRecv();
+    static void RcPacketToChannelsData();
     #endif
 
     /////////////////////////////////////////////////////////////
@@ -128,7 +128,7 @@ private:
     static bool UARTinverted;
     #endif
 
-    static void ICACHE_RAM_ATTR adjustMaxPacketSize();
+    static void adjustMaxPacketSize();
     static void duplex_set_RX();
     static void duplex_set_TX();
     static bool ProcessPacket();
