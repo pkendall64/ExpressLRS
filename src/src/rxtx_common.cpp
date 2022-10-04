@@ -13,7 +13,7 @@ static std::function<void()> deferredFunction = nullptr;
 static void setupWire()
 {
 #if defined(USE_I2C)
-    if(GPIO_PIN_SDA != UNDEF_PIN && GPIO_PIN_SCL != UNDEF_PIN)
+    if (GPIO_PIN_SDA != UNDEF_PIN && GPIO_PIN_SCL != UNDEF_PIN)
     {
 #if defined(PLATFORM_STM32)
         // Wire::begin() passing ints is ambiguously overloaded, use the set functions

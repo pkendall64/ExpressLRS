@@ -3,11 +3,6 @@
 #pragma once
 
 #include <stdint.h>
-#include <config.h>
-#include <POWERMGNT.h>
-#include <CRSF.h>
-#include <logging.h>
-#include <MeanAccumulator.h>
 
 #define DYNPOWER_UPDATE_NOUPDATE -128
 #define DYNPOWER_UPDATE_MISSED   -127
