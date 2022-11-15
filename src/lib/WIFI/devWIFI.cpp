@@ -672,6 +672,11 @@ static void WebUpdateGetFirmware(AsyncWebServerRequest *request) {
 static void HandleContinuousWave(AsyncWebServerRequest *request) {
   if (request->hasArg("radio")) {
     SX12XX_Radio_Number_t radio = request->arg("radio").toInt() == 1 ? SX12XX_Radio_1 : SX12XX_Radio_2;
+    uint32_t frequency = 2440000000;
+    if (request->hasArg("frequency"))
+    {
+      frequency = request->arg("frequency").toInt();
+    }
 
     AsyncWebServerResponse *response = request->beginResponse(204);
     response->addHeader("Connection", "close");
@@ -684,7 +689,7 @@ static void HandleContinuousWave(AsyncWebServerRequest *request) {
     POWERMGNT::init();
     POWERMGNT::setPower(POWERMGNT::getMinPower());
 
-    Radio.startCWTest(2440000000, radio);
+    Radio.startCWTest(frequency, radio);
   } else {
     int radios = (GPIO_PIN_NSS_2 == UNDEF_PIN) ? 1 : 2;
     request->send(200, "application/json", String("{\"radios\": ") + radios + "}");
