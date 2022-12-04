@@ -64,18 +64,23 @@ void debugPrintf(const char* fmt, ...)
 // Create a UART to send DBGLN to during preinit
 void debugCreateInitLogger()
 {
-  #if defined(PLATFORM_ESP32)
+  #if defined(TARGET_TX)
   TxBackpack = new HardwareSerial(1);
   ((HardwareSerial *)TxBackpack)->begin(460800, SERIAL_8N1, 3, 1);
   #else
-  TxBackpack = new HardwareSerial(0);
-  ((HardwareSerial *)TxBackpack)->begin(460800, SERIAL_8N1);
+  SerialLogger = new HardwareSerial(0);
+  ((HardwareSerial *)SerialLogger)->begin(460800, SERIAL_8N1);
   #endif
 }
 
 void debugFreeInitLogger()
 {
+  #if defined(TARGET_TX)
   ((HardwareSerial *)TxBackpack)->end();
   delete (HardwareSerial *)TxBackpack;
+  #else
+  ((HardwareSerial *)SerialLogger)->end();
+  delete (HardwareSerial *)SerialLogger;
+  #endif
 }
 #endif

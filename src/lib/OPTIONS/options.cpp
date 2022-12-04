@@ -365,8 +365,11 @@ bool options_init()
     options_LoadFromFlashOrFile(strmFlash);
     // hardware.json
     bool hasHardware = hardware_init(strmFlash);
-
-    debugFreeInitLogger();
+    if (hasHardware)
+    {
+        // on failure leave the debug logger initialised 
+        debugFreeInitLogger();
+    }
 
     return hasHardware;
 }

@@ -32,7 +32,7 @@ extern Stream *SerialLogger;
 // #define LOG_USE_PROGMEM
 
 void debugPrintf(const char* fmt, ...);
-#if defined(LOG_INIT)
+#if defined(DEBUG_INIT)
 void debugCreateInitLogger();
 void debugFreeInitLogger();
 #else
