@@ -193,7 +193,7 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
     return false;
   }
 
-  LastTLMpacketRecvMillis = millis();
+  LastTLMpacketRecvMillis = currentLoopTime;
   LQCalc.add();
 
   Radio.GetLastPacketStats();
@@ -289,14 +289,14 @@ expresslrs_tlm_ratio_e ICACHE_RAM_ATTR UpdateTlmRatioEffective()
   return retVal;
 }
 
-void ICACHE_RAM_ATTR GenerateSyncPacketData(OTA_Sync_s * const syncPtr)
+void ICACHE_RAM_ATTR GenerateSyncPacketData(const unsigned long now, OTA_Sync_s * const syncPtr)
 {
   const uint8_t SwitchEncMode = config.GetSwitchMode();
   const uint8_t Index = (syncSpamCounter) ? config.GetRate() : ExpressLRS_currAirRate_Modparams->index;
 
   if (syncSpamCounter)
     --syncSpamCounter;
-  SyncPacketLastSent = millis();
+  SyncPacketLastSent = now;
 
   expresslrs_tlm_ratio_e newTlmRatio = UpdateTlmRatioEffective();
 
@@ -378,7 +378,7 @@ void ICACHE_RAM_ATTR SetRFLinkRate(uint8_t index) // Set speed of RF link (hz)
 
   crsf.setSyncParams(interval * ExpressLRS_currAirRate_Modparams->numOfSends);
   connectionState = disconnected;
-  rfModeLastChangedMS = millis();
+  rfModeLastChangedMS = currentLoopTime;
 }
 
 void ICACHE_RAM_ATTR HandleFHSS()
@@ -411,7 +411,7 @@ void ICACHE_RAM_ATTR HandlePrepareForTLM()
 
 void ICACHE_RAM_ATTR SendRCdataToRF()
 {
-  uint32_t const now = millis();
+  const auto now = currentLoopTime;
   // ESP requires word aligned buffer
   WORD_ALIGNED_ATTR OTA_Packet_s otaPkt = {0};
   static uint8_t syncSlot;
@@ -429,7 +429,7 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   if ((syncSpamCounter || WithinSyncSpamResidualWindow) && (NonceFHSSresult == 1 || NonceFHSSresult == 2))
   {
     otaPkt.std.type = PACKET_TYPE_SYNC;
-    GenerateSyncPacketData(OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
+    GenerateSyncPacketData(now, OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
     syncSlot = 0; // reset the sync slot in case the new rate (after the syncspam) has a lower FHSShopInterval
   }
   // Regular sync rotates through 4x slots, twice on each slot, and telemetry pushes it to the next slot up
@@ -437,7 +437,7 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   else if ((!skipSync) && ((syncSlot / 2) <= NonceFHSSresult) && (now - SyncPacketLastSent > SyncInterval) && (Radio.currFreq == GetInitialFreq()))
   {
     otaPkt.std.type = PACKET_TYPE_SYNC;
-    GenerateSyncPacketData(OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
+    GenerateSyncPacketData(now, OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
     syncSlot = (syncSlot + 1) % (ExpressLRS_currAirRate_Modparams->FHSShopInterval * 2);
   }
   else
@@ -640,7 +640,7 @@ static void UARTconnected()
   #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
   webserverPreventAutoStart = true;
   #endif
-  rfModeLastChangedMS = millis(); // force syncspam on first packets
+  rfModeLastChangedMS = currentLoopTime; // force syncspam on first packets
   SetRFLinkRate(config.GetRate());
   if (connectionState == noCrossfire || connectionState < MODE_STATES)
   {
@@ -801,15 +801,15 @@ void ICACHE_RAM_ATTR TXdoneISR()
 
 static void UpdateConnectDisconnectStatus()
 {
+  const auto now = currentLoopTime;
   // Number of telemetry packets which can be lost in a row before going to disconnected state
   constexpr unsigned RX_LOSS_CNT = 5;
-  // Must be at least 512ms and +2 to account for any rounding down and partial millis()
+  // Must be at least 512ms and +2 to account for any rounding down and partial milliseconds
   const uint32_t msConnectionLostTimeout = std::max((uint32_t)512U,
     (uint32_t)ExpressLRS_currTlmDenom * ExpressLRS_currAirRate_Modparams->interval / (1000U / RX_LOSS_CNT)
     ) + 2U;
   // Capture the last before now so it will always be <= now
   const uint32_t lastTlmMillis = LastTLMpacketRecvMillis;
-  const uint32_t now = millis();
   if (lastTlmMillis && ((now - lastTlmMillis) <= msConnectionLostTimeout))
   {
     if (connectionState != connected)
@@ -1194,6 +1194,7 @@ static void cyclePower()
 
 void setup()
 {
+  currentLoopTime = millis();
   if (setupHardwareFromOptions())
   {
     initUID();
@@ -1280,7 +1281,7 @@ void setup()
 
 void loop()
 {
-  uint32_t now = millis();
+  currentLoopTime = millis();
 
   HandleUARTout(); // Only used for non-CRSF output
 
@@ -1297,19 +1298,19 @@ void loop()
   }
 
   // Update UI devices
-  devicesUpdate(now);
+  devicesUpdate(currentLoopTime);
 
   // Not a device because it must be run on the loop core
   checkBackpackUpdate();
 
   #if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
     // If the reboot time is set and the current time is past the reboot time then reboot.
-    if (rebootTime != 0 && now > rebootTime) {
+    if (rebootTime != 0 && currentLoopTime > rebootTime) {
       ESP.restart();
     }
   #endif
 
-  executeDeferredFunction(now);
+  executeDeferredFunction(currentLoopTime);
 
   if (firmwareOptions.is_airport && connectionState == connected)
   {
@@ -1339,15 +1340,15 @@ void loop()
 
   CheckReadyToSend();
   CheckConfigChangePending();
-  DynamicPower_Update(now);
+  DynamicPower_Update(currentLoopTime);
   VtxPitmodeSwitchUpdate();
 
   /* Send TLM updates to handset if connected + reporting period
    * is elapsed. This keeps handset happy dispite of the telemetry ratio */
   if ((connectionState == connected) && (LastTLMpacketRecvMillis != 0) &&
-      (now >= (uint32_t)(firmwareOptions.tlm_report_interval + TLMpacketReported))) {
+      (currentLoopTime >= (uint32_t)(firmwareOptions.tlm_report_interval + TLMpacketReported))) {
     crsf.sendLinkStatisticsToTX();
-    TLMpacketReported = now;
+    TLMpacketReported = currentLoopTime;
   }
 
   if (TelemetryReceiver.HasFinishedData())

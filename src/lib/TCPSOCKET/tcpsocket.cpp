@@ -3,6 +3,8 @@
 #include "tcpsocket.h"
 #include "logging.h"
 
+extern volatile unsigned long currentLoopTime;
+
 TCPSOCKET *TCPSOCKET::instance = NULL;
 
 TCPSOCKET::TCPSOCKET(const uint32_t port)
@@ -27,7 +29,7 @@ void TCPSOCKET::handle()
     }
 
     // check timeout
-    if (millis() - clientTimeoutLastData > clientTimeoutPeriod)
+    if (currentLoopTime - clientTimeoutLastData > clientTimeoutPeriod)
     {
         TCPclient = NULL;
         DBGLN("TCP client timeout");
@@ -91,7 +93,7 @@ uint16_t TCPSOCKET::bytesReady()
 void TCPSOCKET::handleDataIn(void *arg, AsyncClient *client, void *data, size_t len)
 {
     instance->TCPclient = client;
-    instance->clientTimeoutLastData = millis();
+    instance->clientTimeoutLastData = currentLoopTime;
 
     if (instance->FIFOin.free() > (uint32_t)(len + 2)) // +2 because it takes 2 bytes to store the size of the FIFO chunk
     {
@@ -133,7 +135,7 @@ void TCPSOCKET::handleNewClient(void *arg, AsyncClient *client)
     DBGLN("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
 
     instance->TCPclient = client;
-    instance->clientTimeoutLastData = millis();
+    instance->clientTimeoutLastData = currentLoopTime;
 
     // add to list
     //instance->clients.push_back(client); // not using right now

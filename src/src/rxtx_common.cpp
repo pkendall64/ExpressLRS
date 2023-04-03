@@ -38,7 +38,7 @@ void setupTargetCommon()
 
 void deferExecution(uint32_t ms, std::function<void()> f)
 {
-    startDeferredTime = millis();
+    startDeferredTime = currentLoopTime;
     deferredTimeout = ms;
     deferredFunction = f;
 }

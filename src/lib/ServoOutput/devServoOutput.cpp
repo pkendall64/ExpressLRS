@@ -177,7 +177,7 @@ static int event()
 
 static int timeout()
 {
-    return servosUpdate(millis());
+    return servosUpdate(currentLoopTime);
 }
 
 device_t ServoOut_device = {

@@ -67,7 +67,7 @@ static void displayIdleScreen(bool init)
     uint8_t temperature = last_temperature;
 #ifdef HAS_THERMAL
     static uint32_t last_update_temp_ms = 0;
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     if(now - last_update_temp_ms > UPDATE_TEMP_TIMEOUT || last_update_temp_ms == 0)
     {
         temperature = thermal.getTempValue();
@@ -320,7 +320,7 @@ static void exitBLE(bool init)
 {
 #ifdef PLATFORM_ESP32
     if (connectionState == bleJoystick) {
-        rebootTime = millis() + 200;
+        rebootTime = currentLoopTime + 200;
     }
 #endif
 }
@@ -335,7 +335,7 @@ static void exitWiFi(bool init)
 {
 #ifdef PLATFORM_ESP32
     if (connectionState == wifiUpdate) {
-        rebootTime = millis() + 200;
+        rebootTime = currentLoopTime + 200;
     }
 #endif
 }

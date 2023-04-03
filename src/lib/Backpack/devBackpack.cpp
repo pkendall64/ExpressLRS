@@ -222,7 +222,7 @@ static int start()
 static int timeout()
 {
     static uint8_t versionRequestTries = 0;
-    static uint32_t lastVersionTryTime = 0;
+    static unsigned long lastVersionTryTime = 0;
 
     if (InBindingMode)
     {
@@ -230,8 +230,8 @@ static int timeout()
         return 1000;        // don't check for another second so we don't spam too hard :-)
     }
 
-    if (versionRequestTries < 10 && strlen(backpackVersion) == 0 && (lastVersionTryTime == 0 || millis() - lastVersionTryTime > 1000)) {
-        lastVersionTryTime = millis();
+    if (versionRequestTries < 10 && strlen(backpackVersion) == 0 && (lastVersionTryTime == 0 || currentLoopTime - lastVersionTryTime > 1000)) {
+        lastVersionTryTime = currentLoopTime;
         versionRequestTries++;
         mspPacket_t out;
         out.reset();

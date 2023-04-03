@@ -52,7 +52,7 @@ static int handle(void)
     else if ((is_screen_flipped == false) && (is_pre_screen_flipped == true))
     {
         display->doScreenBackLight(SCREEN_BACKLIGHT_ON);
-        state_machine.start(millis(), STATE_IDLE);
+        state_machine.start(currentLoopTime, STATE_IDLE);
     }
     is_pre_screen_flipped = is_screen_flipped;
     if (is_screen_flipped)
@@ -60,7 +60,7 @@ static int handle(void)
         return 100; // no need to check as often if the screen is off!
     }
 #endif
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
 
 #if defined(PLATFORM_ESP32)
     if (state_machine.getParentState() != STATE_WIFI_TX && connectionState == wifiUpdate)
@@ -148,7 +148,7 @@ static void initialize()
             display = new OLEDDisplay();
         }
         display->init();
-        state_machine.start(millis(), getInitialState());
+        state_machine.start(currentLoopTime, getInitialState());
     }
 
     registerButtonFunction(ACTION_GOTO_VTX_BAND, [](){

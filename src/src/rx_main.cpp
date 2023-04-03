@@ -1018,7 +1018,7 @@ bool ICACHE_RAM_ATTR ProcessRFPacket(SX12xxDriverCommon::rx_status const status)
     PFDloop.extEvent(beginProcessing + PACKET_TO_TOCK_SLACK);
 
     bool doStartTimer = false;
-    unsigned long now = millis();
+    const auto now = currentLoopTime;
 
     LastValidPacket = now;
 
@@ -1594,6 +1594,7 @@ void resetConfigAndReboot()
 
 void setup()
 {
+    currentLoopTime = millis();
     #if defined(TARGET_UNIFIED_RX)
     // Setup default logging in case of failure, or no layout
     Serial.begin(115200);
@@ -1684,24 +1685,24 @@ void setup()
 
 void loop()
 {
-    unsigned long now = millis();
+    currentLoopTime = millis();
 
     if (MspReceiver.HasFinishedData())
     {
         MspReceiveComplete();
     }
 
-    devicesUpdate(now);
+    devicesUpdate(currentLoopTime);
 
 #if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
     // If the reboot time is set and the current time is past the reboot time then reboot.
-    if (rebootTime != 0 && now > rebootTime) {
+    if (rebootTime != 0 && currentLoopTime > rebootTime) {
         ESP.restart();
     }
     #endif
 
     CheckConfigChangePending();
-    executeDeferredFunction(now);
+    executeDeferredFunction(currentLoopTime);
 
     if (connectionState > MODE_STATES)
     {
@@ -1711,36 +1712,36 @@ void loop()
     if ((connectionState != disconnected) && (ExpressLRS_currAirRate_Modparams->index != ExpressLRS_nextAirRateIndex)){ // forced change
         DBGLN("Req air rate change %u->%u", ExpressLRS_currAirRate_Modparams->index, ExpressLRS_nextAirRateIndex);
         LostConnection(true);
-        LastSyncPacket = now;           // reset this variable to stop rf mode switching and add extra time
-        RFmodeLastCycled = now;         // reset this variable to stop rf mode switching and add extra time
+        LastSyncPacket = currentLoopTime;           // reset this variable to stop rf mode switching and add extra time
+        RFmodeLastCycled = currentLoopTime;         // reset this variable to stop rf mode switching and add extra time
         SendLinkStatstoFCintervalLastSent = 0;
         SendLinkStatstoFCForcedSends = 2;
     }
 
-    if (connectionState == tentative && (now - LastSyncPacket > ExpressLRS_currAirRate_RFperfParams->RxLockTimeoutMs))
+    if (connectionState == tentative && (currentLoopTime - LastSyncPacket > ExpressLRS_currAirRate_RFperfParams->RxLockTimeoutMs))
     {
         DBGLN("Bad sync, aborting");
         LostConnection(true);
-        RFmodeLastCycled = now;
-        LastSyncPacket = now;
+        RFmodeLastCycled = currentLoopTime;
+        LastSyncPacket = currentLoopTime;
     }
 
-    cycleRfMode(now);
+    cycleRfMode(currentLoopTime);
 
     uint32_t localLastValidPacket = LastValidPacket; // Required to prevent race condition due to LastValidPacket getting updated from ISR
-    if ((connectionState == connected) && ((int32_t)ExpressLRS_currAirRate_RFperfParams->DisconnectTimeoutMs < (int32_t)(now - localLastValidPacket))) // check if we lost conn.
+    if ((connectionState == connected) && ((int32_t)ExpressLRS_currAirRate_RFperfParams->DisconnectTimeoutMs < (int32_t)(currentLoopTime - localLastValidPacket))) // check if we lost conn.
     {
         LostConnection(true);
     }
 
     if ((connectionState == tentative) && (abs(LPF_OffsetDx.value()) <= 10) && (LPF_Offset.value() < 100) && (LQCalc.getLQRaw() > minLqForChaos())) //detects when we are connected
     {
-        GotConnection(now);
+        GotConnection(currentLoopTime);
     }
 
-    checkSendLinkStatsToFc(now);
+    checkSendLinkStatsToFc(currentLoopTime);
 
-    if ((RXtimerState == tim_tentative) && ((now - GotConnectionMillis) > ConsiderConnGoodMillis) && (abs(LPF_OffsetDx.value()) <= 5))
+    if ((RXtimerState == tim_tentative) && ((currentLoopTime - GotConnectionMillis) > ConsiderConnGoodMillis) && (abs(LPF_OffsetDx.value()) <= 5))
     {
         RXtimerState = tim_locked;
         DBGLN("Timer locked");
@@ -1753,7 +1754,7 @@ void loop()
         TelemetrySender.SetDataToTransmit(nextPayload, nextPlayloadSize);
     }
     updateTelemetryBurst();
-    updateBindingMode(now);
+    updateBindingMode(currentLoopTime);
     updateSwitchMode();
     checkGeminiMode();
     debugRcvrLinkstats();
@@ -1834,7 +1835,7 @@ void EnterBindingMode()
 {
     if (InLoanBindingMode)
     {
-        loadBindingStartedMs = millis();
+        loadBindingStartedMs = currentLoopTime;
         LostConnection(false);
     }
     else if (connectionState == connected || InBindingMode)

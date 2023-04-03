@@ -1,4 +1,5 @@
 #ifdef HAS_GSENSOR
+#include "common.h"
 #include "gsensor.h"
 #include "logging.h"
 
@@ -124,11 +125,11 @@ void Gsensor::handle()
     if(z < -0.5f)
     {
         is_smart_fan_control = true;
-        smart_fan_start_time = millis();
+        smart_fan_start_time = currentLoopTime;
     }
     else
     {
-        if(is_smart_fan_control && (millis() - smart_fan_start_time) > SMART_FAN_TIME_OUT)
+        if(is_smart_fan_control && (currentLoopTime - smart_fan_start_time) > SMART_FAN_TIME_OUT)
         {
             is_smart_fan_control = false;
         }

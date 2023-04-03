@@ -74,7 +74,7 @@ void devicesInit()
 void devicesStart()
 {
     int32_t core = CURRENT_CORE;
-    unsigned long now = millis();
+    unsigned long now = currentLoopTime;
 
     for(size_t i=0 ; i<deviceCount ; i++)
     {
@@ -167,7 +167,7 @@ static void deviceTask(void *pvArgs)
     xSemaphoreGive(completeSemaphore);
     for (;;)
     {
-        int delay = devicesUpdate(millis());
+        int delay = devicesUpdate(currentLoopTime);
         // sleep the core until the desired time or it's awakened by an event
         xSemaphoreTake(taskSemaphore, delay == DURATION_NEVER ? portMAX_DELAY : pdMS_TO_TICKS(delay));
     }

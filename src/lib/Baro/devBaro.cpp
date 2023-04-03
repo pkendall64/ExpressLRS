@@ -58,7 +58,7 @@ static void Baro_PublishPressure(uint32_t pressuredPa)
     last_altitude_cm = altitude_cm;
 
     static uint32_t last_publish_ms;
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     uint32_t dT_ms = now - last_publish_ms;
     last_publish_ms = now;
 

@@ -395,7 +395,7 @@ static void luahandWifiBle(struct luaPropertiesCommon *item, uint8_t arg)
       sendLuaCommandResponse(cmd, lcsIdle, STR_EMPTYSPACE);
       if (connectionState == targetState)
       {
-        rebootTime = millis() + 400;
+        rebootTime = currentLoopTime + 400;
       }
       break;
 
@@ -412,7 +412,7 @@ static void luahandSimpleSendCmd(struct luaPropertiesCommon *item, uint8_t arg)
   static uint32_t lastLcsPoll;
   if (arg < lcsCancel)
   {
-    lastLcsPoll = millis();
+    lastLcsPoll = currentLoopTime;
     if ((void *)item == (void *)&luaBind)
     {
       msg = "Binding...";
@@ -438,7 +438,7 @@ static void luahandSimpleSendCmd(struct luaPropertiesCommon *item, uint8_t arg)
 #endif
     sendLuaCommandResponse((struct luaItem_command *)item, lcsExecuting, msg);
   } /* if doExecute */
-  else if(arg == lcsCancel || ((millis() - lastLcsPoll)> 2000))
+  else if(arg == lcsCancel || ((currentLoopTime - lastLcsPoll)> 2000))
   {
     sendLuaCommandResponse((struct luaItem_command *)item, lcsIdle, STR_EMPTYSPACE);
   }

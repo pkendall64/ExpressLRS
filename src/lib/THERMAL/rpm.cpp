@@ -1,6 +1,7 @@
 #include "targets.h"
 
 #if defined(PLATFORM_ESP32)
+#include "common.h"
 #include "logging.h"
 #include <driver/pcnt.h>
 #include <soc/pcnt_struct.h>
@@ -50,7 +51,7 @@ uint32_t get_rpm()
     int16_t counter;
     pcnt_get_counter_value(PCNT_UNIT_0, &counter);
     pcnt_counter_clear(PCNT_UNIT_0);
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     uint32_t rpm = ((overflow * 30000) + counter) * 60000 / 4 / (now - lastTime);
     overflow = 0;
     lastTime = now;

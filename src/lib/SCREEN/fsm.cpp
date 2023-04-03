@@ -1,4 +1,5 @@
 #include "fsm.h"
+#include "common.h"
 
 FiniteStateMachine::FiniteStateMachine(fsm_state_entry_t const *fsm) : root_fsm(fsm)
 {
@@ -32,7 +33,7 @@ void FiniteStateMachine::jumpTo(fsm_state_entry_t const *fsm, fsm_state_t state)
         if (current_fsm[i].state == state)
         {
             current_index = i;
-            uint32_t now = millis();
+            const auto now = currentLoopTime;
             current_fsm[current_index].entry(true);
             current_state_entered = now;
             handleEvent(now, EVENT_IMMEDIATE);

@@ -1,5 +1,6 @@
 #ifdef HAS_FIVE_WAY_BUTTON
 #include "FiveWayButton.h"
+#include "common.h"
 
 #if defined(GPIO_PIN_JOYSTICK)
 #if !defined(JOY_ADC_VALUES)
@@ -121,7 +122,7 @@ void FiveWayButton::update(int *keyValue, bool *keyLongPressed)
     *keyValue = INPUT_KEY_NO_PRESS;
 
     int newKey = readKey();
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     if (keyInProcess == INPUT_KEY_NO_PRESS)
     {
         // New key down

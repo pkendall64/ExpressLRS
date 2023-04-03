@@ -4,6 +4,7 @@
 
 Telemetry telemetry;
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
+volatile unsigned long currentLoopTime = 0;
 
 int sendData(uint8_t *data, int length)
 {

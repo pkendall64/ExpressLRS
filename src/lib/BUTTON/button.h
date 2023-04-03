@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+extern volatile unsigned long currentLoopTime;
 
 class Button
 {
@@ -48,7 +49,7 @@ public:
     // Call this in loop()
     int update()
     {
-        const uint32_t now = millis();
+        const auto now = currentLoopTime;
 
         // Reset press count if it has been too long since last rising edge
         if (now - _lastFallingEdge > MS_MULTI_TIMEOUT)

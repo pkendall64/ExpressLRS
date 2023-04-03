@@ -20,6 +20,7 @@
 CRSF crsf;  // need an instance to provide the fields used by the code under test
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 uint8_t UID[6] = {1,2,3,4,5,6};
+volatile unsigned long currentLoopTime = 0;
 
 void test_crsf_endpoints()
 {

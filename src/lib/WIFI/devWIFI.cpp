@@ -221,7 +221,7 @@ static void HandleReboot(AsyncWebServerRequest *request)
   response->addHeader("Connection", "close");
   request->send(response);
   request->client()->close();
-  rebootTime = millis() + 100;
+  rebootTime = currentLoopTime + 100;
 }
 
 static void HandleReset(AsyncWebServerRequest *request)
@@ -239,7 +239,7 @@ static void HandleReset(AsyncWebServerRequest *request)
   response->addHeader("Connection", "close");
   request->send(response);
   request->client()->close();
-  rebootTime = millis() + 100;
+  rebootTime = currentLoopTime + 100;
 }
 
 static void UpdateSettings(AsyncWebServerRequest *request, JsonVariant &json)
@@ -494,7 +494,7 @@ static void WebUpdateGetTarget(AsyncWebServerRequest *request)
 static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
 {
   int numNetworks = WiFi.scanComplete();
-  if (numNetworks >= 0 && millis() - lastScanTimeMS < STALE_WIFI_SCAN) {
+  if (numNetworks >= 0 && currentLoopTime - lastScanTimeMS < STALE_WIFI_SCAN) {
     DBGLN("Found %d networks", numNetworks);
     std::set<String> vs;
     String s="[";
@@ -520,7 +520,7 @@ static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
       #else
       WiFi.scanNetworks(true);
       #endif
-      lastScanTimeMS = millis();
+      lastScanTimeMS = currentLoopTime;
     }
     request->send(204, "application/json", "[]");
   }
@@ -531,7 +531,7 @@ static void sendResponse(AsyncWebServerRequest *request, const String &msg, WiFi
   response->addHeader("Connection", "close");
   request->send(response);
   request->client()->close();
-  changeTime = millis();
+  changeTime = currentLoopTime;
   changeMode = mode;
 }
 
@@ -620,7 +620,7 @@ static void WebUploadResponseHandler(AsyncWebServerRequest *request) {
       #else
         msg += "Please wait for a few seconds while the device reboots.\"}";
       #endif
-      rebootTime = millis() + 200;
+      rebootTime = currentLoopTime + 200;
     } else {
       StreamString p = StreamString();
       if (Update.hasError()) {
@@ -993,7 +993,7 @@ static void startServices()
 
 static void HandleWebUpdate()
 {
-  unsigned long now = millis();
+  const auto now = currentLoopTime;
   wl_status_t status = WiFi.status();
 
   if (status != laststatus && wifiMode == WIFI_STA) {
@@ -1111,7 +1111,7 @@ static int event()
   if (connectionState == wifiUpdate || connectionState > FAILURE_STATES)
   {
     if (!wifiStarted) {
-      startWiFi(millis());
+      startWiFi(currentLoopTime);
       return DURATION_IMMEDIATELY;
     }
   }

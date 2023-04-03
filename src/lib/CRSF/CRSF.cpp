@@ -103,7 +103,7 @@ void CRSF::Begin()
     DBGLN("About to start CRSF task...");
 
 #if CRSF_TX_MODULE
-    UARTwdtLastChecked = millis() + UARTwdtInterval; // allows a delay before the first time the UARTwdt() function is called
+    UARTwdtLastChecked = currentLoopTime + UARTwdtInterval; // allows a delay before the first time the UARTwdt() function is called
 
 #if defined(PLATFORM_ESP32)
     portDISABLE_INTERRUPTS();
@@ -337,7 +337,7 @@ void CRSF::enableOpentxSync()
 
 void ICACHE_RAM_ATTR CRSF::sendSyncPacketToTX() // in values in us.
 {
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     if (CRSF::CRSFstate && (now - OpenTXsyncLastSent) >= OpenTXsyncPacketInterval)
     {
         int32_t packetRate = CRSF::RequestedRCpacketInterval * 10; //convert from us to right format
@@ -848,7 +848,7 @@ bool CRSF::UARTwdt()
 {
     bool retval = false;
 #if !defined(DEBUG_TX_FREERUN)
-    uint32_t now = millis();
+    const auto now = currentLoopTime;
     if (now >= (UARTwdtLastChecked + UARTwdtInterval))
     {
         if (BadPktsCount >= GoodPktsCount)

@@ -111,6 +111,8 @@ expresslrs_rf_pref_params_s *ExpressLRS_currAirRate_RFperfParams;
 connectionState_e connectionState = disconnected;
 bool connectionHasModelMatch;
 
+volatile unsigned long currentLoopTime;
+
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 
 uint8_t MasterUID[6];                       // The definitive user UID
