@@ -2,11 +2,11 @@
     "comment": "esp8285 variant for ExpressLRS that uses variant=esp8285 instead of variant=generic",
     "build": {
       "arduino": {
-        "ldscript": "eagle.flash.1m256.ld"
+        "ldscript": "eagle.flash.1m64.ld"
       },
       "core": "esp8266",
       "extra_flags": "-DESP8266 -DARDUINO_ARCH_ESP8266 -DARDUINO_ESP8266_ESP01",
-      "f_cpu": "80000000L",
+      "f_cpu": "160000000L",
       "f_flash": "40000000L",
       "flash_mode": "dout",
       "mcu": "esp8266",
