@@ -62,6 +62,8 @@ def validate_devices(vendor, type, devname, device):
         error(f'device "{vendor}.{type}.{devname}" must have a "product_name" child element')
     if 'upload_methods' not in device:
         error(f'device "{vendor}.{type}.{devname}" must have a "upload_methods" child element')
+    if 'min_version' not in device:
+        error(f'device "{vendor}.{type}.{devname}" must have a "min_version" child element')
 
     if 'firmware' not in device:
         error(f'device "{vendor}.{type}.{devname}" must have a "firmware" child element')
