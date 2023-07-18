@@ -99,6 +99,7 @@ def patch_unified(args, options):
         json_flags['domain'] = domain_number(args.domain)
 
     json_flags['flash-discriminator'] = randint(1,2**32-1)
+    json_flags['target-id'] = args.target
 
     UnifiedConfiguration.doConfiguration(
         args.file,

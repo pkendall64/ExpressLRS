@@ -74,7 +74,7 @@ def appendToFirmware(firmware_file, product_name, lua_name, defines, config, lay
         firmware_file.write(config['prior_target_name'].upper().encode())
         firmware_file.write(b'\0')
 
-def doConfiguration(file, defines, config, moduletype, frequency, platform, device_name, rx_as_tx):
+def doConfiguration(file, options, target_path, moduletype, frequency, platform, device_name, rx_as_tx):
     product_name = "Unified"
     lua_name = "Unified"
     layout = None
@@ -83,9 +83,9 @@ def doConfiguration(file, defines, config, moduletype, frequency, platform, devi
     with open('hardware/targets.json') as f:
         targets = json.load(f)
 
-    if config is not None:
-        config ='.'.join(map(lambda s: f'"{s}"', config.split('.')))
-        config = jmespath.search(config, targets)
+    if target_path is not None:
+        path ='.'.join(map(lambda s: f'"{s}"', target_path.split('.')))
+        config = jmespath.search(path, targets)
     elif not sys.stdin.isatty():
         print('Not running in an interactive shell, leaving the firmware "bare".\n')
         print('The current compile options (user defines) have been included.')
@@ -101,7 +101,12 @@ def doConfiguration(file, defines, config, moduletype, frequency, platform, devi
         choice = input()
         if choice != "":
             config = products[int(choice)-1]
-            config = jmespath.search(f'[*."{moduletype}_{frequency}".*][][?product_name==`{config}`][]', targets)[0]
+            for m in targets:
+                if f'{moduletype}_{frequency}' in targets[m]:
+                    for d in targets[m][f'{moduletype}_{frequency}']:
+                        if targets[m][f'{moduletype}_{frequency}'][d]['product_name'] == config:
+                            target_path = f'{m}.{moduletype}_{frequency}.{d}'
+                            config = targets[m][f'{moduletype}_{frequency}'][d]
 
     if config is not None:
         product_name = config['product_name']
@@ -109,21 +114,24 @@ def doConfiguration(file, defines, config, moduletype, frequency, platform, devi
         dir = 'TX' if moduletype == 'tx' else 'RX'
         layout = f"hardware/{dir}/{config['layout_file']}"
 
+    options['target-id'] = target_path
+    defines = json.JSONEncoder().encode(options)
+
     lua_name = lua_name if device_name is None else device_name
     appendToFirmware(file, product_name, lua_name, defines, config, layout, rx_as_tx)
 
 def appendConfiguration(source, target, env):
     target_name = env.get('PIOENV', '').upper()
     device_name = env.get('DEVICE_NAME', None)
-    config = env.GetProjectOption('board_config', None)
-    if 'UNIFIED_' not in target_name and config is None:
+    target_path = env.GetProjectOption('board_config', None)
+    if 'UNIFIED_' not in target_name and target_path is None:
         return
 
     moduletype = ''
     frequency = ''
-    if config is not None:
-        moduletype = 'tx' if '.tx_' in config else 'rx'
-        frequency = '2400' if '_2400.' in config else '900' if '_900.' in config else 'dual'
+    if target_path is not None:
+        moduletype = 'tx' if '.tx_' in target_path else 'rx'
+        frequency = '2400' if '_2400.' in target_path else '900' if '_900.' in target_path else 'dual'
     else:
         moduletype = 'tx' if '_TX_' in target_name else 'rx'
         frequency = '2400' if '_2400_' in target_name else '900' if '_900_' in target_name else 'dual'
@@ -137,10 +145,10 @@ def appendConfiguration(source, target, env):
     else:
         platform = 'esp8285'
 
-    defines = json.JSONEncoder().encode(env['OPTIONS_JSON'])
+    options = env['OPTIONS_JSON']
 
     with open(str(target[0]), "r+b") as firmware_file:
-        doConfiguration(firmware_file, defines, config, moduletype, frequency, platform, device_name, None)
+        doConfiguration(firmware_file, options, target_path, moduletype, frequency, platform, device_name, None)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Configure Unified Firmware")
