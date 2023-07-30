@@ -302,6 +302,9 @@ void CRSFHandset::RcPacketToChannelsData() // data is packed as 11 bits per chan
         bitsMerged -= srcBits;
     }
 
+    // Call the registered RCdataCallback, if there is one, so it can modify the channel data if it needs to.
+    if (RCdataCallback) RCdataCallback();
+
     if (prev_AUX1 != ChannelData[4])
     {
         #if defined(PLATFORM_ESP32)
