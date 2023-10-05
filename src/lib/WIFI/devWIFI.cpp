@@ -151,6 +151,7 @@ static struct {
   {"/hardware.js", "text/javascript", (uint8_t *)HARDWARE_JS, sizeof(HARDWARE_JS)},
   {"/cw.html", "text/html", (uint8_t *)CW_HTML, sizeof(CW_HTML)},
   {"/cw.js", "text/javascript", (uint8_t *)CW_JS, sizeof(CW_JS)},
+  {"/favicon.ico", "image/svg+xml", (uint8_t *)FAVICON_ICO, sizeof(FAVICON_ICO)},
 };
 
 static void WebUpdateSendContent(AsyncWebServerRequest *request)

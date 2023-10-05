@@ -64,6 +64,7 @@ config = {
                     "pin": 3
                 }
             ],
+            "allow-dshot": True,
             "serial-protocol": 3,
             "sbus-failsafe": 0,
             "product_name": "Generic ESP8285 + 5xPWM 2.4Ghz RX",
@@ -152,6 +153,11 @@ def hradware_html():
 def hardware_js():
     response.content_type = 'text/javascript; charset=latin9'
     return apply_template('hardware.js')
+
+@route('/favicon.ico')
+def favicon():
+    response.content_type = 'image/svg+xml'
+    return apply_template('logo-template.svg')
 
 @route('/config')
 def options():
