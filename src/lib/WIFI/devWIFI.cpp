@@ -53,9 +53,9 @@
 
 #if defined(TARGET_TX)
 #include "wifiJoystick.h"
+#include "devLED.h"
 
 extern TxConfig config;
-extern void setButtonColors(uint8_t b1, uint8_t b2);
 #else
 extern RxConfig config;
 #endif

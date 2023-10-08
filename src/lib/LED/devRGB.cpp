@@ -19,8 +19,8 @@ static uint8_t bootLEDcount;
 
 #if defined(PLATFORM_ESP32)
 #include "esp32rgb.h"
-static ESP32S3LedDriverGRB *stripgrb;
-static ESP32S3LedDriverRGB *striprgb;
+static ESP32LedDriverGRB *stripgrb;
+static ESP32LedDriverRGB *striprgb;
 #else
 #include <NeoPixelBus.h>
 #define METHOD NeoEsp8266Uart1800KbpsMethod
@@ -28,12 +28,12 @@ static NeoPixelBus<NeoGrbFeature, METHOD> *stripgrb;
 static NeoPixelBus<NeoRgbFeature, METHOD> *striprgb;
 #endif
 
-void WS281Binit()
+static void WS281Binit()
 {
     if (OPT_WS2812_IS_GRB)
     {
 #if defined(PLATFORM_ESP32)
-        stripgrb = new ESP32S3LedDriverGRB(pixelCount, GPIO_PIN_LED_WS2812);
+        stripgrb = new ESP32LedDriverGRB(pixelCount, GPIO_PIN_LED_WS2812);
 #else
         stripgrb = new NeoPixelBus<NeoGrbFeature, METHOD>(pixelCount, GPIO_PIN_LED_WS2812);
 #endif
@@ -44,7 +44,7 @@ void WS281Binit()
     else
     {
 #if defined(PLATFORM_ESP32)
-        striprgb = new ESP32S3LedDriverRGB(pixelCount, GPIO_PIN_LED_WS2812);
+        striprgb = new ESP32LedDriverRGB(pixelCount, GPIO_PIN_LED_WS2812);
 #else
         striprgb = new NeoPixelBus<NeoRgbFeature, METHOD> (pixelCount, GPIO_PIN_LED_WS2812);
 #endif
@@ -54,7 +54,7 @@ void WS281Binit()
     }
 }
 
-void WS281BsetLED(int index, uint32_t color)
+static void WS281BsetLED(int index, uint32_t color)
 {
     if (OPT_WS2812_IS_GRB)
     {
@@ -66,7 +66,7 @@ void WS281BsetLED(int index, uint32_t color)
     }
 }
 
-void WS281BsetLED(uint32_t color)
+static void WS281BsetLED(uint32_t color)
 {
     for (int i=0 ; i<statusLEDcount ; i++)
     {
@@ -93,7 +93,7 @@ typedef struct {
     uint8_t h, s, v;
 } blinkyColor_t;
 
-uint32_t HsvToRgb(const blinkyColor_t &blinkyColor)
+static uint32_t HsvToRgb(const blinkyColor_t &blinkyColor)
 {
     uint8_t region, remainder, p, q, t;
 
@@ -126,7 +126,7 @@ uint32_t HsvToRgb(const blinkyColor_t &blinkyColor)
     }
 }
 
-void brightnessFadeLED(blinkyColor_t &blinkyColor, uint8_t start, uint8_t end)
+static void brightnessFadeLED(blinkyColor_t &blinkyColor, uint8_t start, uint8_t end)
 {
     static uint8_t lightness = 0;
     static int8_t dir = 1;
@@ -148,7 +148,7 @@ void brightnessFadeLED(blinkyColor_t &blinkyColor, uint8_t start, uint8_t end)
     WS281BsetLED(HsvToRgb(blinkyColor));
 }
 
-void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_t lightness, uint8_t count)
+static void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_t lightness, uint8_t count)
 {
     static bool hueMode = true;
 
@@ -209,7 +209,7 @@ void hueFadeLED(blinkyColor_t &blinkyColor, uint16_t start, uint16_t end, uint8_
     }
 }
 
-uint16_t flashLED(blinkyColor_t &blinkyColor, uint8_t onLightness, uint8_t offLightness, const uint8_t durations[], uint8_t durationCounts)
+static uint16_t flashLED(blinkyColor_t &blinkyColor, uint8_t onLightness, uint8_t offLightness, const uint8_t durations[], uint8_t durationCounts)
 {
     static int counter = 0;
 
@@ -222,7 +222,7 @@ uint16_t flashLED(blinkyColor_t &blinkyColor, uint8_t onLightness, uint8_t offLi
     return durations[counter++] * 10;
 }
 
-uint32_t toRGB(uint8_t c)
+static uint32_t toRGB(uint8_t c)
 {
   uint32_t r = c & 0xE0 ;
   r = ((r << 16) + (r << 13) + (r << 10)) & 0xFF0000;
@@ -252,12 +252,12 @@ static enum {
     NORMAL = 1
 } blinkyState;
 
-constexpr uint8_t LEDSEQ_RADIO_FAILED[] = {  10, 10 }; // 100ms on, 100ms off (fast blink)
-constexpr uint8_t LEDSEQ_DISCONNECTED[] = { 50, 50 };  // 500ms on, 500ms off
-constexpr uint8_t LEDSEQ_NO_CROSSFIRE[] = {  10, 100 }; // 1 blink, 1s pause (one blink/s)
-constexpr uint8_t LEDSEQ_BINDING[] = { 10, 10, 10, 100 };   // 2x 100ms blink, 1s pause
-constexpr uint8_t LEDSEQ_MODEL_MISMATCH[] = { 10, 10, 10, 10, 10, 100 };   // 3x 100ms blink, 1s pause
-constexpr uint8_t LEDSEQ_UPDATE[] = { 20, 5, 5, 5, 5, 40 };   // 200ms on, 2x 50ms off/on, 400ms off
+static constexpr uint8_t LEDSEQ_RADIO_FAILED[] = {  10, 10 }; // 100ms on, 100ms off (fast blink)
+static constexpr uint8_t LEDSEQ_DISCONNECTED[] = { 50, 50 };  // 500ms on, 500ms off
+static constexpr uint8_t LEDSEQ_NO_CROSSFIRE[] = {  10, 100 }; // 1 blink, 1s pause (one blink/s)
+static constexpr uint8_t LEDSEQ_BINDING[] = { 10, 10, 10, 100 };   // 2x 100ms blink, 1s pause
+static constexpr uint8_t LEDSEQ_MODEL_MISMATCH[] = { 10, 10, 10, 10, 10, 100 };   // 3x 100ms blink, 1s pause
+static constexpr uint8_t LEDSEQ_UPDATE[] = { 20, 5, 5, 5, 5, 40 };   // 200ms on, 2x 50ms off/on, 400ms off
 
 #define NORMAL_UPDATE_INTERVAL 50
 
