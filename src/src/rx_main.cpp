@@ -46,6 +46,8 @@
 #include "devVTXSPI.h"
 #include "devMSPVTX.h"
 #include "devThermal.h"
+#include "devGyro.h"
+#include "gyro.h"
 #include <SPIFFS.h>
 #include "esp_task_wdt.h"
 #endif
@@ -92,6 +94,7 @@ device_affinity_t ui_devices[] = {
   {&ServoOut_device, 1},
   {&Baro_device, 0}, // must come after AnalogVbat_device to slow updates
 #if defined(PLATFORM_ESP32)
+  {&Gyro_device, 1},
   {&VTxSPI_device, 0},
   {&MSPVTx_device, 0}, // dependency on VTxSPI_device
   {&Thermal_device, 0},
@@ -218,12 +221,10 @@ void reconfigureSerial();
 
 void applyMixes()
 {
-    int64_t newChannelData[CRSF_NUM_CHANNELS];
-    for (uint8_t i = 0; i < CRSF_NUM_CHANNELS; i++)
+    int64_t newChannelData[CRSF_NUM_CHANNELS + GYRO_DESTINATIONS];
+    for (uint8_t i = 0; i < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; i++)
         newChannelData[i] = CRSF_CHANNEL_VALUE_MID;
     
-    // memset(newChannelData, 0, sizeof(newChannelData));
-
     for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
     {
         const rx_config_mix_t *mix = config.GetMix(mix_number);
@@ -233,8 +234,8 @@ void applyMixes()
         
         newChannelData[mix->val.destination] += mix->val.offset;
 
-        // The fist 16 enums are CRSF input channels
-        if (mix->val.source < 16)
+        // The fist 16 enums are CRSF input channels, and the next three are gyro outputs
+        if (mix->val.source < CRSF_NUM_CHANNELS + GYRO_SOURCES)
         {
             const auto crsfVal = (int32_t)ChannelData[mix->val.source] - CRSF_CHANNEL_VALUE_MID;
             const int8_t scale = crsfVal < 0 ? mix->val.weight_negative : mix->val.weight_positive;
@@ -243,7 +244,7 @@ void applyMixes()
         }
         else
         {
-            switch (mix->val.source)
+            switch ((mix_source_t) mix->val.source)
             {
             case MIX_SOURCE_FAILSAFE: {
                 // This is a full max throw input when we are in failsafe which
@@ -254,15 +255,14 @@ void applyMixes()
                 break;
             }
 
-            // Later we will add other source mixes here (gyro, failsafe, etc)
-
+            // Later we may add other source mixes here (gyro, failsafe, etc)
             default:
                 break;
             }
         }
     }
 
-    for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS; ch++)
+    for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; ch++)
     {
         ChannelMixedData[ch] = constrain(newChannelData[ch], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX);
     }
