@@ -495,6 +495,14 @@ static inline uint8_t ICACHE_RAM_ATTR CRSF_to_SWITCH3b(uint16_t ch)
     return 7;
 }
 
+// Convert CRSF to -1 to +10-(cnt-1), constrained between 1000us and 2000us
+static inline float ICACHE_RAM_ATTR CRSF_to_FLOAT(uint16_t val)
+{
+    return val <= CRSF_CHANNEL_VALUE_MID
+        ? float (val - CRSF_CHANNEL_VALUE_MID) / (CRSF_CHANNEL_VALUE_MID - CRSF_CHANNEL_VALUE_1000)
+        : float (val - CRSF_CHANNEL_VALUE_MID) / (CRSF_CHANNEL_VALUE_2000 - CRSF_CHANNEL_VALUE_MID);
+}
+
 // 3b switches use 0-5 to represent 6 positions switches and "7" to represent middle
 // The calculation is a bit non-linear all the way to the endpoints due to where
 // Ardupilot defines its modes
