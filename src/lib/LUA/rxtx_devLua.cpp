@@ -3,6 +3,7 @@
 
 char strPowerLevels[] = "10;25;50;100;250;500;1000;2000;MatchTX ";
 const char STR_EMPTYSPACE[] = { 0 };
+const char STR_US[] = "us";
 
 void luadevGeneratePowerOpts(luaItem_selection *luaPower)
 {
