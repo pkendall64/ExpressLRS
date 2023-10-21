@@ -186,6 +186,31 @@ static struct luaItem_command luaSetFailsafe = {
     STR_EMPTYSPACE
 };
 
+constexpr char STR_US[] = "us";
+static struct luaItem_int16 luaMappingChannelLimitMin = {
+  {"Limit Min", CRSF_UINT16},
+  {
+    .u = {
+      0,  // value
+      885,  // min
+      2115, // max
+    }
+  },
+  STR_US
+};
+
+static struct luaItem_int16 luaMappingChannelLimitMax = {
+  {"Limit Max", CRSF_UINT16},
+  {
+    .u = {
+      0, // value
+      885, // min
+      2115, // max
+    }
+  },
+  STR_US
+};
+
 #endif // GPIO_PIN_PWM_OUTPUTS
 
 //---------------------------- Output Mapping -----------------------------
@@ -495,6 +520,19 @@ static void luaparamSetFailsafe(struct luaPropertiesCommon *item, uint8_t arg)
   sendLuaCommandResponse((struct luaItem_command *)item, newStep, msg);
 }
 
+static void luaparamMappingChannelLimitMin(struct luaPropertiesCommon *item, uint8_t arg)
+{
+  const uint8_t ch = luaMappingChannelOut.properties.u.value - 1;
+  auto limits = config.GetPwmChannelLimits(ch);
+  config.SetPwmChannelLimits(ch, arg, limits->val.max);
+}
+
+static void luaparamMappingChannelLimitMax(struct luaPropertiesCommon *item, uint8_t arg)
+{
+  const uint8_t ch = luaMappingChannelOut.properties.u.value - 1;
+  auto limits = config.GetPwmChannelLimits(ch);
+  config.SetPwmChannelLimits(ch, limits->val.min, arg);
+}
 #endif // GPIO_PIN_PWM_OUTPUTS
 
 #if defined(POWER_OUTPUT_VALUES)
@@ -591,6 +629,8 @@ static void registerLuaParameters()
     registerLUAParameter(&luaMappingOutputMode, &luaparamMappingOutputMode, luaMappingFolder.common.id);
     registerLUAParameter(&luaMappingInverted, &luaparamMappingInverted, luaMappingFolder.common.id);
     registerLUAParameter(&luaSetFailsafe, &luaparamSetFailsafe);
+    registerLUAParameter(&luaMappingChannelLimitMin, &luaparamMappingChannelLimitMin, luaMappingFolder.common.id);
+    registerLUAParameter(&luaMappingChannelLimitMax, &luaparamMappingChannelLimitMax, luaMappingFolder.common.id);
   }
 #endif
 
@@ -657,6 +697,9 @@ static int event()
     setLuaUint8Value(&luaMappingChannelIn, pwmCh->val.inputChannel + 1);
     setLuaTextSelectionValue(&luaMappingOutputMode, pwmCh->val.mode);
     setLuaTextSelectionValue(&luaMappingInverted, pwmCh->val.inverted);
+    const rx_config_pwm_limits_t *limits = config.GetPwmChannelLimits(luaMappingChannelOut.properties.u.value - 1);
+    setLuaUint16Value(&luaMappingChannelLimitMin, (uint16_t) limits->val.min);
+    setLuaUint16Value(&luaMappingChannelLimitMax, (uint16_t) limits->val.max);
   }
 #endif
 
