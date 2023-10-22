@@ -746,6 +746,7 @@ void RxConfig::Load()
     UpgradeEepromV5();
     UpgradeEepromV6();
     UpgradeEepromV7V8();
+    UpgradeEepromV9();
     m_config.version = RX_CONFIG_VERSION | RX_CONFIG_MAGIC;
     m_modified = true;
     Commit();
@@ -878,6 +879,13 @@ void RxConfig::UpgradeEepromV6()
 
 // ========================================================
 // V7/V8 Upgrade
+static void PwmConfigV7(v6_rx_config_pwm_t * const current)
+{
+    if (current->val.mode > somOnOff)
+    {
+        current->val.mode += 1;
+    }
+}
 
 void RxConfig::UpgradeEepromV7V8()
 {
@@ -904,6 +912,7 @@ void RxConfig::UpgradeEepromV7V8()
             m_config.pwmChannels[ch].raw = v7Config.pwmChannels[ch].raw;
             if (!isV8 && m_config.pwmChannels[ch].val.mode > somOnOff)
                 m_config.pwmChannels[ch].val.mode += 1;
+            // PwmConfigV7((v6_rx_config_pwm_t *) &m_config.pwmChannels[ch]);
         }
 #endif
     }
@@ -950,6 +959,55 @@ bool RxConfig::IsOnLoan() const
         return false;
     return GetIsBound() && memcmp(m_config.uid, firmwareOptions.uid, UID_LEN) != 0;
 }
+
+// ========================================================
+// V8 Upgrade
+static void PwmConfigV7toV8(v6_rx_config_pwm_t * const old, rx_config_pwm_t * const current)
+{
+    // Version 7 used 10 bits:
+    // us output during failsafe +988 (e.g. 512 here would be 1500us).
+    constexpr unsigned SERVO_FAILSAFE_MIN = 988U;
+
+    // Version 8 uses 11 bits, so we can use a direct us output setting.
+    if (old->val.failsafe != 0) {
+        current->val.failsafe = old->val.failsafe + SERVO_FAILSAFE_MIN;
+    }
+}
+
+void RxConfig::UpgradeEepromV9()
+{
+    v7_rx_config_t v7Config;
+
+    // Populate the prev version struct from eeprom
+    m_eeprom->Get(0, v7Config);
+
+    if ((v7Config.version & ~CONFIG_MAGIC_MASK) != 7)
+        return;
+
+    // Manual field copying as some fields have moved
+    memcpy(m_config.uid, v7Config.uid, sizeof(v7Config.uid));
+    #define COPY(member) m_config.member = v7Config.member
+    //COPY(vbatScale);
+    //COPY(isBound);
+    //COPY(onLoan);
+    COPY(power);
+    COPY(antennaMode);
+    COPY(powerOnCounter);
+    COPY(forceTlmOff);
+    COPY(rateInitialIdx);
+    COPY(modelId);
+    COPY(serialProtocol);
+    COPY(failsafeMode);
+    #undef LAZY
+
+    // PWM failsafe field width expanded in this version
+    for (unsigned ch=0; ch<16; ++ch) {
+        // Upgrade failsafe field width
+        PwmConfigV7toV8(&v7Config.pwmChannels[ch], &m_config.pwmChannels[ch]);
+    }
+}
+
+// ========================================================
 
 #if defined(PLATFORM_ESP8266)
 #define EMPTY_SECTOR ((FS_start - 0x1000 - 0x40200000) / SPI_FLASH_SEC_SIZE) // empty sector before FS area start
@@ -1109,7 +1167,7 @@ RxConfig::SetDefaults(bool commit)
             }
 #endif
         }
-        const uint16_t failsafe = ch == 2 ? 0 : 512; // ch2 is throttle, failsafe it to 988
+        const uint16_t failsafe = ch == 2 ? 988 : 1500; // ch2 is throttle, failsafe it to 988
         SetPwmChannel(ch, failsafe, ch, false, mode, false);
     }
 #endif
