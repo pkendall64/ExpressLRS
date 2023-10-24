@@ -3,8 +3,6 @@
 #include "logging.h"
 #include "LBT.h"
 
-extern SX1280Driver Radio;
-
 LQCALC<100> LBTSuccessCalc;
 static uint32_t rxStartTime;
 
@@ -15,11 +13,18 @@ static uint32_t rxStartTime;
 bool LBTEnabled = false;
 static bool LBTStarted = false;
 
-static uint32_t ICACHE_RAM_ATTR SpreadingFactorToRSSIvalidDelayUs(
-  SX1280_RadioLoRaSpreadingFactors_t SF,
-  uint8_t radio_type
-)
+static uint32_t ICACHE_RAM_ATTR SpreadingFactorToRSSIvalidDelayUs(uint8_t SF, uint8_t radio_type)
 {
+#if defined(RADIO_LR1121)
+  switch(SF)
+  {
+    case LR11XX_RADIO_LORA_SF5: return 100;
+    case LR11XX_RADIO_LORA_SF6: return 141;
+    case LR11XX_RADIO_LORA_SF7: return 218;
+    case LR11XX_RADIO_LORA_SF8: return 218;
+    default: return 218;
+  }
+#elif defined(RADIO_SX128X)
   // The necessary wait time from RX start to valid instant RSSI reading
   // changes with the spreading factor setting.
   // The worst case necessary wait time is TX->RX switch time + Lora symbol time
@@ -57,6 +62,10 @@ static uint32_t ICACHE_RAM_ATTR SpreadingFactorToRSSIvalidDelayUs(
     ERRLN("LBT not support on this radio type");
     return 0;
   }
+#else
+  ERRLN("LBT not support on this radio type");
+  return 0;
+#endif
 }
 
 static int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(PowerLevels_e txPower, uint8_t radio_type)
@@ -67,7 +76,17 @@ static int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(PowerLevels_e txPower, uint8_t
   // different RF frontends.
   // TODO: Maybe individual adjustment offset for differences in
   // rssi reading between bandwidth setting is also necessary when other BW than 0.8MHz are used.
-
+#if defined(RADIO_LR1121)
+  switch(txPower)
+  {
+    case PWR_10mW: return -61 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+    case PWR_25mW: return -65 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+    case PWR_50mW: return -68 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+    case PWR_100mW: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+    // Values above 100mW are not relevant, default to 100mW threshold
+    default: return -71 + LBT_RSSI_THRESHOLD_OFFSET_DB;
+  }
+#elif defined(RADIO_SX128X)
   if (radio_type == RADIO_TYPE_SX128x_LORA)
   {
     switch(txPower)
@@ -97,6 +116,9 @@ static int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(PowerLevels_e txPower, uint8_t
     ERRLN("LBT not support on this radio type");
     return 0;
   }
+#else
+  return 0;
+#endif
 }
 
 void ICACHE_RAM_ATTR SetClearChannelAssessmentTime(void)
@@ -108,7 +130,13 @@ void ICACHE_RAM_ATTR BeginClearChannelAssessment()
 {
   if(!LBTStarted)
   {
+#if defined(RADIO_LR1121)
+    Radio.RXnb(LR1121_MODE_RX_CONT);
+#elif defined(RADIO_SX128X)
     Radio.RXnb(SX1280_MODE_RX_CONT);
+#else
+#error No continuous receive mode defined for this radio type
+#endif
     if (LBTEnabled)
     {
       rxStartTime = micros();
@@ -141,7 +169,7 @@ SX12XX_Radio_Number_t ICACHE_RAM_ATTR ChannelIsClear(SX12XX_Radio_Number_t radio
   // But for now, FHSShops and telemetry rates does not divide evenly, so telemetry will some times happen
   // right after FHSS and we need wait here.
 
-  uint32_t validRSSIdelayUs = SpreadingFactorToRSSIvalidDelayUs((SX1280_RadioLoRaSpreadingFactors_t)ExpressLRS_currAirRate_Modparams->sf,
+  uint32_t validRSSIdelayUs = SpreadingFactorToRSSIvalidDelayUs(ExpressLRS_currAirRate_Modparams->sf,
       ExpressLRS_currAirRate_Modparams->radio_type);
   uint32_t elapsed = micros() - rxStartTime;
   if(elapsed < validRSSIdelayUs)

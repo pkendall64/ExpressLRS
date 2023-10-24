@@ -3,7 +3,7 @@
 
 #include "POWERMGNT.h"
 #include "LQCALC.h"
-#include "SX1280Driver.h"
+#include "SX12xxDriverCommon.h"
 
 extern LQCALC<100> LBTSuccessCalc;
 extern bool LBTEnabled;
