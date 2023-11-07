@@ -156,6 +156,19 @@ static struct luaItem_int8 luaGyroLevelRoll = {
   "deg"
 };
 
+static struct luaItem_int8 luaGyroHoverStrength = {
+  //------------ Max length on RM Pocket
+  {"Hover Auth", CRSF_UINT8},
+  {
+    {
+      (uint8_t)8,  // value, not zero-based
+      0,           // min
+      15,          // max
+    }
+  },
+  STR_EMPTYSPACE
+};
+
 static void luaparamGyroAlign(struct luaPropertiesCommon *item, uint8_t arg)
 {
   arg++;
@@ -176,6 +189,9 @@ static void luaparamGyroLevelRoll(struct luaPropertiesCommon *item, uint8_t arg)
 
 static void luaparamGyroLaunchAngle(struct luaPropertiesCommon *item, uint8_t arg)
 { config.SetGyroLaunchAngle(arg); }
+
+static void luaparamGyroHoverStrength(struct luaPropertiesCommon *item, uint8_t arg)
+{ config.SetGyroHoverStrength(arg); }
 
 static void luaparamGyroCalibrate(struct luaPropertiesCommon *item, uint8_t arg)
 {
@@ -914,6 +930,7 @@ static void registerLuaParameters()
     registerLUAParameter(&luaGyroLevelPitch, &luaparamGyroLevelPitch, luaGyroSettingsFolder.common.id);
     registerLUAParameter(&luaGyroLevelRoll, &luaparamGyroLevelRoll, luaGyroSettingsFolder.common.id);
     registerLUAParameter(&luaGyroLaunchAngle, &luaparamGyroLaunchAngle, luaGyroSettingsFolder.common.id);
+    registerLUAParameter(&luaGyroHoverStrength, &luaparamGyroHoverStrength, luaGyroSettingsFolder.common.id);
     #endif
   }
 #endif
@@ -982,6 +999,7 @@ static int event()
     setLuaUint8Value(&luaGyroLevelPitch, config.GetGyroLevelPitch());
     setLuaUint8Value(&luaGyroLevelRoll, config.GetGyroLevelRoll());
     setLuaUint8Value(&luaGyroLaunchAngle, config.GetGyroLaunchAngle());
+    setLuaUint8Value(&luaGyroHoverStrength, config.GetGyroHoverStrength());
     #endif // HAS_GYRO
   }
 #endif

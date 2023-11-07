@@ -1066,6 +1066,7 @@ RxConfig::SetDefaults(bool commit)
     SetGyroLevelPitch(60);
     SetGyroLevelRoll(60);
     SetGyroLaunchAngle(10);
+    SetGyroHoverStrength(8);
 #endif
 
 #if defined(RCVR_INVERT_TX)
@@ -1316,6 +1317,16 @@ RxConfig::SetGyroLevelRoll(uint8_t angle)
 {
     if (m_config.gyroLevelRoll != angle) {
         m_config.gyroLevelRoll = angle;
+        m_modified = true;
+        gyro.reload();
+    }
+}
+
+void
+RxConfig::SetGyroHoverStrength(uint8_t strength)
+{
+    if (m_config.gyroHoverStrength != strength) {
+        m_config.gyroHoverStrength = strength;
         m_modified = true;
         gyro.reload();
     }

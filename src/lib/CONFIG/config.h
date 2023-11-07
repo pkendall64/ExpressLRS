@@ -240,6 +240,8 @@ typedef struct {
     uint8_t gyroSAFERoll;
     uint8_t gyroLevelPitch;
     uint8_t gyroLevelRoll;
+    uint8_t gyroHoverStrength:4,
+            gyroHoverUnused:4;
     #endif
 } rx_config_t;
 
@@ -286,6 +288,7 @@ public:
     const uint8_t GetGyroSAFERoll() const { return m_config.gyroSAFERoll; }
     const uint8_t GetGyroLevelPitch() const { return m_config.gyroLevelPitch; }
     const uint8_t GetGyroLevelRoll() const { return m_config.gyroLevelRoll; }
+    const uint8_t GetGyroHoverStrength() const { return m_config.gyroHoverStrength; }
     #endif
     bool GetForceTlmOff() const { return m_config.forceTlmOff; }
     uint8_t GetRateInitialIdx() const { return m_config.rateInitialIdx; }
@@ -323,6 +326,7 @@ public:
     void SetGyroSAFERoll(uint8_t);
     void SetGyroLevelPitch(uint8_t);
     void SetGyroLevelRoll(uint8_t);
+    void SetGyroHoverStrength(uint8_t strength);
     #endif
     #endif
     void SetForceTlmOff(bool forceTlmOff);
