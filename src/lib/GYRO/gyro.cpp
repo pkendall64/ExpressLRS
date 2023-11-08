@@ -181,10 +181,6 @@ void Gyro::mixer(uint8_t ch, uint16_t *us)
         return;
     }
 
-    // If the channel is inverted, also invert the correction
-    if (config.GetPwmChannelInverted(ch))
-        correction *= -1;
-
     // Gyro specific channel inversion. We might remove this later if not needed.
     if (config.GetGyroChannelOutputInverted(ch))
         correction *= -1;

@@ -30,12 +30,9 @@ void level_controller_initialize(float offset)
 
 float channel_command(uint8_t ch)
 {
-    // devServoOutput inputs already inverted values to our mixer
-    // When accessing ChannelData[] we need to apply inversion
     const rx_config_pwm_t *chConfig = config.GetPwmChannel(ch);
     const unsigned crsfVal = ChannelData[chConfig->val.inputChannel];
     uint16_t us = CRSF_to_US(crsfVal);
-    if (chConfig->val.inverted) us = 3000U - us;
     return us_command_to_float(ch, us);
 }
 
@@ -44,7 +41,7 @@ void level_controller_calculate_pid()
     int8_t channel = config.GetGyroInputChannelNumber(FN_IN_ROLL);
     if (channel != -1) {
         pid_roll.calculate(
-            - channel_command(channel) * degToRad(config.GetGyroLevelRoll()),
+            channel_command(channel) * degToRad(config.GetGyroLevelRoll()),
             gyro.ypr[2]
         );
     }

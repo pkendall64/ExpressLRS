@@ -115,17 +115,18 @@ static void servosUpdate(unsigned long now)
             }
 
             uint16_t us = CRSF_to_US(crsfVal);
+
+            #if defined(HAS_GYRO)
+            // Mix in gyro adjustments before handling inversion
+            gyro.mixer(ch, &us);
+            #endif
+
             // Flip the output around the mid-value if inverted
             // (1500 - usOutput) + 1500
             if (chConfig->val.inverted)
             {
                 us = 3000U - us;
             }
-
-            #if defined(HAS_GYRO)
-            // Mix in gyro adjustments
-            gyro.mixer(ch, &us);
-            #endif
 
             // Limit output values to configured limits
             const rx_config_pwm_limits_t *limits = config.GetPwmChannelLimits(ch);
