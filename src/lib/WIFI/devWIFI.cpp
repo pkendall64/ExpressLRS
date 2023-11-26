@@ -368,6 +368,10 @@ static void GetConfiguration(AsyncWebServerRequest *request)
     json["config"]["modelid"] = config.GetModelId();
     json["config"]["force-tlm"] = config.GetForceTlmOff();
     json["config"]["vbind"] = config.GetBindStorage();
+
+    for (uint8_t mix=0; mix < MAX_MIXES; mix++)
+      json["config"]["mixes"][mix]["config"] = config.GetMix(mix)->raw;
+
     for (int ch=0; ch<GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
     {
       json["config"]["pwm"][ch]["config"] = config.GetPwmChannel(ch)->raw;
@@ -528,6 +532,15 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
 
   config.SetBindStorage((rx_config_bindstorage_t)(json["vbind"] | 0));
   JsonUidToConfig(json);
+  JsonArray mixes = json["mixes"].as<JsonArray>();
+  for(uint8_t mix_number = 0 ; mix_number < mixes.size(); mix_number++)
+  {
+    uint64_t val = mixes[mix_number];
+    char line[30];
+    sprintf(line, "got mix %llu", val);
+    DBGLN("%s", line);
+    config.SetMixerRaw(mix_number, val);
+  }
 
   // `pwm` array is interleaved config values and limits
   const auto pwm = json["pwm"].as<JsonArray>();
