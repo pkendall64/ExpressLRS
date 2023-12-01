@@ -74,27 +74,6 @@ void level_controller_calculate_pid()
     );
     
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
-    /*
-    int8_t channel = config.GetGyroInputChannelNumber(FN_IN_ROLL);
-    if (channel != -1) {
-        pid_roll.calculate(
-            channel_command(channel) * degToRad(config.GetGyroLevelRoll()),
-            gyro.ypr[2]
-        );
-    }
-
-    channel = config.GetGyroInputChannelNumber(FN_IN_PITCH);
-    if (channel != -1) {
-        pid_pitch.calculate(
-                channel_command(channel) * degToRad(config.GetGyroLevelPitch()),
-                // For the pitch access in launch mode (pitch_offset != 0)
-                // we change what the PID controllers sees as level
-                degToRad(pitch_offset) - gyro.ypr[1]
-        );
-    }
-
-    pid_yaw.calculate(0, -gyro.f_gyro[2]);
-    */
 }
 
 float level_controller_out(
@@ -103,9 +82,9 @@ float level_controller_out(
 ) {
     if (channel_function == FN_AILERON)
         return pid_roll.output;
-    else if (channel_function == FN_ELEVATOR)
+    if (channel_function == FN_ELEVATOR)
         return pid_pitch.output;
-    else if (channel_function == FN_RUDDER)
+    if (channel_function == FN_RUDDER)
         // Because the calling gyro fuction will not add command to the output
         // of the level controller, we have to add it ourselves here.
         return pid_yaw.output + command;

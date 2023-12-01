@@ -332,8 +332,6 @@ typedef struct __attribute__((packed)) {
     rx_config_pwm_limits_t pwmLimits[PWM_MAX_CHANNELS];
     rx_config_mix_t mixes[MAX_MIXES];
     #if defined(HAS_GYRO)
-    rx_config_gyro_channel_t gyroChannels[PWM_MAX_CHANNELS];
-    rx_config_gyro_timings_t gyroTimings[PWM_MAX_CHANNELS];
     rx_config_gyro_mode_pos_t gyroModes; // Gyro functions for switch positions
     rx_config_gyro_gains_t gyroGains[GYRO_N_AXES]; // PID gains for each axis
     rx_config_gyro_calibration_t accelCalibration;
@@ -376,16 +374,9 @@ public:
     const rx_config_pwm_limits_t *GetPwmChannelLimits(uint8_t ch) const { return &m_config.pwmLimits[ch]; }
     const rx_config_mix_t *GetMix(uint8_t mixNumber) const { return &m_config.mixes[mixNumber]; }
     #if defined(HAS_GYRO)
-    const rx_config_gyro_channel_t *GetGyroChannel(uint8_t ch) const { return &m_config.gyroChannels[ch]; }
-    gyro_input_channel_function_t GetGyroChannelInputMode(uint8_t ch) { return ( gyro_input_channel_function_t) m_config.gyroChannels[ch].val.input_mode; }
-    gyro_output_channel_function_t GetGyroChannelOutputMode(uint8_t ch) { return ( gyro_output_channel_function_t) m_config.gyroChannels[ch].val.output_mode; }
-    const bool GetGyroChannelOutputInverted(uint8_t ch) { return m_config.gyroChannels[ch].val.inverted; }
-    const rx_config_gyro_timings_t *GetGyroChannelTimings(uint8_t ch) const { return &m_config.gyroTimings[ch]; }
     const rx_config_gyro_gains_t *GetGyroGains(gyro_axis_t axis) const { return &m_config.gyroGains[axis]; }
 
     const rx_config_gyro_mode_pos_t *GetGyroModePos() const { return &m_config.gyroModes;}
-    const int8_t GetGyroInputChannelNumber(gyro_input_channel_function_t mode);
-    const int8_t GetGyroOutputChannelNumber(gyro_output_channel_function_t mode);
     const gyro_sensor_align_t GetGyroSensorAlignment() const { return (gyro_sensor_align_t) m_config.gyroSensorAlignment; }
     const bool GetCalibrateGyro() const { return m_config.calibrateGyro; }
     const rx_config_gyro_calibration_t *GetAccelCalibration() const { return &m_config.accelCalibration; }
@@ -423,8 +414,6 @@ public:
     void SetPwmChannelRaw(uint8_t ch, uint32_t raw);
     void SetPwmChannelLimits(uint8_t ch, uint16_t min, uint16_t max);
     void SetPwmChannelLimitsRaw(uint8_t ch, uint32_t raw);
-    void SetGyroChannel(uint8_t ch, uint8_t input_mode, uint8_t output_mode, bool inverted);
-    void SetGyroChannelRaw(uint8_t ch, uint32_t raw);
     void SetGyroModePos(uint8_t pos, gyro_mode_t mode);
     void SetGyroPIDRate(gyro_axis_t axis, gyro_rate_variable_t var, uint8_t value);
     void SetGyroPIDGain(gyro_axis_t axis, uint8_t value);
@@ -466,8 +455,6 @@ private:
     void UpgradeEepromV6();
     void UpgradeEepromV7V8();
     void UpgradeEepromV9();
-
-    void debugGyroConfiguration();
 
     rx_config_t m_config;
     ELRS_EEPROM *m_eeprom;

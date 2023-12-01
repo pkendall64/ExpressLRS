@@ -1169,7 +1169,6 @@ RxConfig::SetPower(uint8_t power)
     }
 }
 
-
 void
 RxConfig::SetAntennaMode(uint8_t antennaMode)
 {
@@ -1217,7 +1216,6 @@ RxConfig::SetDefaults(bool commit)
         }
         SetPwmChannel(ch, 1500, ch, false, mode, false);
         SetPwmChannelLimits(ch, 885, 2115);
-        SetGyroChannel(ch, 0, 0, 0);
     }
 
     SetGyroSAFEPitch(45);
@@ -1249,55 +1247,6 @@ RxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
     {
         m_eeprom = eeprom;
     }
-}
-
-void
-RxConfig::debugGyroConfiguration()
-{
-    DBGLN("Gyro configuration:");
-    for (uint8_t ch = 0; ch < PWM_MAX_CHANNELS; ch++)
-    {
-        rx_config_gyro_channel_t *config = &m_config.gyroChannels[ch];
-        if (config->val.input_mode == FN_IN_NONE && config->val.output_mode == FN_NONE)
-            continue;
-        DBGLN("CH %d: %d %d %s",
-              ch, config->val.input_mode, config->val.output_mode, config->val.inverted ? "inverted" : "");
-    }
-}
-
-void
-RxConfig::SetGyroChannel(uint8_t ch, uint8_t input_mode, uint8_t output_mode, bool inverted)
-{
-    if (ch > PWM_MAX_CHANNELS)
-        return;
-
-    rx_config_gyro_channel_t *config = &m_config.gyroChannels[ch];
-    rx_config_gyro_channel_t newConfig;
-    newConfig.val.input_mode = input_mode;
-    newConfig.val.output_mode = output_mode;
-    newConfig.val.inverted = inverted;
-
-    if (config->raw == newConfig.raw)
-        return;
-
-    config->raw = newConfig.raw;
-    debugGyroConfiguration();
-    m_modified = true;
-}
-
-void
-RxConfig::SetGyroChannelRaw(uint8_t ch, uint32_t raw)
-{
-    if (ch > PWM_MAX_CHANNELS)
-        return;
-
-    rx_config_gyro_channel_t *config = &m_config.gyroChannels[ch];
-    if (config->raw == raw)
-        return;
-
-    config->raw = raw;
-    m_modified = true;
-    debugGyroConfiguration();
 }
 
 void
@@ -1333,28 +1282,6 @@ RxConfig::SetGyroModePos(uint8_t pos, gyro_mode_t mode)
 
     modes->raw = newModes.raw;
     m_modified = true;
-}
-
-/**
- * Return the first channel matching input `mode` or -1 if not found.
-*/
-const int8_t RxConfig::GetGyroInputChannelNumber(gyro_input_channel_function_t mode)
-{
-    for (int8_t i = 0; i < GYRO_MAX_CHANNELS; i++)
-        if (GetGyroChannelInputMode(i) == mode)
-            return i;
-    return -1;
-}
-
-/**
- * Return the first channel matching output `mode` or -1 if not found.
-*/
-const int8_t RxConfig::GetGyroOutputChannelNumber(gyro_output_channel_function_t mode)
-{
-    for (uint8_t i = 0; i < GYRO_MAX_CHANNELS; i++)
-        if (GetGyroChannelOutputMode(i) == mode)
-            return i;
-    return -1;
 }
 
 void
@@ -1394,7 +1321,6 @@ RxConfig::SetGyroPIDRate(gyro_axis_t axis, gyro_rate_variable_t var, uint8_t new
 
     m_modified = true;
     gyro.reload();
-    debugGyroConfiguration();
 }
 
 void
@@ -1408,7 +1334,6 @@ RxConfig::SetGyroPIDGain(gyro_axis_t axis, uint8_t new_value)
     config->gain = new_value;
     m_modified = true;
     gyro.reload();
-    debugGyroConfiguration();
 }
 
 void
