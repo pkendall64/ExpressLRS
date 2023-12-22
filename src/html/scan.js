@@ -11,6 +11,8 @@ let storedModelId = 255;
 let buttonActions = [];
 let originalUID = undefined;
 let originalUIDType = undefined;
+let saveUid = false;
+let flashedUid = undefined;
 
 function _(el) {
   return document.getElementById(el);
@@ -236,31 +238,39 @@ function updateUIDType(uidtype) {
     fg = 'white';
     text = 'Not set';
     desc = 'The default binding UID from the device address will be used';
+    saveUid = false;
   }
   if (uidtype === 'Flashed') {
     bg = '#1976D2'; // blue/white
     fg = 'white';
     desc = 'The binding UID was generated from a binding phrase set at flash time';
+    saveUid = true;
   }
   if (uidtype === 'Overridden') {
     bg = '#689F38'; // green
     fg = 'black';
     desc = 'The binding UID has been generated from a bind-phrase previously entered into the "binding phrase" field above';
+    saveUid = true;
   }
   if (uidtype === 'Traditional') {
     bg = '#D50000'; // red
     fg = 'white';
     desc = 'The binding UID has been set using traditional binding method i.e. button or 3-times power cycle and bound via the Lua script';
+    saveUid = false;
   }
   if (uidtype === 'Modified') {
     bg = '#7c00d5'; // purple
     fg = 'white';
     desc = 'The binding UID has been modified, but not yet saved';
+    saveUid = true;
   }
   if (uidtype === 'On loan') {
     bg = '#FFA000'; // amber
     fg = 'black';
     desc = 'The binding UID has been set using the model-loan feature';
+    _('phrase').disabled = true;
+    _('phrase').placeholder = 'Cannot set binding phrase when model is "On loan"';
+    saveUid = false;
   }
   _('uid-type').style.backgroundColor = bg;
   _('uid-type').style.color = fg;
@@ -635,6 +645,7 @@ function submitOptions(e) {
   // Serialize and send the formObject
   xhr.send(JSON.stringify(formObject, function(k, v) {
     if (v === '') return undefined;
+    if (k === 'uid' && !saveUid) return flashedUid;
     if (_(k)) {
       if (_(k).type === 'color') return undefined;
       if (_(k).type === 'checkbox') return v === 'on';
@@ -662,8 +673,13 @@ function submitOptions(e) {
           confirmText: 'Reboot',
           cancelText: 'Close'
         }).then((e) => {
-          originalUID = _('uid').value;
-          originalUIDType = 'Flashed';
+          if (saveUid) {
+            flashedUid = _('uid').value;
+            if (originalUIDType !== 'On loan') {
+              originalUID = flashedUid;
+              originalUIDType = 'Flashed';
+            }
+          }
           _('phrase').value = '';
           updateUIDType(originalUIDType);
           if (e === 'confirm') {
@@ -737,6 +753,7 @@ function updateOptions(data) {
   else _('connect').style.display = 'none';
   if (data['customised']) _('reset-options').style.display = 'block';
   _('submit-options').disabled = false;
+  if (data['uid']) flashedUid = data['uid'];
 }
 
 @@if isTX:
