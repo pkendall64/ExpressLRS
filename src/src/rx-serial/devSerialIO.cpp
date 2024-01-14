@@ -226,7 +226,7 @@ static int timeout(devserial_ctx_t *ctx)
     // Verify there is new ChannelData and they should be sent on
     bool sendChannels = confirmFrameAvailable(ctx);
 
-    return (*(ctx->io))->sendRCFrame(sendChannels, missed, ChannelData);
+    return (*(ctx->io))->sendRCFrame(sendChannels, missed, ChannelMixedData);
 }
 
 void handleSerialIO() {
