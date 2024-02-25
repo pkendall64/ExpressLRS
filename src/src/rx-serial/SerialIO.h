@@ -91,6 +91,10 @@ public:
      */
     virtual int getMaxSerialWriteSize() { return defaultMaxSerialWriteSize; }
 
+    /**
+     * @brief Send a raw string out the serial port.
+     */
+     void println(const char *str);
 protected:
     /// @brief the output stream for the serial port
     Stream *_outputPort;
