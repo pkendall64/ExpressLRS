@@ -1076,39 +1076,42 @@ static void registerLuaParameters()
     registerLUAParameter(&luaMappingChannelLimitMax, &luaparamMappingChannelLimitMax, luaMappingFolder.common.id);
 
     #if defined(HAS_GYRO)
-    registerLUAParameter(&luaGyroModesFolder);
-    registerLUAParameter(&luaGyroModePos1, &luaparamGyroModePos1, luaGyroModesFolder.common.id);
-    registerLUAParameter(&luaGyroModePos2, &luaparamGyroModePos2, luaGyroModesFolder.common.id);
-    registerLUAParameter(&luaGyroModePos3, &luaparamGyroModePos3, luaGyroModesFolder.common.id);
-    registerLUAParameter(&luaGyroModePos4, &luaparamGyroModePos4, luaGyroModesFolder.common.id);
-    registerLUAParameter(&luaGyroModePos5, &luaparamGyroModePos5, luaGyroModesFolder.common.id);
+    if (gyro.initialized)
+    {
+      registerLUAParameter(&luaGyroModesFolder);
+      registerLUAParameter(&luaGyroModePos1, &luaparamGyroModePos1, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos2, &luaparamGyroModePos2, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos3, &luaparamGyroModePos3, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos4, &luaparamGyroModePos4, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos5, &luaparamGyroModePos5, luaGyroModesFolder.common.id);
 
-    registerLUAParameter(&luaGyroGainFolder);
-    registerLUAParameter(&luaGyroGainAxis, &luaparamGyroGainAxis, luaGyroGainFolder.common.id);
-    registerLUAParameter(&luaGyroPIDRateP, &luaparamGyroPIDRateP, luaGyroGainFolder.common.id);
-    registerLUAParameter(&luaGyroPIDRateI, &luaparamGyroPIDRateI, luaGyroGainFolder.common.id);
-    registerLUAParameter(&luaGyroPIDRateD, &luaparamGyroPIDRateD, luaGyroGainFolder.common.id);
-    registerLUAParameter(&luaGyroPIDGain, &luaparamGyroPIDGain, luaGyroGainFolder.common.id);
+      registerLUAParameter(&luaGyroGainFolder);
+      registerLUAParameter(&luaGyroGainAxis, &luaparamGyroGainAxis, luaGyroGainFolder.common.id);
+      registerLUAParameter(&luaGyroPIDRateP, &luaparamGyroPIDRateP, luaGyroGainFolder.common.id);
+      registerLUAParameter(&luaGyroPIDRateI, &luaparamGyroPIDRateI, luaGyroGainFolder.common.id);
+      registerLUAParameter(&luaGyroPIDRateD, &luaparamGyroPIDRateD, luaGyroGainFolder.common.id);
+      registerLUAParameter(&luaGyroPIDGain, &luaparamGyroPIDGain, luaGyroGainFolder.common.id);
 
-    // registerLUAParameter(&luaGyroInputFolder);
-    // registerLUAParameter(&luaGyroInputChannel, &luaparamGyroInputChannel, luaGyroInputFolder.common.id);
-    // registerLUAParameter(&luaGyroInputMode, &luaparamGyroInputMode, luaGyroInputFolder.common.id);
+      // registerLUAParameter(&luaGyroInputFolder);
+      // registerLUAParameter(&luaGyroInputChannel, &luaparamGyroInputChannel, luaGyroInputFolder.common.id);
+      // registerLUAParameter(&luaGyroInputMode, &luaparamGyroInputMode, luaGyroInputFolder.common.id);
 
-    // registerLUAParameter(&luaGyroOutputFolder);
-    // registerLUAParameter(&luaGyroOutputChannel, &luaparamGyroOutputChannel, luaGyroOutputFolder.common.id);
-    // registerLUAParameter(&luaGyroOutputMode, &luaparamGyroOutputMode, luaGyroOutputFolder.common.id);
-    // registerLUAParameter(&luaGyroOutputInverted, &luaparamGyroOutputInverted, luaGyroOutputFolder.common.id);
+      // registerLUAParameter(&luaGyroOutputFolder);
+      // registerLUAParameter(&luaGyroOutputChannel, &luaparamGyroOutputChannel, luaGyroOutputFolder.common.id);
+      // registerLUAParameter(&luaGyroOutputMode, &luaparamGyroOutputMode, luaGyroOutputFolder.common.id);
+      // registerLUAParameter(&luaGyroOutputInverted, &luaparamGyroOutputInverted, luaGyroOutputFolder.common.id);
 
-    registerLUAParameter(&luaGyroSettingsFolder);
-    registerLUAParameter(&luaGyroAlign, &luaparamGyroAlign, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroCalibrate, &luaparamGyroCalibrate, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroSubtrims, &luaparamGyroSubtrims, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroSAFEPitch, &luaparamGyroSAFEPitch, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroSAFERoll, &luaparamGyroSAFERoll, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroLevelPitch, &luaparamGyroLevelPitch, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroLevelRoll, &luaparamGyroLevelRoll, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroLaunchAngle, &luaparamGyroLaunchAngle, luaGyroSettingsFolder.common.id);
-    registerLUAParameter(&luaGyroHoverStrength, &luaparamGyroHoverStrength, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroSettingsFolder);
+      registerLUAParameter(&luaGyroAlign, &luaparamGyroAlign, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroCalibrate, &luaparamGyroCalibrate, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroSubtrims, &luaparamGyroSubtrims, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroSAFEPitch, &luaparamGyroSAFEPitch, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroSAFERoll, &luaparamGyroSAFERoll, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroLevelPitch, &luaparamGyroLevelPitch, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroLevelRoll, &luaparamGyroLevelRoll, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroLaunchAngle, &luaparamGyroLaunchAngle, luaGyroSettingsFolder.common.id);
+      registerLUAParameter(&luaGyroHoverStrength, &luaparamGyroHoverStrength, luaGyroSettingsFolder.common.id);
+    }
     #endif
   }
 #endif
@@ -1181,32 +1184,35 @@ static int event()
     setLuaUint16Value(&luaMappingChannelLimitMax, (uint16_t) limits->val.max);
 
     #if defined(HAS_GYRO)
-    const rx_config_gyro_channel_t *gyroChIn = config.GetGyroChannel(luaGyroInputChannel.properties.u.value - 1);
-    setLuaTextSelectionValue(&luaGyroInputMode, gyroChIn->val.input_mode);
-    const rx_config_gyro_channel_t *gyroChOut = config.GetGyroChannel(luaGyroOutputChannel.properties.u.value - 1);
-    setLuaTextSelectionValue(&luaGyroOutputMode, gyroChOut->val.output_mode);
-    setLuaTextSelectionValue(&luaGyroOutputInverted, gyroChOut->val.inverted);
+    if (gyro.initialized)
+    {
+      const rx_config_gyro_channel_t *gyroChIn = config.GetGyroChannel(luaGyroInputChannel.properties.u.value - 1);
+      setLuaTextSelectionValue(&luaGyroInputMode, gyroChIn->val.input_mode);
+      const rx_config_gyro_channel_t *gyroChOut = config.GetGyroChannel(luaGyroOutputChannel.properties.u.value - 1);
+      setLuaTextSelectionValue(&luaGyroOutputMode, gyroChOut->val.output_mode);
+      setLuaTextSelectionValue(&luaGyroOutputInverted, gyroChOut->val.inverted);
 
-    const rx_config_gyro_mode_pos_t *gyroModes = config.GetGyroModePos();
-    setLuaTextSelectionValue(&luaGyroModePos1, gyroModes->val.pos1);
-    setLuaTextSelectionValue(&luaGyroModePos2, gyroModes->val.pos2);
-    setLuaTextSelectionValue(&luaGyroModePos3, gyroModes->val.pos3);
-    setLuaTextSelectionValue(&luaGyroModePos4, gyroModes->val.pos4);
-    setLuaTextSelectionValue(&luaGyroModePos5, gyroModes->val.pos5);
+      const rx_config_gyro_mode_pos_t *gyroModes = config.GetGyroModePos();
+      setLuaTextSelectionValue(&luaGyroModePos1, gyroModes->val.pos1);
+      setLuaTextSelectionValue(&luaGyroModePos2, gyroModes->val.pos2);
+      setLuaTextSelectionValue(&luaGyroModePos3, gyroModes->val.pos3);
+      setLuaTextSelectionValue(&luaGyroModePos4, gyroModes->val.pos4);
+      setLuaTextSelectionValue(&luaGyroModePos5, gyroModes->val.pos5);
 
-    const rx_config_gyro_gains_t *gyroGains = config.GetGyroGains((gyro_axis_t) (luaGyroGainAxis.value));
-    setLuaUint8Value(&luaGyroPIDRateP, gyroGains->p);
-    setLuaUint8Value(&luaGyroPIDRateI, gyroGains->i);
-    setLuaUint8Value(&luaGyroPIDRateD, gyroGains->d);
-    setLuaUint8Value(&luaGyroPIDGain, gyroGains->gain);
+      const rx_config_gyro_gains_t *gyroGains = config.GetGyroGains((gyro_axis_t) (luaGyroGainAxis.value));
+      setLuaUint8Value(&luaGyroPIDRateP, gyroGains->p);
+      setLuaUint8Value(&luaGyroPIDRateI, gyroGains->i);
+      setLuaUint8Value(&luaGyroPIDRateD, gyroGains->d);
+      setLuaUint8Value(&luaGyroPIDGain, gyroGains->gain);
 
-    setLuaTextSelectionValue(&luaGyroAlign, config.GetGyroSensorAlignment());
-    setLuaUint8Value(&luaGyroSAFEPitch, config.GetGyroSAFEPitch());
-    setLuaUint8Value(&luaGyroSAFERoll, config.GetGyroSAFERoll());
-    setLuaUint8Value(&luaGyroLevelPitch, config.GetGyroLevelPitch());
-    setLuaUint8Value(&luaGyroLevelRoll, config.GetGyroLevelRoll());
-    setLuaUint8Value(&luaGyroLaunchAngle, config.GetGyroLaunchAngle());
-    setLuaUint8Value(&luaGyroHoverStrength, config.GetGyroHoverStrength());
+      setLuaTextSelectionValue(&luaGyroAlign, config.GetGyroSensorAlignment());
+      setLuaUint8Value(&luaGyroSAFEPitch, config.GetGyroSAFEPitch());
+      setLuaUint8Value(&luaGyroSAFERoll, config.GetGyroSAFERoll());
+      setLuaUint8Value(&luaGyroLevelPitch, config.GetGyroLevelPitch());
+      setLuaUint8Value(&luaGyroLevelRoll, config.GetGyroLevelRoll());
+      setLuaUint8Value(&luaGyroLaunchAngle, config.GetGyroLaunchAngle());
+      setLuaUint8Value(&luaGyroHoverStrength, config.GetGyroHoverStrength());
+    }
     #endif // HAS_GYRO
   }
 #endif
