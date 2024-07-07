@@ -931,7 +931,7 @@ static void luaparamMappingChannelLimitMin(struct luaPropertiesCommon *item, uin
   char dbgline[128] = "";
   uint16_t num = luaMappingChannelLimitMin.properties.u.value;
   sprintf(dbgline, "ul: %ul ud: %ud", num, num);
-  DBGLN(dbgline)
+  DBGLN(dbgline);
   DBGLN("*** lua min value: %d", luaMappingChannelLimitMin.properties.u.value);
   DBGLN("*** lua min value: %d", luaMappingChannelLimitMin.properties.s.value);
   limits.val.min = (uint16_t) luaMappingChannelLimitMin.properties.u.value;
