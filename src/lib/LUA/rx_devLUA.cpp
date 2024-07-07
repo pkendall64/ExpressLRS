@@ -921,33 +921,20 @@ static void luaparamSetFailsafe(struct luaPropertiesCommon *item, uint8_t arg)
 
   sendLuaCommandResponse((struct luaItem_command *)item, newStep, msg);
 }
-#include "logging.h"
+
 static void luaparamMappingChannelLimitMin(struct luaPropertiesCommon *item, uint8_t arg)
 {
   const uint8_t ch = luaMappingChannelOut.properties.u.value - 1;
-  rx_config_pwm_limits_t limits;
-  limits.raw = config.GetPwmChannelLimits(ch)->raw;
-  // limits.val.min = arg;
-  char dbgline[128] = "";
-  uint16_t num = luaMappingChannelLimitMin.properties.u.value;
-  sprintf(dbgline, "ul: %ul ud: %ud", num, num);
-  DBGLN(dbgline);
-  DBGLN("*** lua min value: %d", luaMappingChannelLimitMin.properties.u.value);
-  DBGLN("*** lua min value: %d", luaMappingChannelLimitMin.properties.s.value);
-  limits.val.min = (uint16_t) luaMappingChannelLimitMin.properties.u.value;
-  config.SetPwmChannelLimitsRaw(ch, limits.raw);
+  auto limits = config.GetPwmChannelLimits(ch);
+  config.SetPwmChannelLimits(ch, arg, limits->val.max);
 }
 
 static void luaparamMappingChannelLimitMax(struct luaPropertiesCommon *item, uint8_t arg)
 {
   const uint8_t ch = luaMappingChannelOut.properties.u.value - 1;
-  rx_config_pwm_limits_t limits;
-  limits.raw = config.GetPwmChannelLimits(ch)->raw;
-  // limits.val.max = arg;
-  limits.val.max = luaMappingChannelLimitMax.properties.u.value;
-  config.SetPwmChannelLimitsRaw(ch, limits.raw);
+  auto limits = config.GetPwmChannelLimits(ch);
+  config.SetPwmChannelLimits(ch, limits->val.min, arg);
 }
-
 #endif // GPIO_PIN_PWM_OUTPUTS
 
 #if defined(POWER_OUTPUT_VALUES)
@@ -1037,8 +1024,8 @@ static void registerLuaParameters()
     registerLUAParameter(&luaMappingOutputMode, &luaparamMappingOutputMode, luaMappingFolder.common.id);
     registerLUAParameter(&luaMappingInverted, &luaparamMappingInverted, luaMappingFolder.common.id);
     registerLUAParameter(&luaSetFailsafe, &luaparamSetFailsafe);
-    // registerLUAParameter(&luaMappingChannelLimitMin, &luaparamMappingChannelLimitMin, luaMappingFolder.common.id);
-    // registerLUAParameter(&luaMappingChannelLimitMax, &luaparamMappingChannelLimitMax, luaMappingFolder.common.id);
+    registerLUAParameter(&luaMappingChannelLimitMin, &luaparamMappingChannelLimitMin, luaMappingFolder.common.id);
+    registerLUAParameter(&luaMappingChannelLimitMax, &luaparamMappingChannelLimitMax, luaMappingFolder.common.id);
 
     #if defined(HAS_GYRO)
     registerLUAParameter(&luaGyroModesFolder);
