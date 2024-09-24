@@ -1245,7 +1245,6 @@ static void setupTarget()
 
 bool setupHardwareFromOptions()
 {
-#if defined(TARGET_UNIFIED_TX)
   if (!options_init())
   {
     // Register the WiFi with the framework
@@ -1258,10 +1257,6 @@ bool setupHardwareFromOptions()
     connectionState = hardwareUndefined;
     return false;
   }
-#else
-  options_init();
-#endif
-
   return true;
 }
 
