@@ -4,7 +4,7 @@
 #include "logging.h"
 #include "helpers.h"
 
-#if defined(CRSF_TX_MODULE) && !defined(UNIT_TEST)
+#if defined(TARGET_TX) && !defined(UNIT_TEST)
 #include "device.h"
 
 #if defined(PLATFORM_ESP32)
@@ -737,12 +737,8 @@ bool CRSFHandset::UARTwdt()
                 adjustMaxPacketSize();
 
                 SerialOutFIFO.flush();
-#if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
                 CRSFHandset::Port.flush();
                 CRSFHandset::Port.updateBaudRate(UARTrequestedBaud);
-#else
-                CRSFHandset::Port.begin(UARTrequestedBaud);
-#endif
                 if (halfDuplex)
                 {
                     duplex_set_RX();
