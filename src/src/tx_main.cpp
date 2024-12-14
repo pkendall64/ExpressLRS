@@ -183,16 +183,10 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
   // Full res mode
   if (OtaIsFullRes)
   {
-    OTA_Packet8_s * const ota8 = (OTA_Packet8_s * const)otaPktPtr;
-    uint8_t *telemPtr;
-    uint8_t dataLen;
-    
     switch (otaPktPtr->std.type)
     {
       case PACKET_TYPE_LINKSTATS:
-        LinkStatsFromOta(&ota8->tlm_dl.ul_link_stats.stats);
-        telemPtr = ota8->tlm_dl.ul_link_stats.payload;
-        dataLen = sizeof(ota8->tlm_dl.ul_link_stats.payload);
+        LinkStatsFromOta(&otaPktPtr->full.tlm_dl.ul_link_stats.stats);
         break;
 
       case PACKET_TYPE_DATA:
@@ -202,15 +196,13 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
         }
         else
         {
-          telemPtr = ota8->tlm_dl.payload;
-          dataLen = sizeof(ota8->tlm_dl.payload);
-          MspSender.ConfirmCurrentPayload(ota8->tlm_dl.tlmConfirm);
+          MspSender.ConfirmCurrentPayload(otaPktPtr->full.tlm_dl.tlmConfirm);
+          TelemetryReceiver.ReceiveData(otaPktPtr->full.tlm_dl.packageIndex & ELRS8_TELEMETRY_MAX_PACKAGES,
+            otaPktPtr->full.tlm_dl.payload,
+            sizeof(otaPktPtr->full.tlm_dl.payload));
         }
         break;
     }
-
-    //DBGLN("pi=%u len=%u", ota8->tlm_dl.packageIndex, dataLen);
-    TelemetryReceiver.ReceiveData(ota8->tlm_dl.packageIndex & ELRS8_TELEMETRY_MAX_PACKAGES, telemPtr, dataLen);
   }
   // Std res mode
   else
