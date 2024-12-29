@@ -31,3 +31,9 @@ void SerialIO::sendQueuedData(uint32_t maxBytesToSend)
         bytesWritten += OutPktLen;
     }
 }
+
+void SerialIO::println(const char *str)
+{
+    _outputPort->println(str);
+    _outputPort->flush();
+}

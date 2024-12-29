@@ -7,7 +7,7 @@
 
 #define RX_HAS_SERIAL1 (GPIO_PIN_SERIAL1_TX != UNDEF_PIN || OPT_HAS_SERVO_OUTPUT)
 
-extern void reconfigureSerial();
+extern void reconfigureSerial0();
 #if defined(PLATFORM_ESP32)
 extern void reconfigureSerial1();
 #endif
@@ -401,7 +401,7 @@ static void configureSerialPin(uint8_t sibling, uint8_t oldMode, uint8_t newMode
   if (oldMode != newMode)
   {
     deferExecutionMillis(100, [](){
-      reconfigureSerial();
+      reconfigureSerial0();
     });
   }
 }
@@ -492,7 +492,7 @@ static void registerLuaParameters()
     config.SetSerialProtocol((eSerialProtocol)arg);
     if (config.IsModified()) {
       deferExecutionMillis(100, [](){
-        reconfigureSerial();
+        reconfigureSerial0();
       });
     }
   });
