@@ -86,7 +86,6 @@ bool crsfBatterySensorDetected = false;
 bool crsfBaroSensorDetected = false;
 
 extern bool webserverPreventAutoStart;
-bool pwmSerialDefined = false;
 
 StubbornSender DataDlSender;
 uint8_t DataDlBuffer[CRSF_MAX_PACKET_LEN];
