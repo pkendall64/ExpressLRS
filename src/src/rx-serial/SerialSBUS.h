@@ -2,7 +2,7 @@
 
 class SerialSBUS : public SerialIO {
 public:
-    explicit SerialSBUS(Stream &out, Stream &in) : SerialIO(&out, &in)
+    explicit SerialSBUS(Stream &out, Stream &in, const bool _isDjiRsPro) : SerialIO(&out, &in), isDjiRsPro(_isDjiRsPro)
     {
         streamOut = &out;
     }
@@ -17,4 +17,5 @@ private:
     void processBytes(uint8_t *bytes, uint16_t size) override {};
 
     Stream *streamOut;
+    const bool isDjiRsPro;
 };

@@ -29,15 +29,7 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     // TODO: if failsafeMode == FAILSAFE_SET_POSITION then we use the set positions rather than the last values
     crsf_channels_s PackedRCdataOut;
 
-#if defined(PLATFORM_ESP32)
-    extern Stream* serial_protocol_tx;
-    extern Stream* serial1_protocol_tx;
-
-    if (((config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO) && streamOut == serial_protocol_tx)||
-        ((config.GetSerial1Protocol() == PROTOCOL_SERIAL1_DJI_RS_PRO) && streamOut == serial1_protocol_tx))
-#else
-    if (config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
-#endif
+    if (isDjiRsPro)
     {
         PackedRCdataOut.ch0 = fmap(channelData[0], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
         PackedRCdataOut.ch1 = fmap(channelData[1], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
@@ -82,7 +74,7 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
 
     _outputPort->write(0x0F);    // HEADER
     _outputPort->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
-    _outputPort->write((uint8_t)extraData);    // ch 17, 18, lost packet, failsafe
+    _outputPort->write(extraData);    // ch 17, 18, lost packet, failsafe
     _outputPort->write((uint8_t)0x00);    // FOOTER
     return SBUS_CALLBACK_INTERVAL_MS;
 }
