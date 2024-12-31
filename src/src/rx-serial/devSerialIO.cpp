@@ -37,32 +37,15 @@
 #endif
 // ARDUINO_CORE_INVERT_FIX PT1 end
 
-uint32_t serialBaud;
-
-/* SERIAL_PROTOCOL_TX is used by CRSF output */
-#define SERIAL_PROTOCOL_TX Serial
-
-#if defined(PLATFORM_ESP32)
-#define SERIAL1_PROTOCOL_TX Serial1
-
-// SBUS driver needs to distinguish stream for SBUS/DJI protocol
-const Stream *serial_protocol_tx = &(SERIAL_PROTOCOL_TX);
-const Stream *serial1_protocol_tx = &(SERIAL1_PROTOCOL_TX);
-
-SerialIO *serial1IO = nullptr;
-#endif
+static bool pwmSerialDefined = false;
 
 SerialIO *serialIO = nullptr;
 
-#define SERIAL_PROTOCOL_RX Serial
-#define SERIAL1_PROTOCOL_RX Serial1
+#if defined(PLATFORM_ESP32)
+SerialIO *serial1IO = nullptr;
+#endif
 
 #define NO_SERIALIO_INTERVAL 1000
-
-extern SerialIO *serialIO;
-#if defined(PLATFORM_ESP32)
-extern SerialIO *serial1IO;
-#endif
 
 enum teamraceOutputInhibitState_e {
     troiPass = 0,               // Allow all packets through, normal operation
@@ -72,12 +55,12 @@ enum teamraceOutputInhibitState_e {
 };
 
 typedef struct devserial_ctx_s {
-  SerialIO **io;
-  bool frameAvailable;          
-  bool frameMissed ;
-  connectionState_e lastConnectionState;
-  uint8_t lastTeamracePosition;
-  teamraceOutputInhibitState_e teamraceOutputInhibitState;
+    SerialIO **io;
+    bool frameAvailable;
+    bool frameMissed ;
+    connectionState_e lastConnectionState;
+    uint8_t lastTeamracePosition;
+    teamraceOutputInhibitState_e teamraceOutputInhibitState;
 } devserial_ctx_t;
 
 static devserial_ctx_t serial0;
@@ -116,7 +99,10 @@ void ICACHE_RAM_ATTR crsfRCFrameMissed()
 
 static void setupSerial()
 {
-    if (OPT_CRSF_RCVR_NO_SERIAL)
+    uint32_t serialBaud = firmwareOptions.uart_baud;
+#if !defined(DEBUG_CRSF_NO_OUTPUT)
+    if (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN && !pwmSerialDefined)
+#endif
     {
         // For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
         #if defined(DEBUG_LOG) || defined(DEBUG_RCVR_LINKSTATS)
@@ -190,35 +176,35 @@ static void setupSerial()
 
     if (firmwareOptions.is_airport)
     {
-        serialIO = new SerialAirPort(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialAirPort(Serial, Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
-        serialIO = new SerialSBUS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialSBUS(Serial, Serial, config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
     {
-        serialIO = new SerialSUMD(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialSUMD(Serial, Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
-        serialIO = new SerialMavlink(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialMavlink(Serial, Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
     {
-        serialIO = new SerialDisplayport(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialDisplayport(Serial, Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_GPS)
     {
-        serialIO = new SerialGPS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialGPS(Serial, Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
     {
-        serialIO = new SerialHoTT_TLM(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialHoTT_TLM(Serial, Serial);
     }
     else
     {
-        serialIO = new SerialCRSF(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialCRSF(Serial, Serial);
     }
 
 #if defined(DEBUG_ENABLED)
@@ -303,44 +289,44 @@ static void setupSerial1()
         break;
     case PROTOCOL_SERIAL1_CRSF:
         Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialCRSF(Serial1, Serial1);
         break;
     case PROTOCOL_SERIAL1_INVERTED_CRSF:
         Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
-        serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialCRSF(Serial1, Serial1);
         break;
     case PROTOCOL_SERIAL1_SBUS:
     case PROTOCOL_SERIAL1_DJI_RS_PRO:
         Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
-        serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialSBUS(Serial1, Serial1, config.GetSerial1Protocol() == PROTOCOL_SERIAL1_DJI_RS_PRO);
         break;
     case PROTOCOL_SERIAL1_INVERTED_SBUS:
         Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialSBUS(Serial1, Serial1, false);
         break;
     case PROTOCOL_SERIAL1_SUMD:
         Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSUMD(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialSUMD(Serial1, Serial1);
         break;
     case PROTOCOL_SERIAL1_HOTT_TLM:
         Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialHoTT_TLM(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+        serial1IO = new SerialHoTT_TLM(Serial1, Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_TRAMP:
         Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialTramp(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+        serial1IO = new SerialTramp(Serial1, Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_SMARTAUDIO:
         Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSmartAudio(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+        serial1IO = new SerialSmartAudio(Serial1, Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
         Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialDisplayport(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialDisplayport(Serial1, Serial1);
         break;
     case PROTOCOL_SERIAL1_GPS:
         Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialGPS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+        serial1IO = new SerialGPS(Serial1, Serial1);
         break;
     }
 }

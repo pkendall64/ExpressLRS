@@ -31,16 +31,6 @@
 #define DEBUG_CRSF_NO_OUTPUT
 #endif
 
-#if defined(DEBUG_CRSF_NO_OUTPUT)
-#define OPT_CRSF_RCVR_NO_SERIAL true
-#elif defined(TARGET_RX)
-extern bool pwmSerialDefined;
-
-#define OPT_CRSF_RCVR_NO_SERIAL (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN && !pwmSerialDefined)
-#else
-#define OPT_CRSF_RCVR_NO_SERIAL false
-#endif
-
 #if defined(RADIO_SX128X)
 #define Regulatory_Domain_ISM_2400 1
 // ISM 2400 band is in use => undefine other requlatory domain defines

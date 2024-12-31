@@ -98,7 +98,6 @@ MSP2CROSSFIRE msp2crsf;
 
 unsigned long rebootTime = 0;
 extern bool webserverPreventAutoStart;
-bool pwmSerialDefined = false;
 
 StubbornSender TelemetrySender;
 static uint8_t telemetryBurstCount;
