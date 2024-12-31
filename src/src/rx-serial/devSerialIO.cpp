@@ -120,10 +120,6 @@ void ICACHE_RAM_ATTR crsfRCFrameMissed()
 
 static void setupSerial()
 {
-    bool sbusSerialOutput = false;
-	bool sumdSerialOutput = false;
-    bool mavlinkSerialOutput = false;
-    bool hottTlmSerial = false;
     uint32_t serialBaud = firmwareOptions.uart_baud;
 
     if (OPT_CRSF_RCVR_NO_SERIAL)
@@ -144,23 +140,25 @@ static void setupSerial()
         serialIO = new SerialNOOP();
         return;
     }
-    if (config.GetSerialProtocol() == PROTOCOL_CRSF || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || firmwareOptions.is_airport)
+
+    SerialConfig serialConfig = SERIAL_8N1;
+    bool invert = false;
+    if (firmwareOptions.is_airport || config.GetSerialProtocol() == PROTOCOL_CRSF || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF)
     {
         serialBaud = firmwareOptions.uart_baud;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
-        sbusSerialOutput = true;
+        serialConfig = SERIAL_8E2;
         serialBaud = 100000;
+        invert = true;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
     {
-        sumdSerialOutput = true;
         serialBaud = 115200;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
-        mavlinkSerialOutput = true;
         serialBaud = 460800;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
@@ -169,41 +167,21 @@ static void setupSerial()
     }
     else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
     {
-        hottTlmSerial = true;
+        serialConfig = SERIAL_8N2;
         serialBaud = 19200;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_GPS)
     {
         serialBaud = 115200;
     }
-    bool invert = config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO;
 
 #if defined(PLATFORM_ESP8266)
-    SerialConfig serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
-    {
-        serialConfig = SERIAL_8E2;
-    }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
-    SerialMode mode = (sbusSerialOutput || sumdSerialOutput)  ? SERIAL_TX_ONLY : SERIAL_FULL;
+    SerialMode mode = (config.GetSerialProtocol() == PROTOCOL_SBUS ||
+            config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS ||
+            config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO ||
+            config.GetSerialProtocol() == PROTOCOL_SUMD) ? SERIAL_TX_ONLY : SERIAL_FULL;
     Serial.begin(serialBaud, serialConfig, mode, -1, invert);
 #elif defined(PLATFORM_ESP32)
-    uint32_t serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
-    {
-        serialConfig = SERIAL_8E2;
-    }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
     // ARDUINO_CORE_INVERT_FIX PT2
     #if defined(ARDUINO_CORE_INVERT_FIX)
     if(invert == false)
@@ -220,15 +198,15 @@ static void setupSerial()
     {
         serialIO = new SerialAirPort(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
-    else if (sbusSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
         serialIO = new SerialSBUS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
-    else if (sumdSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
     {
         serialIO = new SerialSUMD(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
-    else if (mavlinkSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
         serialIO = new SerialMavlink(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
@@ -240,7 +218,7 @@ static void setupSerial()
     {
         serialIO = new SerialGPS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
-    else if (hottTlmSerial)
+    else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
     {
         serialIO = new SerialHoTT_TLM(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
     }
