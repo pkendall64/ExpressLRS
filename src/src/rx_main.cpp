@@ -87,7 +87,6 @@ bool crsfBaroSensorDetected = false;
 
 unsigned long rebootTime = 0;
 extern bool webserverPreventAutoStart;
-bool pwmSerialDefined = false;
 
 StubbornSender DataDlSender;
 uint8_t DataDlBuffer[CRSF_MAX_PACKET_LEN];
