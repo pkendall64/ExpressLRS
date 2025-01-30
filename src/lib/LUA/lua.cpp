@@ -96,8 +96,13 @@ static uint8_t *luaTextSelectionStructToArray(const void *luaStruct, uint8_t *ne
   next = (uint8_t *)stpcpy((char *)next, p1->options) + 1;
   *next++ = p1->value; // value
   *next++ = 0; // min
-  *next++ = luaSelectionOptionMax(p1->options); //max
+  *next++ = p1->common.type & CRSF_FIELD_HIDDEN ? 0 :  luaSelectionOptionMax(p1->options); //max
   *next++ = 0; // default value
+  if (p1->common.type & CRSF_FIELD_HIDDEN)
+  {
+    *next = 0;
+    return next;
+  }
   return (uint8_t *)stpcpy((char *)next, p1->units);
 }
 
