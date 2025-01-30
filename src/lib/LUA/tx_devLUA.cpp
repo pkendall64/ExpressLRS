@@ -40,11 +40,8 @@ static char modelMatchUnit[] = " (ID: 00)";
 static char tlmBandwidth[] = " (xxxxxbps)";
 static const char folderNameSeparator[2] = {' ',':'};
 static const char tlmRatios[] = "Std;Off;1:128;1:64;1:32;1:16;1:8;1:4;1:2;Race";
-static const char tlmRatiosMav[] = ";;;;;;;;1:2;";
 static const char switchmodeOpts4ch[] = "Wide;Hybrid";
-static const char switchmodeOpts4chMav[] = ";Hybrid";
 static const char switchmodeOpts8ch[] = "8ch;16ch Rate/2;12ch Mixed";
-static const char switchmodeOpts8chMav[] = ";16ch Rate/2;";
 static const char antennamodeOpts[] = "Gemini;Ant 1;Ant 2;Switch";
 static const char antennamodeOptsDualBand[] = "Gemini;;;";
 static const char linkModeOpts[] = "Normal;MAVLink";
@@ -661,6 +658,19 @@ static void registerLuaParameters()
         setLuaWarningFlag(LUA_FLAG_ERROR_CONNECTED, true);
     }
     });
+    registerLUAParameter(&luaLinkMode, [](struct luaPropertiesCommon *item, uint8_t arg) {
+      // Only allow changing when disconnected since we need to guarantee
+      // the switch pack and unpack functions are matched on the tx and rx.
+      bool isDisconnected = connectionState == disconnected;
+      if (isDisconnected)
+      {
+        config.SetLinkMode(arg);
+      }
+      else
+      {
+        setLuaWarningFlag(LUA_FLAG_ERROR_CONNECTED, true);
+      }
+    });
     registerLUAParameter(&luaTlmRate, [](struct luaPropertiesCommon *item, uint8_t arg) {
       expresslrs_tlm_ratio_e eRatio = (expresslrs_tlm_ratio_e)arg;
       if (eRatio <= TLM_RATIO_DISARMED)
@@ -708,19 +718,6 @@ static void registerLuaParameters()
         config.SetAntennaMode(newAntennaMode);
       });
     }
-    registerLUAParameter(&luaLinkMode, [](struct luaPropertiesCommon *item, uint8_t arg) {
-      // Only allow changing when disconnected since we need to guarantee
-      // the switch pack and unpack functions are matched on the tx and rx.
-      bool isDisconnected = connectionState == disconnected;
-      if (isDisconnected)
-      {
-        config.SetLinkMode(arg);
-      }
-      else
-      {
-        setLuaWarningFlag(LUA_FLAG_ERROR_CONNECTED, true);
-      }
-    });
     if (!firmwareOptions.is_airport)
     {
       registerLUAParameter(&luaModelMatch, [](struct luaPropertiesCommon *item, uint8_t arg) {
@@ -881,17 +878,25 @@ static int event()
   setLuaTextSelectionValue(&luaAirRate, RATE_MAX - 1 - currentRate);
 
   setLuaTextSelectionValue(&luaTlmRate, config.GetTlm());
-  luaTlmRate.options = isMavlinkMode ? tlmRatiosMav : tlmRatios;
+  if (isMavlinkMode)
+  {
+    LUA_FIELD_HIDE(luaTlmRate);
+  }
+  else
+  {
+    LUA_FIELD_SHOW(luaTlmRate);
+  }
 
   luaAntenna.options = get_elrs_airRateConfig(config.GetRate())->radio_type == RADIO_TYPE_LR1121_LORA_DUAL ? antennamodeOptsDualBand : antennamodeOpts;
 
   setLuaTextSelectionValue(&luaSwitch, config.GetSwitchMode());
   if (isMavlinkMode)
   {
-    luaSwitch.options = OtaIsFullRes ? switchmodeOpts8chMav : switchmodeOpts4chMav;
+    LUA_FIELD_HIDE(luaSwitch);
   }
   else
   {
+    LUA_FIELD_SHOW(luaSwitch);
     luaSwitch.options = OtaIsFullRes ? switchmodeOpts8ch : switchmodeOpts4ch;
   }
 
