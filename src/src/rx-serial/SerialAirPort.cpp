@@ -31,7 +31,7 @@ void SerialAirPort::sendQueuedData(uint32_t maxBytesToSend)
         apOutputBuffer.lock();
         apOutputBuffer.popBytes(buf, size);
         apOutputBuffer.unlock();
-        _outputPort->write(buf, size);
+        _stream->write(buf, size);
     }
 }
 #endif

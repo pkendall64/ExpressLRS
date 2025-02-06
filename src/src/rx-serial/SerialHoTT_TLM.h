@@ -274,7 +274,7 @@ enum {
 class SerialHoTT_TLM final : public SerialIO
 {
 public:
-    SerialHoTT_TLM(Stream &out, Stream &in, int8_t serial1TXpin = UNDEF_PIN);
+    SerialHoTT_TLM(Stream &stream, int8_t serial1TXpin = UNDEF_PIN);
     ~SerialHoTT_TLM() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };

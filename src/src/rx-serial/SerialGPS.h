@@ -21,14 +21,14 @@ typedef struct {
 
 class SerialGPS final : public SerialIO {
 public:
-    explicit SerialGPS(Stream &out, Stream &in) : SerialIO(&out, &in) {}
+    explicit SerialGPS(Stream &stream) : SerialIO(&stream) {}
     ~SerialGPS() override = default;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
-    void sendTelemetryFrame();
+    void sendTelemetryFrame() const;
     void processSentence(uint8_t *sentence, uint8_t size);
     GpsData gpsData = {0};
 };

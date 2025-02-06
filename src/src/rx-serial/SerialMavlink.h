@@ -13,7 +13,7 @@ extern FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
 class SerialMavlink final : public SerialIO {
 public:
-    explicit SerialMavlink(Stream &out, Stream &in);
+    explicit SerialMavlink(Stream &stream);
     ~SerialMavlink() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;

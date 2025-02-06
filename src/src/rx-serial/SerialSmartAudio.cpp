@@ -19,7 +19,7 @@
 
 GENERIC_CRC8 crc(SMARTAUDIO_CRC_POLY);
 
-SerialSmartAudio::SerialSmartAudio(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in)
+SerialSmartAudio::SerialSmartAudio(Stream &stream, int8_t serial1TXpin) : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)
     // we are on UART1, use Serial1 TX assigned pin for half-duplex
@@ -66,7 +66,7 @@ void SerialSmartAudio::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _stream->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

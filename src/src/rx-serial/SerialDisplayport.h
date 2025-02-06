@@ -42,7 +42,7 @@ struct msp_status_t
 class SerialDisplayport final : public SerialIO
 {
 public:
-    explicit SerialDisplayport(Stream &out, Stream &in) : SerialIO(&out, &in), m_receivedBytes(0), m_receivedTimestamp(0) {}
+    explicit SerialDisplayport(Stream &stream) : SerialIO(&stream), m_receivedBytes(0), m_receivedTimestamp(0) {}
     ~SerialDisplayport() override = default;
 
     void sendQueuedData(uint32_t maxBytesToSend) override {};
@@ -50,7 +50,7 @@ public:
 
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
-    void send(uint8_t messageID, void * payload, uint8_t size, Stream * _stream);
+    void send(uint8_t messageID, void * payload, uint8_t size) const;
     bool getArmedState();
 
     uint8_t m_receivedBytes;

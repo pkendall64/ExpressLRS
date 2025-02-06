@@ -32,8 +32,8 @@ constexpr uint8_t SIZE_8BIT = 1;
 constexpr uint8_t SIZE_16BIT = 2;
 constexpr uint8_t SIZE_24BIT = 3;
 
-SerialHoTT_TLM::SerialHoTT_TLM(Stream &out, Stream &in, const int8_t serial1TXpin)
-    : SerialIO(&out, &in)
+SerialHoTT_TLM::SerialHoTT_TLM(Stream &stream, const int8_t serial1TXpin)
+    : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)
     if (serial1TXpin == UNDEF_PIN)
@@ -170,7 +170,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
 
         // switch to half duplex TX mode and write CMD byte 1
         setTXMode();
-        _outputPort->write(START_OF_CMD_B);
+        _stream->write(START_OF_CMD_B);
         cmdSendState = HOTT_CMD1SENT;
         return;
     }
@@ -178,7 +178,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
     // delay sending CMD byte 2 to accomodate for slow devices
     if ((now - lastPoll >= HOTT_CMD_DELAY) && cmdSendState == HOTT_CMD1SENT)
     {
-        _outputPort->write(nextDeviceID);
+        _stream->write(nextDeviceID);
         cmdSendState = HOTT_CMD2SENT;
         return;
     }

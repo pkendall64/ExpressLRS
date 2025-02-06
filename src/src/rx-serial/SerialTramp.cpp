@@ -12,7 +12,7 @@
 // band/channel or frequency in MHz (3 bits for the band and 3 bits for the channel)
 #define VTXCOMMON_MSP_BANDCHAN_CHKVAL ((uint16_t)((7 << 3) + 7))
 
-SerialTramp::SerialTramp(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in)
+SerialTramp::SerialTramp(Stream &stream, int8_t serial1TXpin) : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)
     // we are on UART1, use Serial1 TX assigned pin for half-duplex
@@ -70,7 +70,7 @@ void SerialTramp::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _stream->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

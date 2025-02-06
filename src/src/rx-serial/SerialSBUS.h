@@ -4,10 +4,7 @@
 
 class SerialSBUS final : public SerialIO {
 public:
-    explicit SerialSBUS(Stream &out, Stream &in, const bool _isDjiRsPro) : SerialIO(&out, &in), isDjiRsPro(_isDjiRsPro)
-    {
-        streamOut = &out;
-    }
+    explicit SerialSBUS(Stream &stream, const bool _isDjiRsPro) : SerialIO(&stream), isDjiRsPro(_isDjiRsPro) {}
 
     ~SerialSBUS() override = default;
 
@@ -16,6 +13,5 @@ public:
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override {};
 
-    Stream *streamOut;
     const bool isDjiRsPro;
 };
