@@ -21,11 +21,12 @@ typedef struct {
 
 class SerialGPS final : public SerialIO {
 public:
-    explicit SerialGPS(HardwareSerial &stream) : SerialIO(&stream) {}
+    explicit SerialGPS(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin) : SerialIO(&stream, 115200, SERIAL_8N1, rxPin, txPin, false) {}
     ~SerialGPS() override = default;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
+
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
     void sendTelemetryFrame() const;

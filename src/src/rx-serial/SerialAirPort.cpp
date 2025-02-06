@@ -1,10 +1,8 @@
-#if defined(TARGET_RX)
-
 #include "SerialAirPort.h"
 #include "device.h"
 #include "common.h"
 
-uint32_t SerialAirPort::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialAirPort::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     return DURATION_IMMEDIATELY;
 }
@@ -34,4 +32,3 @@ void SerialAirPort::sendQueuedData(uint32_t maxBytesToSend)
         _stream->write(buf, size);
     }
 }
-#endif

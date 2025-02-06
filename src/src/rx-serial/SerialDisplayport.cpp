@@ -12,8 +12,6 @@ COMPANY SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
 CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 ************************************************************************************/
 
-#if defined(TARGET_RX)
-
 #include "SerialDisplayport.h"
 #include "OTA.h"
 #include "options.h"
@@ -36,7 +34,7 @@ void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size) co
     _stream->write(checksum);
 }
 
-uint32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     bool armed = getArmedState();
 
@@ -101,5 +99,3 @@ bool SerialDisplayport::getArmedState()
         return isArmed;
     }
 }
-
-#endif // defined(TARGET_RX)

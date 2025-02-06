@@ -10,7 +10,7 @@
 
 const auto SUMD_CALLBACK_INTERVAL_MS = 10;
 
-uint32_t SerialSUMD::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialSUMD::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     if (!frameAvailable) {
         return DURATION_IMMEDIATELY;

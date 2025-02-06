@@ -1,5 +1,3 @@
-#if defined(TARGET_RX)
-
 #include "SerialHoTT_TLM.h"
 
 #include "CRSFRouter.h"
@@ -32,11 +30,11 @@ constexpr uint8_t SIZE_8BIT = 1;
 constexpr uint8_t SIZE_16BIT = 2;
 constexpr uint8_t SIZE_24BIT = 3;
 
-SerialHoTT_TLM::SerialHoTT_TLM(HardwareSerial &stream, const int8_t serial1TXpin)
-    : SerialIO(&stream)
+SerialHoTT_TLM::SerialHoTT_TLM(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin)
+    : SerialIO(&stream, 19200, SERIAL_8N2, rxPin, txPin, false)
 {
 #if defined(PLATFORM_ESP32)
-    if (serial1TXpin == UNDEF_PIN)
+    if (txPin == UNDEF_PIN)
     {
         // we are on UART0, use default TX pin for half duplex if not defined otherwise
         UTXDoutIdx = U0TXD_OUT_IDX;
@@ -48,7 +46,7 @@ SerialHoTT_TLM::SerialHoTT_TLM(HardwareSerial &stream, const int8_t serial1TXpin
         // we are on UART1, use Serial1 TX assigned pin for half duplex
         UTXDoutIdx = U1TXD_OUT_IDX;
         URXDinIdx = U1RXD_IN_IDX;
-        halfDuplexPin = serial1TXpin;
+        halfDuplexPin = txPin;
     }
 #endif
 
@@ -788,5 +786,3 @@ uint32_t SerialHoTT_TLM::htobe24(uint32_t val)
     return val;
 #endif
 }
-
-#endif

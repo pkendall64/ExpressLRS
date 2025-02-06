@@ -1,5 +1,3 @@
-#if defined(TARGET_RX)
-
 #include "SerialMavlink.h"
 #include "CRSFRouter.h"
 #include "common.h"
@@ -13,8 +11,8 @@
 
 #define MAV_FTP_OPCODE_OPENFILERO 4
 
-SerialMavlink::SerialMavlink(HardwareSerial &stream):
-    SerialIO(&stream),
+SerialMavlink::SerialMavlink(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin):
+        SerialIO(&stream, firmwareOptions.uart_baud, SERIAL_8N1, rxPin, txPin, false),
     
     //system ID of the device component sending command to FC, can be set using lua options, 0 is the default value for initialized storage, treat it as 255 which is commonly used as GCS SysID
     this_system_id(config.GetSourceSysId() ? config.GetSourceSysId() : 255),
@@ -28,7 +26,7 @@ SerialMavlink::SerialMavlink(HardwareSerial &stream):
 {
 }
 
-uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     if (!frameAvailable) {
         return DURATION_IMMEDIATELY;
@@ -158,5 +156,3 @@ bool SerialMavlink::GetNextPayload(uint8_t* nextPayloadSize, uint8_t *payloadDat
     *nextPayloadSize = count + CRSF_FRAME_NOT_COUNTED_BYTES;
     return true;
 }
-
-#endif // defined(TARGET_RX)

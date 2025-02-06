@@ -1,7 +1,5 @@
 #pragma once
 
-#if defined(TARGET_RX)
-
 #include "SerialIO.h"
 #include "device.h"
 
@@ -274,10 +272,10 @@ enum {
 class SerialHoTT_TLM final : public SerialIO
 {
 public:
-    SerialHoTT_TLM(HardwareSerial &stream, int8_t serial1TXpin = UNDEF_PIN);
+    SerialHoTT_TLM(HardwareSerial &stream, int8_t rxPin, int8_t txPin);
     ~SerialHoTT_TLM() override = default;
 
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };
 
     int getMaxSerialReadSize() override;
     void sendQueuedData(uint32_t maxBytesToSend) override;
@@ -333,13 +331,14 @@ private:
     // received HoTT bus frame
     hottBusFrame_t hottBusFrame;
 
-    // discoverd devices
+    // discovered devices
     hottDevice_t device[LAST_DEVICE] = {
         {SENSOR_ID_GPS_B, false},
         {SENSOR_ID_EAM_B, false},
         {SENSOR_ID_GAM_B, false},
         {SENSOR_ID_ESC_B, false},
-        {SENSOR_ID_VARIO_B, false}};
+        {SENSOR_ID_VARIO_B, false},
+    };
 
     bool escIsTurbine;
 
@@ -376,5 +375,3 @@ private:
     const int32_t MinScale = 1000000L;
     const int32_t DegScale = 10000000L;
 };
-
-#endif
