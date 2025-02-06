@@ -17,7 +17,7 @@ typedef struct {
 
 class SerialGPS : public SerialIO {
 public:
-    explicit SerialGPS(Stream &stream) : SerialIO(&stream) {}
+    explicit SerialGPS(HardwareSerial &stream) : SerialIO(&stream) {}
     ~SerialGPS() override {}
 
     void queueLinkStatisticsPacket() override {}

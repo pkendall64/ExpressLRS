@@ -263,7 +263,7 @@ enum {
 class SerialHoTT_TLM : public SerialIO
 {
 public:
-    explicit SerialHoTT_TLM(Stream &stream, int8_t serial1TXpin = UNDEF_PIN) : SerialIO(&stream)
+    explicit SerialHoTT_TLM(HardwareSerial &stream, int8_t serial1TXpin = UNDEF_PIN) : SerialIO(&stream)
     {       
 #if defined(PLATFORM_ESP32)
         if (serial1TXpin == UNDEF_PIN)

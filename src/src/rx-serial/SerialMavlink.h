@@ -12,7 +12,7 @@ extern FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
 class SerialMavlink : public SerialIO {
 public:
-    explicit SerialMavlink(Stream &stream);
+    explicit SerialMavlink(HardwareSerial &stream);
     ~SerialMavlink() override {}
 
     void queueLinkStatisticsPacket() override {}

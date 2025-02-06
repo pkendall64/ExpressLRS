@@ -17,7 +17,7 @@ FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
 #define MAV_FTP_OPCODE_OPENFILERO 4
 
-SerialMavlink::SerialMavlink(Stream &stream):
+SerialMavlink::SerialMavlink(HardwareSerial &stream):
     SerialIO(&stream),
     
     //system ID of the device component sending command to FC, can be set using lua options, 0 is the default value for initialized storage, treat it as 255 which is commonly used as GCS SysID

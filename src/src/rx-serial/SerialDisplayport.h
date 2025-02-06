@@ -41,7 +41,7 @@ struct msp_status_DJI_t
 class SerialDisplayport : public SerialIO
 {
 public:
-    explicit SerialDisplayport(Stream &stream) : SerialIO(&stream), m_receivedBytes(0), m_receivedTimestamp(0) {}
+    explicit SerialDisplayport(HardwareSerial &stream) : SerialIO(&stream), m_receivedBytes(0), m_receivedTimestamp(0) {}
     ~SerialDisplayport() override {}
 
     void queueLinkStatisticsPacket() override {}

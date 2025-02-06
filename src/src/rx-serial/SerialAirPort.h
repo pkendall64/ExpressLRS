@@ -8,7 +8,7 @@ extern FIFO<AP_MAX_BUF_LEN> apOutputBuffer;
 
 class SerialAirPort : public SerialIO {
 public:
-    explicit SerialAirPort(Stream &stream) : SerialIO(&stream) {}
+    explicit SerialAirPort(HardwareSerial &stream) : SerialIO(&stream) {}
     ~SerialAirPort() override {}
 
     void queueLinkStatisticsPacket() override {}

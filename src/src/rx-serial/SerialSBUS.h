@@ -2,7 +2,7 @@
 
 class SerialSBUS : public SerialIO {
 public:
-    explicit SerialSBUS(Stream &stream, const bool _isDjiRsPro) : SerialIO(&stream), isDjiRsPro(_isDjiRsPro) {}
+    explicit SerialSBUS(HardwareSerial &stream, const bool _isDjiRsPro) : SerialIO(&stream), isDjiRsPro(_isDjiRsPro) {}
 
     ~SerialSBUS() override = default;
 

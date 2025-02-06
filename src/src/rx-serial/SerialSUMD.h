@@ -3,7 +3,7 @@
 
 class SerialSUMD : public SerialIO {
 public:
-    explicit SerialSUMD(Stream &stream) : SerialIO(&stream) { crc2Byte.init(16, 0x1021); }
+    explicit SerialSUMD(HardwareSerial &stream) : SerialIO(&stream) { crc2Byte.init(16, 0x1021); }
     ~SerialSUMD() override {}
 
     void queueLinkStatisticsPacket() override {}
