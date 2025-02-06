@@ -10,7 +10,7 @@ extern FIFO<AP_MAX_BUF_LEN> apOutputBuffer;
 
 class SerialAirPort final : public SerialIO {
 public:
-    explicit SerialAirPort(Stream &out, Stream &in) : SerialIO(&out, &in) {}
+    explicit SerialAirPort(Stream &stream) : SerialIO(&stream) {}
     ~SerialAirPort() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;

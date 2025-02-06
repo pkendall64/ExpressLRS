@@ -146,7 +146,7 @@ void SerialGPS::processBytes(uint8_t *bytes, uint16_t size)
     }
 }
 
-void SerialGPS::sendTelemetryFrame()
+void SerialGPS::sendTelemetryFrame() const
 {
     CRSF_MK_FRAME_T(crsf_sensor_gps_t) crsfgps = { 0 };
     crsfgps.p.latitude = htobe32(gpsData.lat);

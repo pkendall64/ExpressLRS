@@ -15,7 +15,7 @@
 class SerialIO {
 public:
 
-    SerialIO(Stream *output, Stream *input) : _outputPort(output), _inputPort(input) {}
+    explicit SerialIO(Stream *stream) : _stream(stream) {}
     virtual ~SerialIO() = default;
 
     /**
@@ -85,11 +85,11 @@ public:
     /**
      * @brief Send a raw string out the serial port.
      */
-    void println(const char *str);
+    void println(const char *str) const;
 
 protected:
-    /// @brief the output stream for the serial port
-    Stream *_outputPort;
+    /// @brief the input/output stream for the serial port
+    Stream *_stream;
     /// @brief flag that indicates the receiver is in the failsafe state
     bool failsafe = false;
 
@@ -120,6 +120,4 @@ protected:
 private:
     const int defaultMaxSerialReadSize = 64;
     const int defaultMaxSerialWriteSize = 128;
-
-    Stream *_inputPort;
 };

@@ -21,7 +21,7 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     }
     sendPackets = true;
 
-    if ((!frameAvailable && !frameMissed && !effectivelyFailsafed) || _outputPort->availableForWrite() < 25)
+    if ((!frameAvailable && !frameMissed && !effectivelyFailsafed) || _stream->availableForWrite() < 25)
     {
         return DURATION_IMMEDIATELY;
     }
@@ -72,10 +72,10 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     extraData |= effectivelyFailsafed ? SBUS_FLAG_FAILSAFE_ACTIVE : 0;
     extraData |= frameMissed ? SBUS_FLAG_SIGNAL_LOSS : 0;
 
-    _outputPort->write(0x0F);    // HEADER
-    _outputPort->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
-    _outputPort->write(extraData);    // ch 17, 18, lost packet, failsafe
-    _outputPort->write((uint8_t)0x00);    // FOOTER
+    _stream->write(0x0F);    // HEADER
+    _stream->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
+    _stream->write(extraData);    // ch 17, 18, lost packet, failsafe
+    _stream->write((uint8_t)0x00);    // FOOTER
     return SBUS_CALLBACK_INTERVAL_MS;
 }
 

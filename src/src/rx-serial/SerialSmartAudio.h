@@ -6,7 +6,7 @@
 
 class SerialSmartAudio final : public SerialIO, public CRSFConnector {
 public:
-    SerialSmartAudio(Stream &out, Stream &in, int8_t serial1TXpin);
+    SerialSmartAudio(Stream &stream, int8_t serial1TXpin);
     ~SerialSmartAudio() override;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;

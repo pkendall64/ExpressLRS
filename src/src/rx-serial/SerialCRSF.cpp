@@ -40,7 +40,7 @@ void SerialCRSF::sendQueuedData(uint32_t maxBytesToSend)
         msp2crsf.FIFOout.popBytes(OutData, OutPktLen);
         msp2crsf.FIFOout.unlock();
         noInterrupts();
-        this->_outputPort->write(OutData, OutPktLen); // write the packet out
+        _stream->write(OutData, OutPktLen); // write the packet out
         interrupts();
         bytesWritten += OutPktLen;
     }
@@ -97,9 +97,9 @@ uint32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     uint8_t crc = crsfRouter.crsf_crc.calc(outBuffer[2]);
     crc = crsfRouter.crsf_crc.calc((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut), crc);
 
-    _outputPort->write(outBuffer, sizeof(outBuffer));
-    _outputPort->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
-    _outputPort->write(crc);
+    _stream->write(outBuffer, sizeof(outBuffer));
+    _stream->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
+    _stream->write(crc);
     return DURATION_IMMEDIATELY;
 }
 

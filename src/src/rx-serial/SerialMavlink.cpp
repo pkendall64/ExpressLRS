@@ -17,8 +17,8 @@ FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
 #define MAV_FTP_OPCODE_OPENFILERO 4
 
-SerialMavlink::SerialMavlink(Stream &out, Stream &in):
-    SerialIO(&out, &in),
+SerialMavlink::SerialMavlink(Stream &stream):
+    SerialIO(&stream),
     
     //system ID of the device component sending command to FC, can be set using lua options, 0 is the default value for initialized storage, treat it as 255 which is commonly used as GCS SysID
     this_system_id(config.GetSourceSysId() ? config.GetSourceSysId() : 255),
@@ -63,7 +63,7 @@ uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint3
     mavlink_message_t msg;
     mavlink_msg_rc_channels_override_encode(this_system_id, this_component_id, &msg, &rc_override);
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-    _outputPort->write(buf, len);
+    _stream->write(buf, len);
     
     return MAVLINK_RC_PACKET_INTERVAL;
 }
@@ -108,7 +108,7 @@ void SerialMavlink::sendQueuedData(uint32_t maxBytesToSend)
         mavlink_message_t msg;
         mavlink_msg_radio_status_encode(this_system_id, this_component_id, &msg, &radio_status);
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        _outputPort->write(buf, len);
+        _stream->write(buf, len);
     }
 
     auto size = mavlinkOutputBuffer.size();
@@ -125,7 +125,7 @@ void SerialMavlink::sendQueuedData(uint32_t maxBytesToSend)
 
     for (uint8_t i = 0; i < size; ++i)
     {
-        uint8_t c = apBuf[i];
+        const uint8_t c = apBuf[i];
 
         mavlink_message_t msg;
         mavlink_status_t status;
@@ -138,7 +138,7 @@ void SerialMavlink::sendQueuedData(uint32_t maxBytesToSend)
             // Forward message to the UART
             uint8_t buf[MAVLINK_MAX_PACKET_LEN];
             uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-            _outputPort->write(buf, len);
+            _stream->write(buf, len);
         }
     }
 }
