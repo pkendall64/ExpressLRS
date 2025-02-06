@@ -11,10 +11,8 @@ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE
 COMPANY SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR 
 CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 ************************************************************************************/
-
-#if defined(TARGET_RX)
-
 #pragma once
+
 #include "SerialIO.h"
 
 #define MSP_STATUS          101
@@ -38,16 +36,21 @@ struct msp_status_DJI_t
 
 ////////////////////////////
 
-class SerialDisplayport : public SerialIO
+class SerialDisplayport final : public SerialIO
 {
 public:
-    explicit SerialDisplayport(HardwareSerial &stream) : SerialIO(&stream), m_receivedBytes(0), m_receivedTimestamp(0) {}
-    ~SerialDisplayport() override {}
+    explicit SerialDisplayport(HardwareSerial &stream, const int8_t txPin) :
+        SerialIO(&stream, 115200, SERIAL_8N1, UNDEF_PIN, txPin, false),
+        m_receivedBytes(0),
+        m_receivedTimestamp(0) {
+    }
+    ~SerialDisplayport() override = default;
 
     void queueLinkStatisticsPacket() override {}
-    void queueMSPFrameTransmission(uint8_t* data) override {};
-    void sendQueuedData(uint32_t maxBytesToSend) override {};
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
+    void queueMSPFrameTransmission(uint8_t* data) override {}
+    void sendQueuedData(uint32_t maxBytesToSend) override {}
+
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
 
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
@@ -57,5 +60,3 @@ private:
     uint8_t m_receivedBytes;
     uint32_t m_receivedTimestamp;
 };
-
-#endif // defined(TARGET_RX)

@@ -18,8 +18,8 @@
 class SerialIO {
 public:
 
-    explicit SerialIO(HardwareSerial *stream) : _stream(stream) {}
-    virtual ~SerialIO() {}
+    explicit SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert);
+    virtual ~SerialIO() = default;
 
     /**
      * @brief Set the Failsafe flag
@@ -65,7 +65,7 @@ public:
      * @param channelData pointer to the 16 channels of data
      * @return number of milliseconds to delay before this method is called again
      */
-    virtual uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) = 0;
+    virtual int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) = 0;
 
     /**
      * @brief send any previously queued data to the serial port stream `_outputPort`
@@ -115,7 +115,7 @@ protected:
     /// @brief flag that indicates the receiver is in the failsafe state
     bool failsafe = false;
 
-    static const uint32_t SERIAL_OUTPUT_FIFO_SIZE = 256U;
+    static constexpr uint32_t SERIAL_OUTPUT_FIFO_SIZE = 256U;
 
 
     /**

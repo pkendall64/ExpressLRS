@@ -1,5 +1,4 @@
 #include "SerialGPS.h"
-#include "msptypes.h"
 #include <crsf_protocol.h>
 #include <telemetry.h>
 

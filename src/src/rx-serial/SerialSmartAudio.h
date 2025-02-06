@@ -1,3 +1,5 @@
+#pragma once
+
 #include "SerialIO.h"
 #include "crc.h"
 
@@ -12,26 +14,29 @@
 // band/channel or frequency in MHz (3 bits for band and 3 bits for channel)
 #define VTXCOMMON_MSP_BANDCHAN_CHKVAL ((uint16_t)((7 << 3) + 7))
 
-class SerialSmartAudio : public SerialIO {
+class SerialSmartAudio final : public SerialIO {
 public:
-    explicit SerialSmartAudio(HardwareSerial &stream, int8_t serial1TXpin) : SerialIO(&stream) {
+    explicit SerialSmartAudio(HardwareSerial &stream, const int8_t txPin) :
+        SerialIO(&stream, 4800, SERIAL_8N2, UNDEF_PIN, txPin, false) {
 #if defined(PLATFORM_ESP32)
         // we are on UART1, use Serial1 TX assigned pin for half duplex
         UTXDoutIdx = U1TXD_OUT_IDX;
         URXDinIdx = U1RXD_IN_IDX;
-        halfDuplexPin = serial1TXpin;
+        halfDuplexPin = txPin;
 #endif
         setRXMode();
     }
-    virtual ~SerialSmartAudio() {}
+
+    ~SerialSmartAudio() override = default;
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t* data) override;
     void sendQueuedData(uint32_t maxBytesToSend) override;
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
+
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 
 private:
-    void processBytes(uint8_t *bytes, uint16_t size) override {};
+    void processBytes(uint8_t *bytes, uint16_t size) override {}
     void setTXMode() const;
     void setRXMode() const;
 #if defined(PLATFORM_ESP32)

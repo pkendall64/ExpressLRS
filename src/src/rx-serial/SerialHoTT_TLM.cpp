@@ -1,5 +1,3 @@
-#if defined(TARGET_RX)
-
 #include "SerialHoTT_TLM.h"
 #include "FIFO.h"
 #include "telemetry.h"
@@ -513,5 +511,3 @@ uint32_t SerialHoTT_TLM::htobe24(uint32_t val)
     return val;
 #endif
 }
-
-#endif

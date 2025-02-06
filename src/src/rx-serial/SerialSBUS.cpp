@@ -3,15 +3,13 @@
 #include "device.h"
 #include "config.h"
 
-#if defined(TARGET_RX)
-
 #define SBUS_FLAG_SIGNAL_LOSS       (1 << 2)
 #define SBUS_FLAG_FAILSAFE_ACTIVE   (1 << 3)
 
 const auto UNCONNECTED_CALLBACK_INTERVAL_MS = 10;
 const auto SBUS_CALLBACK_INTERVAL_MS = 9;
 
-uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     static auto sendPackets = false;
     bool effectivelyFailsafed = failsafe || (!connectionHasModelMatch) || (!teamraceHasModelMatch);
@@ -78,5 +76,3 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     _stream->write((uint8_t)0x00);    // FOOTER
     return SBUS_CALLBACK_INTERVAL_MS;
 }
-
-#endif
