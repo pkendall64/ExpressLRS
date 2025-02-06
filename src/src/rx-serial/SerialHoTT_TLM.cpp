@@ -27,7 +27,7 @@
 
 extern Telemetry telemetry;
 
-SerialHoTT_TLM::SerialHoTT_TLM(Stream &stream, const int8_t serial1TXpin)
+SerialHoTT_TLM::SerialHoTT_TLM(HardwareSerial &stream, const int8_t serial1TXpin)
     : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)

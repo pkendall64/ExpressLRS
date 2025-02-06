@@ -21,7 +21,7 @@ typedef struct {
 
 class SerialGPS final : public SerialIO {
 public:
-    explicit SerialGPS(Stream &stream) : SerialIO(&stream) {}
+    explicit SerialGPS(HardwareSerial &stream) : SerialIO(&stream) {}
     ~SerialGPS() override = default;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;

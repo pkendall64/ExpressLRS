@@ -19,7 +19,7 @@
 
 GENERIC_CRC8 crc(SMARTAUDIO_CRC_POLY);
 
-SerialSmartAudio::SerialSmartAudio(Stream &stream, int8_t serial1TXpin) : SerialIO(&stream)
+SerialSmartAudio::SerialSmartAudio(HardwareSerial &stream, int8_t serial1TXpin) : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)
     // we are on UART1, use Serial1 TX assigned pin for half-duplex
