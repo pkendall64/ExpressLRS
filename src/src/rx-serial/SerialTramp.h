@@ -6,7 +6,7 @@
 
 class SerialTramp final : public SerialIO, public CRSFConnector {
 public:
-    SerialTramp(Stream &stream, int8_t serial1TXpin);
+    SerialTramp(HardwareSerial &stream, int8_t serial1TXpin);
     ~SerialTramp() override;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;

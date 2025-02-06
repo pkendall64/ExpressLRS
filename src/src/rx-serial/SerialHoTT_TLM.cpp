@@ -32,7 +32,7 @@ constexpr uint8_t SIZE_8BIT = 1;
 constexpr uint8_t SIZE_16BIT = 2;
 constexpr uint8_t SIZE_24BIT = 3;
 
-SerialHoTT_TLM::SerialHoTT_TLM(Stream &stream, const int8_t serial1TXpin)
+SerialHoTT_TLM::SerialHoTT_TLM(HardwareSerial &stream, const int8_t serial1TXpin)
     : SerialIO(&stream)
 {
 #if defined(PLATFORM_ESP32)

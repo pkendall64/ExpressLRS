@@ -15,7 +15,7 @@
 class SerialIO {
 public:
 
-    explicit SerialIO(Stream *stream) : _stream(stream) {}
+    explicit SerialIO(HardwareSerial *stream) : _stream(stream) {}
     virtual ~SerialIO() = default;
 
     /**
