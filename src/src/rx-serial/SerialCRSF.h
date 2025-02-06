@@ -2,8 +2,8 @@
 
 class SerialCRSF : public SerialIO {
 public:
-    explicit SerialCRSF(Stream &out, Stream &in) : SerialIO(&out, &in) {}
-    virtual ~SerialCRSF() {}
+    explicit SerialCRSF(Stream &stream) : SerialIO(&stream) {}
+    ~SerialCRSF() override {}
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
     void queueMSPFrameTransmission(uint8_t* data) override;

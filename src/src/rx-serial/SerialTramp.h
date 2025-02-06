@@ -8,7 +8,7 @@
 
 class SerialTramp : public SerialIO {
 public:
-    explicit SerialTramp(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in) {
+    explicit SerialTramp(Stream &stream, int8_t serial1TXpin) : SerialIO(&stream) {
 #if defined(PLATFORM_ESP32)
         // we are on UART1, use Serial1 TX assigned pin for half duplex
         UTXDoutIdx = U1TXD_OUT_IDX;
@@ -17,7 +17,8 @@ public:
 #endif
         setRXMode();
     }
-    virtual ~SerialTramp() {}
+
+    ~SerialTramp() override {}
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t* data) override;
@@ -25,8 +26,8 @@ public:
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override {};
-    void setTXMode();
-    void setRXMode();
+    void setTXMode() const;
+    void setRXMode() const;
 #if defined(PLATFORM_ESP32)
     int8_t halfDuplexPin;
     uint8_t UTXDoutIdx;

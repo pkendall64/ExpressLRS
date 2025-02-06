@@ -52,11 +52,11 @@ uint32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, u
     status_DJI.DJI_ARMING_DISABLE_FLAGS_COUNT = 20;
     status_DJI.djiPackArmingDisabledFlags = (1 << 24);
     status_DJI.armingFlags = 0x0303;
-    send(MSP_STATUS_EX, &status_DJI, sizeof(status_DJI), _outputPort);
+    send(MSP_STATUS_EX, &status_DJI, sizeof(status_DJI), _stream);
 
     // Send status MSP
     status_DJI.armingFlags = 0x0000;
-    send(MSP_STATUS, &status_DJI, sizeof(status_DJI), _outputPort);
+    send(MSP_STATUS, &status_DJI, sizeof(status_DJI), _stream);
 
     return MSP_MSG_PERIOD_MS;   // Send MSP msgs to DJI at 10Hz
 }

@@ -5,7 +5,7 @@
 #include <hal/uart_ll.h>
 #endif
 
-void SerialTramp::setTXMode()
+void SerialTramp::setTXMode() const
 {
 #if defined(PLATFORM_ESP32)
     pinMode(halfDuplexPin, OUTPUT);                                 // set half duplex GPIO to OUTPUT
@@ -14,7 +14,7 @@ void SerialTramp::setTXMode()
 #endif
 }
 
-void SerialTramp::setRXMode()
+void SerialTramp::setRXMode() const
 {
 #if defined(PLATFORM_ESP32)
     pinMode(halfDuplexPin, INPUT_PULLUP);                           // set half duplex GPIO to INPUT
@@ -46,7 +46,7 @@ void SerialTramp::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _stream->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

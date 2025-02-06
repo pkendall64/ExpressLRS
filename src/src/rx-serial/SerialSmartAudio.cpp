@@ -7,7 +7,7 @@
 
 GENERIC_CRC8 crc(SMARTAUDIO_CRC_POLY);
 
-void SerialSmartAudio::setTXMode()
+void SerialSmartAudio::setTXMode() const
 {
 #if defined(PLATFORM_ESP32)
     pinMode(halfDuplexPin, OUTPUT);                                 // set half duplex GPIO to OUTPUT
@@ -16,7 +16,7 @@ void SerialSmartAudio::setTXMode()
 #endif
 }
 
-void SerialSmartAudio::setRXMode()
+void SerialSmartAudio::setRXMode() const
 {
 #if defined(PLATFORM_ESP32)
     pinMode(halfDuplexPin, INPUT_PULLUP);                           // set half duplex GPIO to INPUT
@@ -37,7 +37,7 @@ void SerialSmartAudio::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _stream->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

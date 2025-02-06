@@ -135,7 +135,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
 
         // switch to half duplex TX mode and write CMD byte 1
         setTXMode();
-        _outputPort->write(START_OF_CMD_B);
+        _stream->write(START_OF_CMD_B);
         cmdSendState = HOTT_CMD1SENT;
         return;
     }
@@ -143,7 +143,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
     // delay sending CMD byte 2 to accomodate for slow devices
     if ((now - lastPoll >= HOTT_CMD_DELAY) && cmdSendState == HOTT_CMD1SENT)
     {
-        _outputPort->write(nextDeviceID);
+        _stream->write(nextDeviceID);
         cmdSendState = HOTT_CMD2SENT;
         return;
     }

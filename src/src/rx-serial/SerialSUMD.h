@@ -3,8 +3,8 @@
 
 class SerialSUMD : public SerialIO {
 public:
-    explicit SerialSUMD(Stream &out, Stream &in) : SerialIO(&out, &in) { crc2Byte.init(16, 0x1021); }
-    virtual ~SerialSUMD() {}
+    explicit SerialSUMD(Stream &stream) : SerialIO(&stream) { crc2Byte.init(16, 0x1021); }
+    ~SerialSUMD() override {}
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t* data) override {}

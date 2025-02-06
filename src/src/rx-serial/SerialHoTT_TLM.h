@@ -263,8 +263,7 @@ enum {
 class SerialHoTT_TLM : public SerialIO
 {
 public:
-    explicit SerialHoTT_TLM(Stream &out, Stream &in, int8_t serial1TXpin = UNDEF_PIN)
-        : SerialIO(&out, &in)
+    explicit SerialHoTT_TLM(Stream &stream, int8_t serial1TXpin = UNDEF_PIN) : SerialIO(&stream)
     {       
 #if defined(PLATFORM_ESP32)
         if (serial1TXpin == UNDEF_PIN)
@@ -291,7 +290,7 @@ public:
         cmdSendState = HOTT_RECEIVING;
     }
 
-    virtual ~SerialHoTT_TLM() {}
+    ~SerialHoTT_TLM() override {}
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t *data) override {}

@@ -17,8 +17,8 @@ typedef struct {
 
 class SerialGPS : public SerialIO {
 public:
-    explicit SerialGPS(Stream &out, Stream &in) : SerialIO(&out, &in) {}
-    virtual ~SerialGPS() {}
+    explicit SerialGPS(Stream &stream) : SerialIO(&stream) {}
+    ~SerialGPS() override {}
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t* data) override;
@@ -26,7 +26,7 @@ public:
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
-    void sendTelemetryFrame();
+    void sendTelemetryFrame() const;
     void processSentence(uint8_t *sentence, uint8_t size);
     GpsData gpsData = {0};
 };

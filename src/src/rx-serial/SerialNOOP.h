@@ -4,8 +4,8 @@
 
 class SerialNOOP : public SerialIO {
 public:
-    explicit SerialNOOP() : SerialIO(nullptr, nullptr) {}
-    virtual ~SerialNOOP() {}
+    explicit SerialNOOP() : SerialIO(nullptr) {}
+    ~SerialNOOP() override {}
 
     void queueLinkStatisticsPacket() override {}
     void queueMSPFrameTransmission(uint8_t* data) override {}

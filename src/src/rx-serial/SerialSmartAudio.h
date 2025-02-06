@@ -14,7 +14,7 @@
 
 class SerialSmartAudio : public SerialIO {
 public:
-    explicit SerialSmartAudio(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in) {
+    explicit SerialSmartAudio(Stream &stream, int8_t serial1TXpin) : SerialIO(&stream) {
 #if defined(PLATFORM_ESP32)
         // we are on UART1, use Serial1 TX assigned pin for half duplex
         UTXDoutIdx = U1TXD_OUT_IDX;
@@ -32,8 +32,8 @@ public:
 
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override {};
-    void setTXMode();
-    void setRXMode();
+    void setTXMode() const;
+    void setRXMode() const;
 #if defined(PLATFORM_ESP32)
     int8_t halfDuplexPin;
     uint8_t UTXDoutIdx;
