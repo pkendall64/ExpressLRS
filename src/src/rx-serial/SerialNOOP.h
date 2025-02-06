@@ -4,7 +4,7 @@
 
 class SerialNOOP final : public SerialIO {
 public:
-    explicit SerialNOOP() : SerialIO(nullptr, nullptr) {}
+    explicit SerialNOOP() : SerialIO(nullptr) {}
     ~SerialNOOP() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return  DURATION_NEVER; }

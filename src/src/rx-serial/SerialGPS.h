@@ -24,7 +24,7 @@ typedef struct
 
 class SerialGPS final : public SerialIO {
 public:
-    explicit SerialGPS(Stream &out, Stream &in) : SerialIO(&out, &in) {}
+    explicit SerialGPS(HardwareSerial &stream) : SerialIO(&stream) {}
     ~SerialGPS() override = default;
 
     typedef void (*gpsFieldParser_t)(SerialGPS *ctx, uint8_t fieldIdx, char *field);

@@ -182,35 +182,35 @@ static void setupSerial()
 
     if (firmwareOptions.is_airport)
     {
-        serialIO = new SerialAirPort(Serial, Serial);
+        serialIO = new SerialAirPort(Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
-        serialIO = new SerialSBUS(Serial, Serial, config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO);
+        serialIO = new SerialSBUS(Serial, config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
     {
-        serialIO = new SerialSUMD(Serial, Serial);
+        serialIO = new SerialSUMD(Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
-        serialIO = new SerialMavlink(Serial, Serial);
+        serialIO = new SerialMavlink(Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
     {
-        serialIO = new SerialDisplayport(Serial, Serial);
+        serialIO = new SerialDisplayport(Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_GPS)
     {
-        serialIO = new SerialGPS(Serial, Serial);
+        serialIO = new SerialGPS(Serial);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
     {
-        serialIO = new SerialHoTT_TLM(Serial, Serial);
+        serialIO = new SerialHoTT_TLM(Serial);
     }
     else
     {
-        serialIO = new SerialCRSF(Serial, Serial);
+        serialIO = new SerialCRSF(Serial);
     }
 
 #if defined(DEBUG_ENABLED)
@@ -297,44 +297,44 @@ static void setupSerial1()
         break;
     case PROTOCOL_SERIAL1_CRSF:
         Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialCRSF(Serial1, Serial1);
+        serial1IO = new SerialCRSF(Serial1);
         break;
     case PROTOCOL_SERIAL1_INVERTED_CRSF:
         Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
-        serial1IO = new SerialCRSF(Serial1, Serial1);
+        serial1IO = new SerialCRSF(Serial1);
         break;
     case PROTOCOL_SERIAL1_SBUS:
     case PROTOCOL_SERIAL1_DJI_RS_PRO:
         Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
-        serial1IO = new SerialSBUS(Serial1, Serial1, config.GetSerial1Protocol() == PROTOCOL_SERIAL1_DJI_RS_PRO);
+        serial1IO = new SerialSBUS(Serial1, config.GetSerial1Protocol() == PROTOCOL_SERIAL1_DJI_RS_PRO);
         break;
     case PROTOCOL_SERIAL1_INVERTED_SBUS:
         Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSBUS(Serial1, Serial1, false);
+        serial1IO = new SerialSBUS(Serial1, false);
         break;
     case PROTOCOL_SERIAL1_SUMD:
         Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSUMD(Serial1, Serial1);
+        serial1IO = new SerialSUMD(Serial1);
         break;
     case PROTOCOL_SERIAL1_HOTT_TLM:
         Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialHoTT_TLM(Serial1, Serial1, serial1TXpin);
+        serial1IO = new SerialHoTT_TLM(Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_TRAMP:
         Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialTramp(Serial1, Serial1, serial1TXpin);
+        serial1IO = new SerialTramp(Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_SMARTAUDIO:
         Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialSmartAudio(Serial1, Serial1, serial1TXpin);
+        serial1IO = new SerialSmartAudio(Serial1, serial1TXpin);
         break;
     case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
         Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-        serial1IO = new SerialDisplayport(Serial1, Serial1);
+        serial1IO = new SerialDisplayport(Serial1);
         break;
     case PROTOCOL_SERIAL1_GPS:
         Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-        serial1IO = new SerialGPS(Serial1, Serial1);
+        serial1IO = new SerialGPS(Serial1);
         break;
     }
 }

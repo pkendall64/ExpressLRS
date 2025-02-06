@@ -241,7 +241,7 @@ void SerialGPS::sendGpsTimeTelemetryFrame()
     gpsData.year = 0;
 }
 
-void SerialGPS::sendTelemetryFrame()
+void SerialGPS::sendTelemetryFrame() const
 {
     CRSF_MK_FRAME_T(crsf_sensor_gps_t) crsfgps{};
     crsfgps.p.latitude = htobe32(gpsData.lat);

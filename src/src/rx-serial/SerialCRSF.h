@@ -6,8 +6,8 @@
 
 class SerialCRSF final : public SerialIO, public CRSFConnector {
 public:
-    explicit SerialCRSF(Stream &out, Stream &in)
-        : SerialIO(&out, &in)
+    explicit SerialCRSF(HardwareSerial &stream)
+        : SerialIO(&stream)
     {
         crsfRouter.addConnector(this);
     }

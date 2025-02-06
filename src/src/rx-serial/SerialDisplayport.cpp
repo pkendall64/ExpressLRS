@@ -18,7 +18,7 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 #include "OTA.h"
 #include "options.h"
 
-void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size, Stream * _stream)
+void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size) const
 {
     _stream->write('$');
     _stream->write('M');
@@ -54,10 +54,10 @@ uint32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, u
     status.extra_flags = 0;
 
     // Send status MSP
-    send(MSP_STATUS, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS, &status, sizeof(status));
 
     // Send extended status MSP
-    send(MSP_STATUS_EX, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS_EX, &status, sizeof(status));
 
     return MSP_MSG_PERIOD_MS;   // Send MSP msgs to DJI at 10Hz
 }

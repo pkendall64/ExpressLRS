@@ -75,7 +75,7 @@ uint32_t SerialSUMD::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
 	  outBuffer[35] = (uint8_t)(crc >> 8);
 	  outBuffer[36] = (uint8_t)(crc & 0x00ff);
 
-	  _outputPort->write(outBuffer, sizeof(outBuffer));
+	  _stream->write(outBuffer, sizeof(outBuffer));
 
     return SUMD_CALLBACK_INTERVAL_MS;
 }
