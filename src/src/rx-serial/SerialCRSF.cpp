@@ -27,7 +27,7 @@ void SerialCRSF::forwardMessage(const crsf_header_t *message)
     }
 }
 
-uint32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     if (!frameAvailable)
         return DURATION_IMMEDIATELY;

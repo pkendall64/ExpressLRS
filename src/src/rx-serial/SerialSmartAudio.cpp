@@ -19,13 +19,14 @@
 
 GENERIC_CRC8 crc(SMARTAUDIO_CRC_POLY);
 
-SerialSmartAudio::SerialSmartAudio(HardwareSerial &stream, int8_t serial1TXpin) : SerialIO(&stream)
+SerialSmartAudio::SerialSmartAudio(HardwareSerial &stream, const int8_t txPin)
+    : SerialIO(&stream, 4800, SERIAL_8N2, UNDEF_PIN, txPin, false)
 {
 #if defined(PLATFORM_ESP32)
     // we are on UART1, use Serial1 TX assigned pin for half-duplex
     UTXDoutIdx = U1TXD_OUT_IDX;
     URXDinIdx = U1RXD_IN_IDX;
-    halfDuplexPin = serial1TXpin;
+    halfDuplexPin = txPin;
 #endif
     setRXMode();
     crsfRouter.addConnector(this);
