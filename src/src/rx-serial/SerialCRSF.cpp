@@ -48,7 +48,7 @@ void SerialCRSF::sendQueuedData(uint32_t maxBytesToSend)
     SerialIO::sendQueuedData(maxBytesToSend - bytesWritten);
 }
 
-uint32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     if (!frameAvailable)
         return DURATION_IMMEDIATELY;

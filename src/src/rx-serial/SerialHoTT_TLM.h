@@ -1,7 +1,5 @@
 #pragma once
 
-#if defined(TARGET_RX)
-
 #include "SerialIO.h"
 #include "device.h"
 
@@ -21,15 +19,15 @@
 
 #define START_OF_CMD_B 0x80    // start byte of HoTT binary cmd sequence
 #define SENSOR_ID_GPS_B 0x8A   // device ID binary mode GPS module
-#define SENSOR_ID_GPS_T 0xA0   // device ID for text mode adressing
+#define SENSOR_ID_GPS_T 0xA0   // device ID for text mode addressing
 #define SENSOR_ID_GAM_B 0x8D   // device ID binary mode GAM module
-#define SENSOR_ID_GAM_T 0xD0   // device ID for text mode adressing
+#define SENSOR_ID_GAM_T 0xD0   // device ID for text mode addressing
 #define SENSOR_ID_EAM_B 0x8E   // device ID binary mode EAM module
-#define SENSOR_ID_EAM_T 0xE0   // device ID for text mode adressing
+#define SENSOR_ID_EAM_T 0xE0   // device ID for text mode addressing
 #define SENSOR_ID_ESC_B 0x8C   // device ID binary mode ESC module
-#define SENSOR_ID_ESC_T 0xC0   // device ID for text mode adressing
+#define SENSOR_ID_ESC_T 0xC0   // device ID for text mode addressing
 #define SENSOR_ID_VARIO_B 0x89 // device ID binary mode VARIO module
-#define SENSOR_ID_VARIO_T 0x90 // device ID for text mode adressing
+#define SENSOR_ID_VARIO_T 0x90 // device ID for text mode addressing
 
 //
 // GAM data frame data structure
@@ -161,7 +159,7 @@ typedef struct
     uint8_t electricSec = 0;                  // 40 Electric seconds.
     uint16_t speed = 0;                       // 41 speed in km/h. Steps 1km/h
     uint8_t endByte = END_FRAME;              // 43 0x7D
-    uint8_t Crc;                              // 44 CRC
+    uint8_t Crc = 0;                          // 44 CRC
 } PACKED ElectricAirPacket_t;
 
 //
@@ -202,7 +200,7 @@ typedef struct HOTT_AIRESC_MSG_s
     uint8_t turbineNumber = 0;                // 41 engine number (200 = #1, 201 = #2)
     uint8_t version = 3;                      // 42 version number = 3 for new protocol
     uint8_t endByte = END_FRAME;              // 43 0x7D
-    uint8_t crc;                              // 44 CRC
+    uint8_t crc = 0;                          // 44 CRC
 } PACKED AirESCPacket_t;
 
 //
@@ -221,14 +219,14 @@ typedef struct HOTT_VARIO_MSG_s
     uint16_t mPerSec = 30000;                   // 11 Climb rate in m/s. Steps of 0.01m/s. Value of 30000 = 0.00 m/s
     uint16_t mPerSec3s = 30000;                 // 13 Climb rate in m/3s. Steps of 0.01m/3s. Value of 30000 = 0.00 m/3s
     uint16_t mPerSec10s = 30000;                // 15 Climb rate m/10s. Steps of 0.01m/10s. Value of 30000 = 0.00 m/10s
-    uint8_t textMsg[21];                        // 17 Free ASCII text message
+    uint8_t textMsg[21] = {};                   // 17 Free ASCII text message
     uint8_t freeChar1 = ' ';                    // 38 Free ASCII character.  appears right to home distance
     uint8_t freeChar2 = ' ';                    // 39 Free ASCII character.  appears right to home direction
     uint8_t freeChar3 = ' ';                    // 40 Free ASCII character.  appears? TODO: Check where this char appears
     uint8_t compassDir = 0;                     // 41 Compass heading in 2 degrees steps. 1 = 2 degrees
     uint8_t version = 0;                        // 42 version number = 3 for new protocol
     uint8_t endByte = END_FRAME;                // 43 0x7D
-    uint8_t crc;                                // 44 CRC
+    uint8_t crc = 0;                            // 44 CRC
 } PACKED VarioPacket_t;
 
 typedef struct
@@ -263,10 +261,10 @@ enum {
 class SerialHoTT_TLM final : public SerialIO
 {
 public:
-    SerialHoTT_TLM(HardwareSerial &stream, int8_t serial1TXpin = UNDEF_PIN);
+    SerialHoTT_TLM(HardwareSerial &stream, int8_t rxPin, int8_t txPin);
     ~SerialHoTT_TLM() override = default;
 
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };
 
     int getMaxSerialReadSize() override;
     void sendQueuedData(uint32_t maxBytesToSend) override;
@@ -317,19 +315,20 @@ private:
     // received HoTT bus fra,e
     hottBusFrame_t hottBusFrame{};
 
-    // discoverd devices
+    // discovered devices
     hottDevice_t device[LAST_DEVICE] = {
         {SENSOR_ID_GPS_B, false},
         {SENSOR_ID_EAM_B, false},
         {SENSOR_ID_GAM_B, false},
         {SENSOR_ID_ESC_B, false},
-        {SENSOR_ID_VARIO_B, false}};
+        {SENSOR_ID_VARIO_B, false},
+    };
 
     FIFO<HOTT_MAX_BUF_LEN> hottInputBuffer;
 
     bool discoveryMode = true;
     uint8_t nextDevice = FIRST_DEVICE;
-    uint8_t nextDeviceID{};
+    uint8_t nextDeviceID = 0;
 
     uint32_t lastPoll;
     uint8_t cmdSendState;
@@ -348,5 +347,3 @@ private:
     const int32_t MinScale = 1000000L;
     const int32_t DegScale = 10000000L;
 };
-
-#endif

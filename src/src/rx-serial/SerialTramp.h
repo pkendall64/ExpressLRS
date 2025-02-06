@@ -10,11 +10,11 @@ public:
     ~SerialTramp() override;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;
-    uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
+    int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 
     void forwardMessage(const crsf_header_t *message) override;
 private:
-    void processBytes(uint8_t *bytes, uint16_t size) override {};
+    void processBytes(uint8_t *bytes, uint16_t size) override {}
     void setTXMode() const;
     void setRXMode() const;
 #if defined(PLATFORM_ESP32)
