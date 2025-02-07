@@ -7,8 +7,8 @@
 
 class SerialAirPort final : public SerialIO {
 public:
-    explicit SerialAirPort(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin) :
-        SerialIO(&stream, firmwareOptions.uart_baud, SERIAL_8N1, rxPin, txPin, false) {}
+    SerialAirPort(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin)
+        : SerialIO(&stream, firmwareOptions.uart_baud, SERIAL_8N1, rxPin, txPin, false) {}
     ~SerialAirPort() override = default;
 
     int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;

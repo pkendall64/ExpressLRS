@@ -22,9 +22,11 @@ typedef struct
     uint16_t millisecond;
 } GpsData;
 
-class SerialGPS final : public SerialIO {
+class SerialGPS final : public SerialIO
+{
 public:
-    explicit SerialGPS(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin) : SerialIO(&stream, 115200, SERIAL_8N1, rxPin, txPin, false) {}
+    SerialGPS(HardwareSerial &stream, const int8_t rxPin, const int8_t txPin)
+        : SerialIO(&stream, 115200, SERIAL_8N1, rxPin, txPin, false) {}
     ~SerialGPS() override = default;
 
     typedef void (*gpsFieldParser_t)(SerialGPS *ctx, uint8_t fieldIdx, char *field);
@@ -32,9 +34,10 @@ public:
     void sendQueuedData(uint32_t maxBytesToSend) override;
 
     int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
+
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
-    void sendTelemetryFrame();
+    void sendTelemetryFrame() const;
     void sendGpsTimeTelemetryFrame();
     bool isValidChecksum(char *sentence, uint8_t size);
     void processSentence(char *sentence, uint8_t size);

@@ -12,33 +12,39 @@ void SerialGPS::sendQueuedData(uint32_t maxBytesToSend)
 *   Ex: "0.442" with scale 100 returns 44
 *   Ex: "123.456" with scale 1000 returns 123456
 */
-static int32_t parseDecimalToScaled(const char* str, int32_t scale) {
+static int32_t parseDecimalToScaled(const char* str, const int32_t scale)
+{
     char *end;
-    int32_t whole = strtol(str, &end, 10);
+    const int32_t whole = strtol(str, &end, 10);
     int32_t result = whole * scale;
 
-    if (*end == '.') {
-        const char* dec = end + 1;
+    if (*end == '.')
+    {
+        const char *dec = end + 1;
         int32_t divisor = 1;
         int32_t decimalPart = 0;
 
         // Count decimal places in scale
         int32_t scaleDecimals = 0;
         int32_t tempScale = scale;
-        while (tempScale > 1) {
+        while (tempScale > 1)
+        {
             scaleDecimals++;
             tempScale /= 10;
         }
 
         // Process up to scaleDecimals digits
-        for (int i = 0; i < scaleDecimals && dec[i] != '\0'; i++) {
+        for (int i = 0; i < scaleDecimals && dec[i] != '\0'; i++)
+        {
             decimalPart = decimalPart * 10 + (dec[i] - '0');
             divisor *= 10;
         }
 
         // Scale the decimal part
-        if (divisor > 1) {
-            while (divisor < scale) {
+        if (divisor > 1)
+        {
+            while (divisor < scale)
+            {
                 decimalPart *= 10;
                 divisor *= 10;
             }
@@ -70,7 +76,7 @@ static int32_t nmeaDdmToDd(const char *field)
 bool SerialGPS::isValidChecksum(char *sentence, uint8_t size)
 {
     // Could also check for the \r\n but we know it at least has the \n to get here
-    if (size < 6 || sentence[0] != '$' || sentence[size-5] != '*')
+    if (size < 6 || sentence[0] != '$' || sentence[size - 5] != '*')
     {
         DBGLN("NMEA invalid");
         return false;
@@ -78,12 +84,12 @@ bool SerialGPS::isValidChecksum(char *sentence, uint8_t size)
 
     // Checksum in a NMEA packet starts after the $ and stops before the *XX and is a simple XOR
     uint8_t csumCalculated = 0;
-    for (unsigned b=1; b<size-5; ++b)
+    for (unsigned b = 1; b < size - 5; ++b)
     {
         csumCalculated ^= sentence[b];
     }
 
-    uint8_t csumSentence = strtol((char *)&sentence[size-4], nullptr, 16);
+    uint8_t csumSentence = strtol((char *)&sentence[size - 4], nullptr, 16);
     if (csumCalculated != csumSentence)
     {
         DBGLN("NMEA csum");
@@ -98,14 +104,14 @@ void SerialGPS::splitSentenceFields(char *sentence, uint8_t size, gpsFieldParser
     uint8_t fieldIdx = 0;
     char *fieldStart = sentence;
 
-    //sentence[size] = 0; DBG(sentence);
-    for (unsigned i=0; i<size; ++i)
+    // sentence[size] = 0; DBG(sentence);
+    for (unsigned i = 0; i < size; ++i)
     {
         if (sentence[i] == ',' || sentence[i] == '*')
         {
             sentence[i] = 0;
             callback(this, fieldIdx, fieldStart);
-            fieldStart = &sentence[i+1];
+            fieldStart = &sentence[i + 1];
             ++fieldIdx;
         }
     }
@@ -117,27 +123,27 @@ void SerialGPS::fieldParseGGA(SerialGPS *ctx, uint8_t fieldIdx, char *field)
 
     switch (fieldIdx)
     {
-        case 2:
-            ctx->gpsData.lat = (blank) ? 0 : nmeaDdmToDd(field);
-            break;
-        case 3:
-            if (field[0] == 'S')
-                ctx->gpsData.lat = -ctx->gpsData.lat;
-            break;
-        case 4:
-            ctx->gpsData.lon = (blank) ? 0 : nmeaDdmToDd(field);
-            break;
-        case 5:
-            if (field[0] == 'W')
-                ctx->gpsData.lon = -ctx->gpsData.lon;
-            break;
-        case 7:
-            ctx->gpsData.satellites = atoi(field);
-            break;
-        case 9:
-            ctx->gpsData.alt = (blank) ? 0 : parseDecimalToScaled(field, 100);;
-            break;
-
+    case 2:
+        ctx->gpsData.lat = (blank) ? 0 : nmeaDdmToDd(field);
+        break;
+    case 3:
+        if (field[0] == 'S')
+            ctx->gpsData.lat = -ctx->gpsData.lat;
+        break;
+    case 4:
+        ctx->gpsData.lon = (blank) ? 0 : nmeaDdmToDd(field);
+        break;
+    case 5:
+        if (field[0] == 'W')
+            ctx->gpsData.lon = -ctx->gpsData.lon;
+        break;
+    case 7:
+        ctx->gpsData.satellites = atoi(field);
+        break;
+    case 9:
+        ctx->gpsData.alt = (blank) ? 0 : parseDecimalToScaled(field, 100);
+        ;
+        break;
     }
 }
 
@@ -147,12 +153,12 @@ void SerialGPS::fieldParseVTG(SerialGPS *ctx, uint8_t fieldIdx, char *field)
 
     switch (fieldIdx)
     {
-        case 1:
-            ctx->gpsData.heading = (blank) ? 0 : parseDecimalToScaled(field, 100);
-            break;
-        case 7:
-            ctx->gpsData.speed = (blank) ? 0 : parseDecimalToScaled(field, 100);
-            break;
+    case 1:
+        ctx->gpsData.heading = (blank) ? 0 : parseDecimalToScaled(field, 100);
+        break;
+    case 7:
+        ctx->gpsData.speed = (blank) ? 0 : parseDecimalToScaled(field, 100);
+        break;
     }
 }
 
@@ -189,14 +195,16 @@ void SerialGPS::fieldParseRMC(SerialGPS *ctx, uint8_t fieldIdx, char *field)
 
 void SerialGPS::processSentence(char *sentence, uint8_t size)
 {
-    if (sentence[3] == 'G' && sentence[4] == 'G' && sentence[5] == 'A') {
+    if (sentence[3] == 'G' && sentence[4] == 'G' && sentence[5] == 'A')
+    {
         splitSentenceFields(sentence, size, &fieldParseGGA);
         sendTelemetryFrame();
     }
-    else if (sentence[3] == 'V' && sentence[4] == 'T' && sentence[5] == 'G') {
+    else if (sentence[3] == 'V' && sentence[4] == 'T' && sentence[5] == 'G')
+    {
         splitSentenceFields(sentence, size, &fieldParseVTG);
         // VTG usually comes before GGA, only generate one telemetry frame with both combined
-        //sendTelemetryFrame();
+        // sendTelemetryFrame();
     }
     else if (sentence[3] == 'R' && sentence[4] == 'M' && sentence[5] == 'C') {
         splitSentenceFields(sentence, size, &fieldParseRMC);
@@ -205,14 +213,17 @@ void SerialGPS::processSentence(char *sentence, uint8_t size)
     // Maybe we need to think about ZDA as well so we can adjust UTC to local time!
 }
 
-void SerialGPS::processBytes(uint8_t *bytes, uint16_t size)
+void SerialGPS::processBytes(uint8_t *bytes, const uint16_t size)
 {
-    for (uint16_t i = 0; i < size; i++) {
-        const char c = bytes[i];
-        if (nmeaBufferIndex < sizeof(nmeaBuffer)) {
+    for (uint16_t i = 0; i < size; i++)
+    {
+        char c = bytes[i];
+        if (nmeaBufferIndex < sizeof(nmeaBuffer))
+        {
             nmeaBuffer[nmeaBufferIndex++] = c;
         }
-        if (c == '\n') {
+        if (c == '\n')
+        {
             // Note that the buffer/size includes the \r\n
             if (isValidChecksum(nmeaBuffer, nmeaBufferIndex))
                 processSentence(nmeaBuffer, nmeaBufferIndex);
@@ -246,8 +257,8 @@ void SerialGPS::sendTelemetryFrame() const
     CRSF_MK_FRAME_T(crsf_sensor_gps_t) crsfgps{};
     crsfgps.p.latitude = htobe32(gpsData.lat);
     crsfgps.p.longitude = htobe32(gpsData.lon);
-    crsfgps.p.altitude = htobe16((int16_t)(gpsData.alt / 100 + 1000));
-    crsfgps.p.groundspeed = htobe16((uint16_t)(gpsData.speed / 10));
+    crsfgps.p.altitude = htobe16(static_cast<int16_t>(gpsData.alt / 100 + 1000));
+    crsfgps.p.groundspeed = htobe16(static_cast<uint16_t>(gpsData.speed / 10));
     crsfgps.p.satellites_in_use = gpsData.satellites;
     crsfgps.p.gps_heading = htobe16(gpsData.heading);
     crsfRouter.SetHeaderAndCrc(&crsfgps.h, CRSF_FRAMETYPE_GPS, CRSF_FRAME_SIZE(sizeof(crsf_sensor_gps_t)));
