@@ -51,38 +51,38 @@ void SerialCRSF::sendQueuedData(uint32_t maxBytesToSend)
 int32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
     if (!frameAvailable)
-        return DURATION_IMMEDIATELY;
-
-    crsf_channels_s PackedRCdataOut {};
-    PackedRCdataOut.ch0 = channelData[0];
-    PackedRCdataOut.ch1 = channelData[1];
-    PackedRCdataOut.ch2 = channelData[2];
-    PackedRCdataOut.ch3 = channelData[3];
-    PackedRCdataOut.ch4 = channelData[4];
-    PackedRCdataOut.ch5 = channelData[5];
-    PackedRCdataOut.ch6 = channelData[6];
-    PackedRCdataOut.ch7 = channelData[7];
-    PackedRCdataOut.ch8 = channelData[8];
-    PackedRCdataOut.ch9 = channelData[9];
-    PackedRCdataOut.ch10 = channelData[10];
-    PackedRCdataOut.ch11 = channelData[11];
-    PackedRCdataOut.ch12 = channelData[12];
-    PackedRCdataOut.ch13 = channelData[13];
-
-    // In 16ch mode, do not output RSSI/LQ on channels
-    if (OtaIsFullRes && OtaSwitchModeCurrent == smHybridOr16ch)
     {
-        PackedRCdataOut.ch14 = channelData[14];
-        PackedRCdataOut.ch15 = channelData[15];
+        return DURATION_IMMEDIATELY;
     }
-    else
+
+    crsf_channels_s PackedRCdataOut = {
+        .ch0 = channelData[0],
+        .ch1 = channelData[1],
+        .ch2 = channelData[2],
+        .ch3 = channelData[3],
+        .ch4 = channelData[4],
+        .ch5 = channelData[5],
+        .ch6 = channelData[6],
+        .ch7 = channelData[7],
+        .ch8 = channelData[8],
+        .ch9 = channelData[9],
+        .ch10 = channelData[10],
+        .ch11 = channelData[11],
+        .ch12 = channelData[12],
+        .ch13 = channelData[13],
+        .ch14 = channelData[14],
+        .ch15 = channelData[15],
+    };
+
+    // Not in 16-channel mode, send LQ and RSSI dBm
+    if (!OtaIsFullRes || OtaSwitchModeCurrent != smHybridOr16ch)
     {
         // Not in 16-channel mode, send LQ and RSSI dBm
-        int32_t rssiDBM = linkStats.active_antenna == 0 ? -linkStats.uplink_RSSI_1 : -linkStats.uplink_RSSI_2;
+        const int32_t rssiDBM = linkStats.active_antenna == 0 ? -linkStats.uplink_RSSI_1 : -linkStats.uplink_RSSI_2;
 
         PackedRCdataOut.ch14 = UINT10_to_CRSF(fmap(linkStats.uplink_Link_quality, 0, 100, 0, 1023));
         PackedRCdataOut.ch15 = UINT10_to_CRSF(map(constrain(rssiDBM, ExpressLRS_currAirRate_RFperfParams->RXsensitivity, -50),
-                                                   ExpressLRS_currAirRate_RFperfParams->RXsensitivity, -50, 0, 1023));
+                                                  ExpressLRS_currAirRate_RFperfParams->RXsensitivity, -50, 0, 1023));
     }
 
     constexpr uint8_t outBuffer[] = {
@@ -91,7 +91,7 @@ int32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t 
         // See https://github.com/tbs-fpv/tbs-crsf-spec/blob/main/crsf.md#frame-details
         CRSF_SYNC_BYTE,
         CRSF_FRAME_SIZE(sizeof(PackedRCdataOut)),
-        CRSF_FRAMETYPE_RC_CHANNELS_PACKED
+        CRSF_FRAMETYPE_RC_CHANNELS_PACKED,
     };
 
     uint8_t crc = crsfRouter.crsf_crc.calc(outBuffer[2]);
@@ -105,7 +105,7 @@ int32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t 
 
 void SerialCRSF::processBytes(uint8_t *bytes, uint16_t size)
 {
-    for (int i=0 ; i<size ; i++)
+    for (int i = 0; i < size; i++)
     {
         telemetry.RXhandleUARTin(this, bytes[i]);
     }

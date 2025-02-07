@@ -1,14 +1,14 @@
 /************************************************************************************
 Credits:
   This software is based on and uses software published by Richard Amiss 2023,
-  QLiteOSD, which is based on work by Paul Kurucz (pkuruz):opentelem_to_bst_bridge 
-  as well as software from d3ngit : djihdfpv_mavlink_to_msp_V2 and 
+  QLiteOSD, which is based on work by Paul Kurucz (pkuruz):opentelem_to_bst_bridge
+  as well as software from d3ngit : djihdfpv_mavlink_to_msp_V2 and
   crashsalot : VOT_to_DJIFPV
 
-THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES, WHETHER EXPRESS, 
-IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF 
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE 
-COMPANY SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR 
+THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES, WHETHER EXPRESS,
+IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE
+COMPANY SHALL NOT, IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
 CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 ************************************************************************************/
 
@@ -16,7 +16,7 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 #include "OTA.h"
 #include "options.h"
 
-void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size, Stream * _stream)
+void SerialDisplayport::send(const uint8_t messageID, void *payload, uint8_t size) const
 {
     _stream->write('$');
     _stream->write('M');
@@ -24,19 +24,19 @@ void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size, St
     _stream->write(size);
     _stream->write(messageID);
     uint8_t checksum = size ^ messageID;
-    uint8_t * payloadPtr = (uint8_t*)payload;
+    auto payloadPtr = static_cast<uint8_t *>(payload);
     for (uint8_t i = 0; i < size; ++i)
     {
-      uint8_t b = *(payloadPtr++);
-      checksum ^= b;
+        const uint8_t b = *payloadPtr++;
+        checksum ^= b;
     }
-    _stream->write((uint8_t*)payload, size);
+    _stream->write(static_cast<uint8_t *>(payload), size);
     _stream->write(checksum);
 }
 
 int32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
-    bool armed = getArmedState();
+    const bool armed = getArmedState();
 
     msp_status_t status;
     status.task_delta_time = 0;
@@ -52,12 +52,12 @@ int32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, ui
     status.extra_flags = 0;
 
     // Send status MSP
-    send(MSP_STATUS, &status, sizeof(status), _stream);
+    send(MSP_STATUS, &status, sizeof(status));
 
     // Send extended status MSP
-    send(MSP_STATUS_EX, &status, sizeof(status), _stream);
+    send(MSP_STATUS_EX, &status, sizeof(status));
 
-    return MSP_MSG_PERIOD_MS;   // Send MSP msgs to DJI at 10Hz
+    return MSP_MSG_PERIOD_MS; // Send MSP msgs to DJI at 10Hz
 }
 
 void SerialDisplayport::processBytes(uint8_t *bytes, u_int16_t size)
@@ -67,7 +67,7 @@ void SerialDisplayport::processBytes(uint8_t *bytes, u_int16_t size)
     // before we decide we are connected to a DJI air unit
     if (m_receivedBytes < 6)
     {
-      m_receivedBytes += size;
+        m_receivedBytes += size;
     }
 }
 

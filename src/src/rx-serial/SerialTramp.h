@@ -4,7 +4,8 @@
 #include "CRSFRouter.h"
 #include "device.h"
 
-class SerialTramp final : public SerialIO, public CRSFConnector {
+class SerialTramp final : public SerialIO, public CRSFConnector
+{
 public:
     SerialTramp(HardwareSerial &stream, int8_t serial1TXpin);
     ~SerialTramp() override;
@@ -13,6 +14,7 @@ public:
     int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; }
 
     void forwardMessage(const crsf_header_t *message) override;
+
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override {}
     void setTXMode() const;

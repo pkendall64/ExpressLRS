@@ -1,4 +1,3 @@
-#include "targets.h"
 #include "SerialIO.h"
 #include "common.h"
 #include "config.h"
@@ -6,17 +5,17 @@
 #include "device.h"
 #include <helpers.h>
 
+#include "SerialAirPort.h"
 #include "SerialCRSF.h"
+#include "SerialDisplayport.h"
 #include "SerialGPS.h"
+#include "SerialHoTT_TLM.h"
+#include "SerialMavlink.h"
 #include "SerialNOOP.h"
 #include "SerialSBUS.h"
 #include "SerialSUMD.h"
-#include "SerialAirPort.h"
-#include "SerialMavlink.h"
-#include "SerialDisplayport.h"
-#include "SerialTramp.h"
 #include "SerialSmartAudio.h"
-#include "SerialHoTT_TLM.h"
+#include "SerialTramp.h"
 
 static bool pwmSerialDefined = false;
 
@@ -28,17 +27,19 @@ SerialIO *serial1IO = nullptr;
 
 #define NO_SERIALIO_INTERVAL 1000
 
-enum teamraceOutputInhibitState_e {
-    troiPass = 0,               // Allow all packets through, normal operation
-    troiDisableAwaitConfirm,    // Have received one packet with another model selected, awaiting confirm to Inhibit
-    troiInhibit,                // Inhibit all output
-    troiEnableAwaitConfirm,     // Have received one packet with this model selected, awaiting confirm to Pass
+enum teamraceOutputInhibitState_e
+{
+    troiPass = 0,            // Allow all packets through, normal operation
+    troiDisableAwaitConfirm, // Have received one packet with another model selected, awaiting confirm to Inhibit
+    troiInhibit,             // Inhibit all output
+    troiEnableAwaitConfirm,  // Have received one packet with this model selected, awaiting confirm to Pass
 };
 
-typedef struct devserial_ctx_s {
+typedef struct devserial_ctx_s
+{
     SerialIO **io;
     bool frameAvailable;
-    bool frameMissed ;
+    bool frameMissed;
     connectionState_e lastConnectionState;
     uint8_t lastTeamracePosition;
     teamraceOutputInhibitState_e teamraceOutputInhibitState;
@@ -77,26 +78,25 @@ void ICACHE_RAM_ATTR crsfRCFrameMissed()
 #endif
 }
 
-
 static void setupSerial()
 {
 #if !defined(DEBUG_CRSF_NO_OUTPUT)
     if (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN && !pwmSerialDefined)
 #endif
     {
-        // For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
-        #if defined(DEBUG_LOG) || defined(DEBUG_RCVR_LINKSTATS)
-        #if defined(PLATFORM_ESP32_S3) && !defined(ESP32_S3_USB_JTAG_ENABLED)
+// For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
+#if defined(DEBUG_LOG) || defined(DEBUG_RCVR_LINKSTATS)
+#if defined(PLATFORM_ESP32_S3) && !defined(ESP32_S3_USB_JTAG_ENABLED)
         // Requires pull-down on GPIO3.  If GPIO3 has a pull-up (for JTAG) this doesn't work.
         USBSerial.begin(serialBaud);
         SerialLogger = &USBSerial;
-        #else
+#else
         Serial.begin(serialBaud);
         SerialLogger = &Serial;
-        #endif
-        #else
+#endif
+#else
         SerialLogger = new NullStream();
-        #endif
+#endif
         serialIO = new SerialNOOP();
         return;
     }
@@ -107,7 +107,7 @@ static void setupSerial()
     }
     else
     {
-        switch(config.GetSerialProtocol())
+        switch (config.GetSerialProtocol())
         {
         case PROTOCOL_CRSF:
             serialIO = new SerialCRSF(Serial, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, false);
@@ -156,7 +156,7 @@ static void setupSerial()
 void reconfigureSerial0()
 {
     SerialLogger = new NullStream();
-    if(serialIO != nullptr)
+    if (serialIO != nullptr)
     {
         Serial.end();
         delete serialIO;
@@ -170,7 +170,7 @@ static bool initialize0()
     // If serial is not already defined, then see if there is serial pin configured in the PWM configuration
     if (OPT_HAS_SERVO_OUTPUT && GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN)
     {
-        for (int i = 0 ; i < GPIO_PIN_PWM_OUTPUTS_COUNT ; i++)
+        for (int i = 0; i < GPIO_PIN_PWM_OUTPUTS_COUNT; i++)
         {
             const auto pinMode = static_cast<eServoOutputMode>(config.GetPwmChannel(i)->val.mode);
             if (pinMode == somSerial)
@@ -217,7 +217,7 @@ static void setupSerial1()
         }
     }
 
-    switch(config.GetSerial1Protocol())
+    switch (config.GetSerial1Protocol())
     {
     case PROTOCOL_SERIAL1_OFF:
         break;
@@ -259,7 +259,7 @@ static void setupSerial1()
 
 void reconfigureSerial1()
 {
-    if(serial1IO != nullptr)
+    if (serial1IO != nullptr)
     {
         Serial1.end();
         delete serial1IO;
@@ -311,7 +311,7 @@ static int event1()
 
 /***
  * @brief: Convert the current TeamraceChannel value to the appropriate config value for comparison
-*/
+ */
 static uint8_t teamraceChannelToConfigValue()
 {
     // SWITCH3b is 1,2,3,4,5,6,x,Mid
@@ -321,26 +321,26 @@ static uint8_t teamraceChannelToConfigValue()
     const uint8_t retVal = CRSF_to_SWITCH3b(ChannelData[config.GetTeamraceChannel()]);
     switch (retVal)
     {
-        case 0: // passthrough
-        case 1: // passthrough
-        case 2:
-            return retVal + 1;
-        case 3: // passthrough
-        case 4: // passthrough
-        case 5:
-            return retVal + 2;
-        case 7:
-            return 4; // "Mid"
-        default:
-            // CRSF_to_SWITCH3b should only return 0-5,7 but we must return a value
-            return 0;
+    case 0: // passthrough
+    case 1: // passthrough
+    case 2:
+        return retVal + 1;
+    case 3: // passthrough
+    case 4: // passthrough
+    case 5:
+        return retVal + 2;
+    case 7:
+        return 4; // "Mid"
+    default:
+        // CRSF_to_SWITCH3b should only return 0-5,7 but we must return a value
+        return 0;
     }
 }
 
 /***
  * @brief: Determine if FrameAvailable and it should be sent to FC
  * @return: TRUE if a new frame is available and should be processed
-*/
+ */
 static bool confirmFrameAvailable(devserial_ctx_t *ctx)
 {
     if (!ctx->frameAvailable)
@@ -367,39 +367,39 @@ static bool confirmFrameAvailable(devserial_ctx_t *ctx)
 
     switch (ctx->teamraceOutputInhibitState)
     {
-        case troiPass:
-            // User appears to be switching away from this model, wait for confirm
+    case troiPass:
+        // User appears to be switching away from this model, wait for confirm
+        if (newTeamracePosition != config.GetTeamracePosition())
+            ctx->teamraceOutputInhibitState = troiDisableAwaitConfirm;
+        break;
+
+    case troiDisableAwaitConfirm:
+        // Must receive the same new position twice in a row for state to change
+        if (ctx->lastTeamracePosition == newTeamracePosition)
+        {
             if (newTeamracePosition != config.GetTeamracePosition())
-                ctx->teamraceOutputInhibitState = troiDisableAwaitConfirm;
-            break;
+                ctx->teamraceOutputInhibitState = troiInhibit; // disable output
+            else
+                ctx->teamraceOutputInhibitState = troiPass; // return to normal
+        }
+        break;
 
-        case troiDisableAwaitConfirm:
-            // Must receive the same new position twice in a row for state to change
-            if (ctx->lastTeamracePosition == newTeamracePosition)
-            {
-                if (newTeamracePosition != config.GetTeamracePosition())
-                    ctx->teamraceOutputInhibitState = troiInhibit; // disable output
-                else
-                    ctx->teamraceOutputInhibitState = troiPass; // return to normal
-            }
-            break;
+    case troiInhibit:
+        // User appears to be switching to this model, wait for confirm
+        if (newTeamracePosition == config.GetTeamracePosition())
+            ctx->teamraceOutputInhibitState = troiEnableAwaitConfirm;
+        break;
 
-        case troiInhibit:
-            // User appears to be switching to this model, wait for confirm
+    case troiEnableAwaitConfirm:
+        // Must receive the same new position twice in a row for state to change
+        if (ctx->lastTeamracePosition == newTeamracePosition)
+        {
             if (newTeamracePosition == config.GetTeamracePosition())
-                ctx->teamraceOutputInhibitState = troiEnableAwaitConfirm;
-            break;
-
-        case troiEnableAwaitConfirm:
-            // Must receive the same new position twice in a row for state to change
-            if (ctx->lastTeamracePosition == newTeamracePosition)
-            {
-                if (newTeamracePosition == config.GetTeamracePosition())
-                    ctx->teamraceOutputInhibitState = troiPass; // return to normal
-                else
-                    ctx->teamraceOutputInhibitState = troiInhibit; // back to disabled
-            }
-            break;
+                ctx->teamraceOutputInhibitState = troiPass; // return to normal
+            else
+                ctx->teamraceOutputInhibitState = troiInhibit; // back to disabled
+        }
+        break;
     }
 
     ctx->lastTeamracePosition = newTeamracePosition;
@@ -481,13 +481,13 @@ void handleSerialIO()
 
 static int timeout0()
 {
-  return timeout(&serial0);
+    return timeout(&serial0);
 }
 
 #if defined(PLATFORM_ESP32)
 static int timeout1()
 {
-  return timeout(&serial1);
+    return timeout(&serial1);
 }
 #endif
 
@@ -496,8 +496,7 @@ device_t Serial0_device = {
     .start = start0,
     .event = event0,
     .timeout = timeout0,
-    .subscribe = EVENT_CONNECTION_CHANGED
-};
+    .subscribe = EVENT_CONNECTION_CHANGED};
 
 #if defined(PLATFORM_ESP32)
 device_t Serial1_device = {
@@ -505,6 +504,5 @@ device_t Serial1_device = {
     .start = start1,
     .event = event1,
     .timeout = timeout1,
-    .subscribe = EVENT_CONNECTION_CHANGED
-};
+    .subscribe = EVENT_CONNECTION_CHANGED};
 #endif
