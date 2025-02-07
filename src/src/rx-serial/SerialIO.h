@@ -1,6 +1,5 @@
 #pragma once
 
-#include "targets.h"
 #include "FIFO.h"
 
 /**
@@ -12,10 +11,10 @@
  * * sendQueuedData
  * * processBytes
  */
-class SerialIO {
+class SerialIO
+{
 public:
-
-    explicit SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert);
+    SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert);
     virtual ~SerialIO() = default;
 
     /**

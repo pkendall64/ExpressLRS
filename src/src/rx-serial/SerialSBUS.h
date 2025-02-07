@@ -2,10 +2,11 @@
 
 #include "SerialIO.h"
 
-class SerialSBUS final : public SerialIO {
+class SerialSBUS final : public SerialIO
+{
 public:
-    explicit SerialSBUS(HardwareSerial &stream, const int8_t txPin, const bool invert, const bool _isDjiRsPro) :
-        SerialIO(&stream, 100000, SERIAL_8E2, UNDEF_PIN, txPin, invert), isDjiRsPro(_isDjiRsPro) {}
+    SerialSBUS(HardwareSerial &stream, const int8_t txPin, const bool invert, const bool _isDjiRsPro)
+        : SerialIO(&stream, 100000, SERIAL_8E2, UNDEF_PIN, txPin, invert), isDjiRsPro(_isDjiRsPro) {}
 
     ~SerialSBUS() override = default;
 

@@ -3,16 +3,16 @@
 #include "crsf_protocol.h"
 #include "device.h"
 
-#define SBUS_FLAG_SIGNAL_LOSS       (1 << 2)
-#define SBUS_FLAG_FAILSAFE_ACTIVE   (1 << 3)
+#define SBUS_FLAG_SIGNAL_LOSS (1 << 2)
+#define SBUS_FLAG_FAILSAFE_ACTIVE (1 << 3)
 
 constexpr auto UNCONNECTED_CALLBACK_INTERVAL_MS = 10;
 constexpr auto SBUS_CALLBACK_INTERVAL_MS = 9;
 
-int32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
+int32_t SerialSBUS::sendRCFrame(const bool frameAvailable, const bool frameMissed, uint32_t *channelData)
 {
     static auto sendPackets = false;
-    bool effectivelyFailsafed = failsafe || (!connectionHasModelMatch) || (!teamraceHasModelMatch);
+    const bool effectivelyFailsafed = failsafe || (!connectionHasModelMatch) || (!teamraceHasModelMatch);
     if ((effectivelyFailsafed && config.GetFailsafeMode() == FAILSAFE_NO_PULSES) || (!sendPackets && connectionState != connected))
     {
         return UNCONNECTED_CALLBACK_INTERVAL_MS;
@@ -25,7 +25,7 @@ int32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t 
     }
 
     // TODO: if failsafeMode == FAILSAFE_SET_POSITION then we use the set positions rather than the last values
-    crsf_channels_s PackedRCdataOut;
+    crsf_channels_s PackedRCdataOut{};
 
     if (isDjiRsPro)
     {
@@ -35,7 +35,7 @@ int32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t 
         PackedRCdataOut.ch3 = fmap(channelData[3], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
         PackedRCdataOut.ch4 = fmap(channelData[5], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696); // Record start/stop and photo
         PackedRCdataOut.ch5 = fmap(channelData[6], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696); // Mode
-        PackedRCdataOut.ch6 = fmap(channelData[7], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 176,  848); // Recenter and Selfie
+        PackedRCdataOut.ch6 = fmap(channelData[7], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 176, 848);  // Recenter and Selfie
         PackedRCdataOut.ch7 = fmap(channelData[8], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
         PackedRCdataOut.ch8 = fmap(channelData[9], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
         PackedRCdataOut.ch9 = fmap(channelData[10], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX, 352, 1696);
@@ -70,9 +70,9 @@ int32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t 
     extraData |= effectivelyFailsafed ? SBUS_FLAG_FAILSAFE_ACTIVE : 0;
     extraData |= frameMissed ? SBUS_FLAG_SIGNAL_LOSS : 0;
 
-    _stream->write(0x0F);    // HEADER
+    _stream->write(0x0F); // HEADER
     _stream->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
-    _stream->write(extraData);    // ch 17, 18, lost packet, failsafe
-    _stream->write((uint8_t)0x00);    // FOOTER
+    _stream->write(extraData);                  // ch 17, 18, lost packet, failsafe
+    _stream->write(static_cast<uint8_t>(0x00)); // FOOTER
     return SBUS_CALLBACK_INTERVAL_MS;
 }

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "SerialIO.h"
 #include "CRSFRouter.h"
+#include "SerialIO.h"
 #include "device.h"
 
-class SerialSmartAudio final : public SerialIO, public CRSFConnector {
+class SerialSmartAudio final : public SerialIO, public CRSFConnector
+{
 public:
     SerialSmartAudio(HardwareSerial &stream, int8_t serial1TXpin);
     ~SerialSmartAudio() override;

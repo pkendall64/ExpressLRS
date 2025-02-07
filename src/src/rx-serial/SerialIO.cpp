@@ -16,13 +16,15 @@
 #endif
 // ARDUINO_CORE_INVERT_FIX PT1 end
 
-SerialIO::SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert) : _stream(stream) {
+SerialIO::SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert)
+    : _stream(stream)
+{
 #if defined(PLATFORM_ESP8266)
     Serial.begin(baud, config, rxPin == UNDEF_PIN ? SERIAL_TX_ONLY : SERIAL_FULL, -1, invert);
 #else
     // ARDUINO_CORE_INVERT_FIX PT2
 #if defined(ARDUINO_CORE_INVERT_FIX)
-    if(invert == false && stream == &Serial)
+    if (invert == false && stream == &Serial)
     {
         uart_set_line_inverse(0, UART_SIGNAL_INV_DISABLE);
     }

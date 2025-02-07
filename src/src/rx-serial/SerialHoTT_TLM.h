@@ -5,17 +5,17 @@
 
 #define PACKED __attribute__((packed))
 
-#define HOTT_MAX_BUF_LEN 64    // max buffer size for serial in data
+#define HOTT_MAX_BUF_LEN 64 // max buffer size for serial in data
 
-#define FRAME_SIZE 45          // HoTT telemetry frame size
-#define CMD_LEN 2              // HoTT poll command length
-#define STARTBYTE_INDEX 0      // index of start byte
-#define DEVICE_INDEX 1         // index of device ID
-#define ENDBYTE_INDEX 43       // index of end byte
-#define CRC_INDEX  44          // index of CRC
+#define FRAME_SIZE 45     // HoTT telemetry frame size
+#define CMD_LEN 2         // HoTT poll command length
+#define STARTBYTE_INDEX 0 // index of start byte
+#define DEVICE_INDEX 1    // index of device ID
+#define ENDBYTE_INDEX 43  // index of end byte
+#define CRC_INDEX 44      // index of CRC
 
-#define START_FRAME_B 0x7C     // HoTT start of frame marker
-#define END_FRAME 0x7D         // HoTT end of frame marker
+#define START_FRAME_B 0x7C // HoTT start of frame marker
+#define END_FRAME 0x7D     // HoTT end of frame marker
 
 #define START_OF_CMD_B 0x80    // start byte of HoTT binary cmd sequence
 #define SENSOR_ID_GPS_B 0x8A   // device ID binary mode GPS module
@@ -29,9 +29,9 @@
 #define SENSOR_ID_VARIO_B 0x89 // device ID binary mode VARIO module
 #define SENSOR_ID_VARIO_T 0x90 // device ID for text mode addressing
 
-#define TURBINE_PROTOCOL 0xC8  // ESC version == 0xC8 --> turbine, ESC otherwise 
+#define TURBINE_PROTOCOL 0xC8 // ESC version == 0xC8 --> turbine, ESC otherwise
 
-#define HOTT_TEMP_OFFSET 20    // HoTT delivers temperature with +20 offset
+#define HOTT_TEMP_OFFSET 20 // HoTT delivers temperature with +20 offset
 #define HOTT_TEMP_SCALE 10
 #define HOTT_RPM_SCALE 10
 #define HOTT_VSPD_OFFSET 30000
@@ -86,42 +86,42 @@ typedef struct
 //
 typedef struct
 {
-    uint8_t startByte;      //  0 0x7C
-    uint8_t packetId;       //  1 0x8A HOTT_GPS_PACKET_ID
-    uint8_t warnBeep;       //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
-    uint8_t packetIdText;   //  3 0xA0 Sensor ID text mode
-    uint8_t alarmInverse;   //  4 0 Inverse status
-    uint8_t GpsInverse;     //  5 1 = no GPS signal
-    uint8_t direction;      //  6 1 = 2 degrees; 0 = N, 90 = E, 180 = S, 270 = W
-    uint16_t speed;         //  7 1 = 1 km/h
-    uint8_t latNS;          //  9 example: N48D39'0988'', 0 = N
-    uint16_t latDegMin;     // 10 48D39' = 4839 = 0x12e7
-    uint16_t latSec;        // 12 0988'' = 988 = 0x03DC
-    uint8_t lonEW;          // 14 example: E09D25'9360'', 0 = E
-    uint16_t lonDegMin;     // 15 09D25' = 0925 = 0x039D
-    uint16_t lonSec;        // 17 9360'' = 9360 = 0x2490
-    uint16_t distance;      // 19 1 = 1m
-    uint16_t altitude;      // 21 500 = 0m
-    uint16_t mPerSec;       // 23 30000 = 0.00m/s (1 = 0.01m/s)
-    uint8_t mPer3sec;       // 25 120 = 0m/3s (1 = 1m/3s)
-    uint8_t satellites;     // 26 n visible satellites
-    uint8_t fixChar;        // 27 GPS fix character. Display if DGPS, 2D oder 3D
-    uint8_t homeDir;        // 28 GPS home direction 1 = 2 degreed
-    int8_t roll;            // 29 signed roll angle 1 = 2 degrees
-    int8_t pitch;           // 30 signed pitch angle 1 = 2 degrees
-    int8_t Yaw;             // 31 signed yaw angle 1 = 2 degrees
-    uint8_t timeHours;      // 32 GPS time hours
-    uint8_t timeMinutes;    // 33 GPS time minutes
-    uint8_t timeSeconds;    // 34 GPS time seconds
-    uint8_t timeHundreds;   // 35 GPS time 1/100 seconds
-    uint16_t mslAltitude;   // 36 1 = 1m
-    uint8_t vibrations;     // 38 vibration level in %
-    uint8_t ascii1;         // 39 free ASCII character 1
-    uint8_t ascii2;         // 40 free ASCII character 2
-    uint8_t ascii3;         // 41 free ASCII character 3
-    uint8_t version;        // 42 version number
-    uint8_t endByte;        // 43 0x7D
-    uint8_t crc;            // 44 CRC
+    uint8_t startByte;    //  0 0x7C
+    uint8_t packetId;     //  1 0x8A HOTT_GPS_PACKET_ID
+    uint8_t warnBeep;     //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
+    uint8_t packetIdText; //  3 0xA0 Sensor ID text mode
+    uint8_t alarmInverse; //  4 0 Inverse status
+    uint8_t GpsInverse;   //  5 1 = no GPS signal
+    uint8_t direction;    //  6 1 = 2 degrees; 0 = N, 90 = E, 180 = S, 270 = W
+    uint16_t speed;       //  7 1 = 1 km/h
+    uint8_t latNS;        //  9 example: N48D39'0988'', 0 = N
+    uint16_t latDegMin;   // 10 48D39' = 4839 = 0x12e7
+    uint16_t latSec;      // 12 0988'' = 988 = 0x03DC
+    uint8_t lonEW;        // 14 example: E09D25'9360'', 0 = E
+    uint16_t lonDegMin;   // 15 09D25' = 0925 = 0x039D
+    uint16_t lonSec;      // 17 9360'' = 9360 = 0x2490
+    uint16_t distance;    // 19 1 = 1m
+    uint16_t altitude;    // 21 500 = 0m
+    uint16_t mPerSec;     // 23 30000 = 0.00m/s (1 = 0.01m/s)
+    uint8_t mPer3sec;     // 25 120 = 0m/3s (1 = 1m/3s)
+    uint8_t satellites;   // 26 n visible satellites
+    uint8_t fixChar;      // 27 GPS fix character. Display if DGPS, 2D oder 3D
+    uint8_t homeDir;      // 28 GPS home direction 1 = 2 degreed
+    int8_t roll;          // 29 signed roll angle 1 = 2 degrees
+    int8_t pitch;         // 30 signed pitch angle 1 = 2 degrees
+    int8_t Yaw;           // 31 signed yaw angle 1 = 2 degrees
+    uint8_t timeHours;    // 32 GPS time hours
+    uint8_t timeMinutes;  // 33 GPS time minutes
+    uint8_t timeSeconds;  // 34 GPS time seconds
+    uint8_t timeHundreds; // 35 GPS time 1/100 seconds
+    uint16_t mslAltitude; // 36 1 = 1m
+    uint8_t vibrations;   // 38 vibration level in %
+    uint8_t ascii1;       // 39 free ASCII character 1
+    uint8_t ascii2;       // 40 free ASCII character 2
+    uint8_t ascii3;       // 41 free ASCII character 3
+    uint8_t version;      // 42 version number
+    uint8_t endByte;      // 43 0x7D
+    uint8_t crc;          // 44 CRC
 } PACKED GPSPacket_t;
 
 //
@@ -129,48 +129,48 @@ typedef struct
 //
 typedef struct
 {
-    uint8_t startByte;      //  0 0x7C
-    uint8_t packetId;       //  1 0x8E HOTT_Electric_Air_ID
-    uint8_t warnBeep;       //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
-    uint8_t packetIdText;   //  3 0xE0 Sensor ID text mode
-    uint8_t inverse1;       //  4 alarm bitmask. Value is displayed inverted
-                            // Bit#  Alarm field
-                            // 0    mAh
-                            // 1    Battery 1
-                            // 2    Battery 2
-                            // 3    Temperature 1
-                            // 4    Temperature 2
-                            // 5    Altitude
-                            // 6    Current
-                            // 7    Main power voltage
-    uint8_t inverse2;       //  5 alarm bitmask. Value is displayed inverted
-                            // Bit#  Alarm Field
-                            // 0    m/s
-                            // 1    m/3s
-                            // 2    Altitude (duplicate?)
-                            // 3    m/s (duplicate?)
-                            // 4    m/3s (duplicate?)
-                            // 5    unknown/unused
-                            // 6    unknown/unused
-                            // 7    "ON" sign/text msg active
-    uint8_t cellL[7];       // 06 cell 1 voltage lower value. 0.02V steps, 124=2.48V
-    uint8_t cellH[7];       // 13 cell 1 voltage high value. 0.02V steps, 124=2.48V
-    uint16_t battVoltage1;  // 20 battery 1 voltage lower value in 100mv steps, 50=5V. optionally cell8_L value 0.02V steps
-    uint16_t battVoltage2;  // 22 battery 2 voltage lower value in 100mv steps, 50=5V. optionally cell8_H value. 0.02V steps
-    uint8_t temp1;          // 24 Temperature sensor 1. 20=0�, 46=26� - offset of 20.
-    uint8_t temp2;          // 25 temperature sensor 2
-    uint16_t altitude;      // 26 Altitude lower value. unit: meters. Value of 500 = 0m
-    uint16_t current;       // 28 Current in 0.1 steps
-    uint16_t mainVoltage;   // 30 Main power voltage (drive) in 0.1V steps
-    uint16_t capacity;      // 32 used battery capacity in 10mAh steps
-    uint16_t mPerSec;       // 34 climb rate in 0.01m/s. Value of 30000 = 0.00 m/s
-    uint8_t mPer3sec;       // 36 climbrate in m/3sec. Value of 120 = 0m/3sec
-    uint16_t rpm;           // 37 RPM. Steps: 10 U/min
-    uint8_t electricMin;    // 39 Electric minutes. Time does start, when motor current is > 3 A
-    uint8_t electricSec;    // 40 Electric seconds.
-    uint16_t speed;         // 41 speed in km/h. Steps 1km/h
-    uint8_t endByte;        // 43 0x7D
-    uint8_t Crc;            // 44 CRC
+    uint8_t startByte;     //  0 0x7C
+    uint8_t packetId;      //  1 0x8E HOTT_Electric_Air_ID
+    uint8_t warnBeep;      //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
+    uint8_t packetIdText;  //  3 0xE0 Sensor ID text mode
+    uint8_t inverse1;      //  4 alarm bitmask. Value is displayed inverted
+                           // Bit#  Alarm field
+                           // 0    mAh
+                           // 1    Battery 1
+                           // 2    Battery 2
+                           // 3    Temperature 1
+                           // 4    Temperature 2
+                           // 5    Altitude
+                           // 6    Current
+                           // 7    Main power voltage
+    uint8_t inverse2;      //  5 alarm bitmask. Value is displayed inverted
+                           // Bit#  Alarm Field
+                           // 0    m/s
+                           // 1    m/3s
+                           // 2    Altitude (duplicate?)
+                           // 3    m/s (duplicate?)
+                           // 4    m/3s (duplicate?)
+                           // 5    unknown/unused
+                           // 6    unknown/unused
+                           // 7    "ON" sign/text msg active
+    uint8_t cellL[7];      // 06 cell 1 voltage lower value. 0.02V steps, 124=2.48V
+    uint8_t cellH[7];      // 13 cell 1 voltage high value. 0.02V steps, 124=2.48V
+    uint16_t battVoltage1; // 20 battery 1 voltage lower value in 100mv steps, 50=5V. optionally cell8_L value 0.02V steps
+    uint16_t battVoltage2; // 22 battery 2 voltage lower value in 100mv steps, 50=5V. optionally cell8_H value. 0.02V steps
+    uint8_t temp1;         // 24 Temperature sensor 1. 20=0�, 46=26� - offset of 20.
+    uint8_t temp2;         // 25 temperature sensor 2
+    uint16_t altitude;     // 26 Altitude lower value. unit: meters. Value of 500 = 0m
+    uint16_t current;      // 28 Current in 0.1 steps
+    uint16_t mainVoltage;  // 30 Main power voltage (drive) in 0.1V steps
+    uint16_t capacity;     // 32 used battery capacity in 10mAh steps
+    uint16_t mPerSec;      // 34 climb rate in 0.01m/s. Value of 30000 = 0.00 m/s
+    uint8_t mPer3sec;      // 36 climbrate in m/3sec. Value of 120 = 0m/3sec
+    uint16_t rpm;          // 37 RPM. Steps: 10 U/min
+    uint8_t electricMin;   // 39 Electric minutes. Time does start, when motor current is > 3 A
+    uint8_t electricSec;   // 40 Electric seconds.
+    uint16_t speed;        // 41 speed in km/h. Steps 1km/h
+    uint8_t endByte;       // 43 0x7D
+    uint8_t Crc;           // 44 CRC
 } PACKED ElectricAirPacket_t;
 
 //
@@ -219,25 +219,25 @@ typedef struct HOTT_AIRESC_MSG_s
 //
 typedef struct HOTT_VARIO_MSG_s
 {
-    uint8_t startByte;      //  0 0x7C
-    uint8_t packetId;       //  1 0x89 HOTT_Vario_PACKET_ID
-    uint8_t warnBeep;       //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
-    uint8_t packetIdText;   //  3 0x90 Sensor ID text mode
-    uint8_t inverse1;       //  4 Inverse display (alarm?) bitmask
-    uint16_t altitude;      //  5 Altitude low uint8_t. In meters. A value of 500 means 0m
-    uint16_t altitudeMax;   //  7 Max. measured altitude low uint8_t. In meters. A value of 500 means 0m
-    uint16_t altitudeMin;   //  9 Min. measured altitude low uint8_t. In meters. A value of 500 means 0m
-    uint16_t mPerSec;       // 11 Climb rate in m/s. Steps of 0.01m/s. Value of 30000 = 0.00 m/s
-    uint16_t mPerSec3s;     // 13 Climb rate in m/3s. Steps of 0.01m/3s. Value of 30000 = 0.00 m/3s
-    uint16_t mPerSec10s;    // 15 Climb rate m/10s. Steps of 0.01m/10s. Value of 30000 = 0.00 m/10s
-    uint8_t textMsg[21];    // 17 Free ASCII text message
-    uint8_t freeChar1;      // 38 Free ASCII character.  appears right to home distance
-    uint8_t freeChar2;      // 39 Free ASCII character.  appears right to home direction
-    uint8_t freeChar3;      // 40 Free ASCII character.  appears? TODO: Check where this char appears
-    uint8_t compassDir;     // 41 Compass heading in 2 degrees steps. 1 = 2 degrees
-    uint8_t version;        // 42 version number = 3 for new protocol
-    uint8_t endByte;        // 43 0x7D
-    uint8_t crc;            // 44 CRC
+    uint8_t startByte;    //  0 0x7C
+    uint8_t packetId;     //  1 0x89 HOTT_Vario_PACKET_ID
+    uint8_t warnBeep;     //  2 warn beep (0 = no beep, 0x00..0x1A warn beeps)
+    uint8_t packetIdText; //  3 0x90 Sensor ID text mode
+    uint8_t inverse1;     //  4 Inverse display (alarm?) bitmask
+    uint16_t altitude;    //  5 Altitude low uint8_t. In meters. A value of 500 means 0m
+    uint16_t altitudeMax; //  7 Max. measured altitude low uint8_t. In meters. A value of 500 means 0m
+    uint16_t altitudeMin; //  9 Min. measured altitude low uint8_t. In meters. A value of 500 means 0m
+    uint16_t mPerSec;     // 11 Climb rate in m/s. Steps of 0.01m/s. Value of 30000 = 0.00 m/s
+    uint16_t mPerSec3s;   // 13 Climb rate in m/3s. Steps of 0.01m/3s. Value of 30000 = 0.00 m/3s
+    uint16_t mPerSec10s;  // 15 Climb rate m/10s. Steps of 0.01m/10s. Value of 30000 = 0.00 m/10s
+    uint8_t textMsg[21];  // 17 Free ASCII text message
+    uint8_t freeChar1;    // 38 Free ASCII character.  appears right to home distance
+    uint8_t freeChar2;    // 39 Free ASCII character.  appears right to home direction
+    uint8_t freeChar3;    // 40 Free ASCII character.  appears? TODO: Check where this char appears
+    uint8_t compassDir;   // 41 Compass heading in 2 degrees steps. 1 = 2 degrees
+    uint8_t version;      // 42 version number = 3 for new protocol
+    uint8_t endByte;      // 43 0x7D
+    uint8_t crc;          // 44 CRC
 } PACKED VarioPacket_t;
 
 typedef struct
@@ -263,7 +263,8 @@ typedef struct
     bool present;
 } hottDevice_t;
 
-enum {
+enum
+{
     HOTT_RECEIVING,
     HOTT_CMD1SENT,
     HOTT_CMD2SENT
@@ -292,7 +293,8 @@ private:
 
     void processBytes(uint8_t *bytes, u_int16_t size) override;
     void processFrame();
-    uint8_t calcFrameCRC(uint8_t *buf);
+
+    static uint8_t calcFrameCRC(const uint8_t *buf);
 
     void scheduleDevicePolling(uint32_t now);
 
@@ -306,20 +308,20 @@ private:
     void sendCRSFvolt(uint32_t now, HoTTDevices device);
     void sendCRSFairspeed(uint32_t now, HoTTDevices device);
 
-    uint16_t getHoTTvoltage();
-    uint16_t getHoTTcurrent();
-    uint32_t getHoTTcapacity();
-    int16_t getHoTTaltitude();
-    int16_t getHoTTvv();
-    uint8_t getHoTTremaining();
-    int32_t getHoTTlatitude();
-    int32_t getHoTTlongitude();
-    uint16_t getHoTTgroundspeed();
-    uint16_t getHoTTheading();
-    uint8_t getHoTTsatellites();
-    uint16_t getHoTTMSLaltitude();
+    uint16_t getHoTTvoltage() const;
+    uint16_t getHoTTcurrent() const;
+    uint32_t getHoTTcapacity() const;
+    int16_t getHoTTaltitude() const;
+    int16_t getHoTTvv() const;
+    uint8_t getHoTTremaining() const;
+    int32_t getHoTTlatitude() const;
+    int32_t getHoTTlongitude() const;
+    uint16_t getHoTTgroundspeed() const;
+    uint16_t getHoTTheading() const;
+    uint8_t getHoTTsatellites() const;
+    uint16_t getHoTTMSLaltitude() const;
 
-    uint32_t htobe24(uint32_t val);
+    static uint32_t htobe24(uint32_t val);
 
     // last received HoTT telemetry packets
     GPSPacket_t gps;
@@ -333,10 +335,10 @@ private:
 
     // discovered devices
     hottDevice_t device[LAST_DEVICE] = {
-        {SENSOR_ID_GPS_B, false},
-        {SENSOR_ID_EAM_B, false},
-        {SENSOR_ID_GAM_B, false},
-        {SENSOR_ID_ESC_B, false},
+        {SENSOR_ID_GPS_B,   false},
+        {SENSOR_ID_EAM_B,   false},
+        {SENSOR_ID_GAM_B,   false},
+        {SENSOR_ID_ESC_B,   false},
         {SENSOR_ID_VARIO_B, false},
     };
 
