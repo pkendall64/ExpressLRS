@@ -1,8 +1,8 @@
 #pragma once
 
-#include "targets.h"
 #include "FIFO.h"
 #include "device.h"
+#include "targets.h"
 
 /**
  * @brief Abstract class that is to be extended by implementation classes for different serial protocols on the receiver side.
@@ -15,10 +15,10 @@
  * * sendQueuedData
  * * processBytes
  */
-class SerialIO {
+class SerialIO
+{
 public:
-
-    explicit SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert);
+    SerialIO(HardwareSerial *stream, unsigned long baud, SerialConfig config, int8_t rxPin, int8_t txPin, bool invert);
     virtual ~SerialIO() = default;
 
     /**
@@ -49,7 +49,7 @@ public:
      *
      * @param data pointer to the MSP packet
      */
-    virtual void queueMSPFrameTransmission(uint8_t* data) = 0;
+    virtual void queueMSPFrameTransmission(uint8_t *data) = 0;
 
     /**
      * @brief send the RC channel data to the serial port stream `_outputPort` member
@@ -116,7 +116,6 @@ protected:
     bool failsafe = false;
 
     static constexpr uint32_t SERIAL_OUTPUT_FIFO_SIZE = 256U;
-
 
     /**
      * @brief the FIFO that should be used to queue serial data to in the

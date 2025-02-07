@@ -1,11 +1,10 @@
 #include "SerialAirPort.h"
-#include "device.h"
 #include "common.h"
+#include "device.h"
 
 // Variables / constants for Airport //
 FIFO<AP_MAX_BUF_LEN> apInputBuffer;
 FIFO<AP_MAX_BUF_LEN> apOutputBuffer;
-
 
 int32_t SerialAirPort::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {

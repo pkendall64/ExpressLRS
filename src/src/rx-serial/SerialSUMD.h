@@ -3,16 +3,14 @@
 #include "SerialIO.h"
 #include "crc.h"
 
-class SerialSUMD final : public SerialIO {
+class SerialSUMD final : public SerialIO
+{
 public:
-    explicit SerialSUMD(HardwareSerial &stream, const int8_t txPin) :
-        SerialIO(&stream, 115200, SERIAL_8N1, UNDEF_PIN, txPin, false) {
-        crc2Byte.init(16, 0x1021);
-    }
-    ~SerialSUMD() override  = default;
+    SerialSUMD(HardwareSerial &stream, int8_t txPin);
+    ~SerialSUMD() override = default;
 
     void queueLinkStatisticsPacket() override {}
-    void queueMSPFrameTransmission(uint8_t* data) override {}
+    void queueMSPFrameTransmission(uint8_t *data) override {}
 
     int32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
 
