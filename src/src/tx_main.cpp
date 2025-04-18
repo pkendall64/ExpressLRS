@@ -161,6 +161,46 @@ void ICACHE_RAM_ATTR LinkStatsFromOta(OTA_LinkStats_s * const ls)
   MspSender.ConfirmCurrentPayload(ls->tlmConfirm);
 }
 
+static void processDoublePayload(const uint8_t packageIndexProcessing, const uint8_t packageIndexOther, const uint8_t *payloadProcessing, const uint8_t * payloadOther, const uint8_t payloadSize, const bool tlmConfirm)
+{
+    if (config.GetAntennaMode() == TX_RADIO_MODE_GEMINI)
+    {
+        if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1)
+        {
+            packageIndexRadio1 = packageIndexProcessing;
+            memcpy(tlmSenderDoubleBuffer, payloadProcessing, payloadSize);
+            if (Radio.hasSecondRadioGotData)
+            {
+                packageIndexRadio2 = packageIndexOther;
+                memcpy(tlmSenderDoubleBuffer + payloadSize, payloadOther, payloadSize);
+            }
+        }
+        else
+        {
+            packageIndexRadio2 = packageIndexProcessing;
+            memcpy(tlmSenderDoubleBuffer + payloadSize, payloadProcessing, payloadSize);
+            if (Radio.hasSecondRadioGotData)
+            {
+                packageIndexRadio1 = packageIndexOther;
+                memcpy(tlmSenderDoubleBuffer, payloadOther, payloadSize);
+            }
+        }
+
+        if (packageIndexRadio1 == packageIndexRadio2 && packageIndexRadio1 != 0xFF)
+        {
+            MspSender.ConfirmCurrentPayload(tlmConfirm);
+            TelemetryReceiver.ReceiveData(packageIndexRadio1, tlmSenderDoubleBuffer, 2 * payloadSize);
+            packageIndexRadio1 = 0xFF;
+            packageIndexRadio2 = 0xFF;
+        }
+    }
+    else
+    {
+        MspSender.ConfirmCurrentPayload(tlmConfirm);
+        TelemetryReceiver.ReceiveData(packageIndexProcessing, payloadProcessing, payloadSize);
+    }
+}
+
 bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status)
 {
   if (status != SX12xxDriverCommon::SX12XX_RX_OK)
@@ -198,8 +238,8 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
   // Full res mode
   if (OtaIsFullRes)
   {
-    OTA_Packet8_s * const ota8 = (OTA_Packet8_s * const)otaPktPtr;
-    OTA_Packet8_s * const ota8Second = (OTA_Packet8_s * const)otaPktPtrSecond;
+    OTA_Packet8_s * const ota8 = &otaPktPtr->full;
+    OTA_Packet8_s * const ota8Second = &otaPktPtrSecond->full;
     
     switch (otaPktPtr->std.type)
     {
@@ -212,43 +252,7 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
             config.SetAntennaMode(TX_RADIO_MODE_SWITCH);
         }    
 
-        if (config.GetAntennaMode() == TX_RADIO_MODE_GEMINI)
-        {
-            if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1)
-            {
-                packageIndexRadio1 = ota8->tlm_dl.packageIndex;
-                memcpy(tlmSenderDoubleBuffer, ota8->tlm_dl.ul_link_stats.payload, sizeof(ota8->tlm_dl.ul_link_stats.payload));
-            }
-            else
-            {
-                packageIndexRadio2 = ota8->tlm_dl.packageIndex;
-                memcpy(&tlmSenderDoubleBuffer[sizeof(ota8->tlm_dl.ul_link_stats.payload)], ota8->tlm_dl.ul_link_stats.payload, sizeof(ota8->tlm_dl.ul_link_stats.payload));
-            }
-
-            if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1 && Radio.hasSecondRadioGotData)
-            {
-                packageIndexRadio2 = ota8Second->tlm_dl.packageIndex;
-                memcpy(&tlmSenderDoubleBuffer[sizeof(ota8Second->tlm_dl.ul_link_stats.payload)], ota8Second->tlm_dl.ul_link_stats.payload, sizeof(ota8Second->tlm_dl.ul_link_stats.payload));
-            }
-            else if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_2 && Radio.hasSecondRadioGotData)
-            {
-                packageIndexRadio1 = ota8Second->tlm_dl.packageIndex;
-                memcpy(tlmSenderDoubleBuffer, ota8Second->tlm_dl.ul_link_stats.payload, sizeof(ota8Second->tlm_dl.ul_link_stats.payload));
-            }
-            
-            if (packageIndexRadio1 == packageIndexRadio2 && packageIndexRadio1 != 0xFF)
-            {
-                TelemetryReceiver.ReceiveData(packageIndexRadio1 & ELRS8_TELEMETRY_MAX_PACKAGES, 
-                    tlmSenderDoubleBuffer, 2 * sizeof(ota8->tlm_dl.ul_link_stats.payload));
-                packageIndexRadio1 = 0xFF;
-                packageIndexRadio2 = 0xFF;
-            }
-        }
-        else
-        {
-            TelemetryReceiver.ReceiveData(ota8->tlm_dl.packageIndex & ELRS8_TELEMETRY_MAX_PACKAGES,
-                ota8->tlm_dl.ul_link_stats.payload, sizeof(ota8->tlm_dl.ul_link_stats.payload));
-        }
+        processDoublePayload(ota8->tlm_dl.packageIndex, ota8Second->tlm_dl.packageIndex, ota8->tlm_dl.ul_link_stats.payload, ota8Second->tlm_dl.ul_link_stats.payload, sizeof(ota8->tlm_dl.ul_link_stats.payload), ota8->tlm_dl.tlmConfirm);
         break;
 
       case PACKET_TYPE_DATA:
@@ -258,45 +262,7 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
         }
         else
         {
-            if (config.GetAntennaMode() == TX_RADIO_MODE_GEMINI)
-            {
-                if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1)
-                {
-                    packageIndexRadio1 = ota8->tlm_dl.packageIndex;
-                    memcpy(tlmSenderDoubleBuffer, ota8->tlm_dl.payload, sizeof(ota8->tlm_dl.payload));
-                }
-                else
-                {
-                    packageIndexRadio2 = ota8->tlm_dl.packageIndex;
-                    memcpy(&tlmSenderDoubleBuffer[sizeof(ota8->tlm_dl.payload)], ota8->tlm_dl.payload, sizeof(ota8->tlm_dl.payload));
-                }
-
-                if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1 && Radio.hasSecondRadioGotData)
-                {
-                    packageIndexRadio2 = ota8Second->tlm_dl.packageIndex;
-                    memcpy(&tlmSenderDoubleBuffer[sizeof(ota8Second->tlm_dl.payload)], ota8Second->tlm_dl.payload, sizeof(ota8Second->tlm_dl.payload));
-                }
-                else if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_2 && Radio.hasSecondRadioGotData)
-                {
-                    packageIndexRadio1 = ota8Second->tlm_dl.packageIndex;
-                    memcpy(tlmSenderDoubleBuffer, ota8Second->tlm_dl.payload, sizeof(ota8Second->tlm_dl.payload));
-                }
-                
-                if (packageIndexRadio1 == packageIndexRadio2 && packageIndexRadio1 != 0xFF)
-                {
-                    MspSender.ConfirmCurrentPayload(ota8->tlm_dl.tlmConfirm);
-                    TelemetryReceiver.ReceiveData(packageIndexRadio1 & ELRS8_TELEMETRY_MAX_PACKAGES, 
-                        tlmSenderDoubleBuffer, 2 * sizeof(ota8->tlm_dl.payload));
-                    packageIndexRadio1 = 0xFF;
-                    packageIndexRadio2 = 0xFF;
-                }
-            }
-            else
-            {
-                MspSender.ConfirmCurrentPayload(ota8->tlm_dl.tlmConfirm);
-                TelemetryReceiver.ReceiveData(ota8->tlm_dl.packageIndex & ELRS8_TELEMETRY_MAX_PACKAGES,
-                    ota8->tlm_dl.payload, sizeof(ota8->tlm_dl.payload));
-            }
+            processDoublePayload(ota8->tlm_dl.packageIndex, ota8Second->tlm_dl.packageIndex, ota8->tlm_dl.payload, ota8Second->tlm_dl.payload, sizeof(ota8->tlm_dl.payload), ota8->tlm_dl.tlmConfirm);
         }
         break;
     }
@@ -323,46 +289,7 @@ bool ICACHE_RAM_ATTR ProcessTLMpacket(SX12xxDriverCommon::rx_status const status
         }
         else
         {
-            if (config.GetAntennaMode() == TX_RADIO_MODE_GEMINI)
-            {
-                if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1)
-                {
-                    packageIndexRadio1 = otaPktPtr->std.tlm_dl.packageIndex;
-                    memcpy(tlmSenderDoubleBuffer, otaPktPtr->std.tlm_dl.payload, sizeof(otaPktPtr->std.tlm_dl.payload));
-                }
-                else
-                {
-                    packageIndexRadio2 = otaPktPtr->std.tlm_dl.packageIndex;
-                    memcpy(&tlmSenderDoubleBuffer[sizeof(otaPktPtr->std.tlm_dl.payload)], otaPktPtr->std.tlm_dl.payload, sizeof(otaPktPtr->std.tlm_dl.payload));
-                }
-
-                if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_1 && Radio.hasSecondRadioGotData)
-                {
-                    packageIndexRadio2 = otaPktPtrSecond->std.tlm_dl.packageIndex;
-                    memcpy(&tlmSenderDoubleBuffer[sizeof(otaPktPtrSecond->std.tlm_dl.payload)], otaPktPtrSecond->std.tlm_dl.payload, sizeof(otaPktPtrSecond->std.tlm_dl.payload));
-                }
-                else if (Radio.GetProcessingPacketRadio() == SX12XX_Radio_2 && Radio.hasSecondRadioGotData)
-                {
-                    packageIndexRadio1 = otaPktPtrSecond->std.tlm_dl.packageIndex;
-                    memcpy(tlmSenderDoubleBuffer, otaPktPtrSecond->std.tlm_dl.payload, sizeof(otaPktPtrSecond->std.tlm_dl.payload));
-                }
-                
-                if (packageIndexRadio1 == packageIndexRadio2 && packageIndexRadio1 != 0xFF)
-                {
-                    MspSender.ConfirmCurrentPayload(otaPktPtr->std.tlm_dl.tlmConfirm);
-                    TelemetryReceiver.ReceiveData(packageIndexRadio1 & ELRS4_TELEMETRY_MAX_PACKAGES, 
-                        tlmSenderDoubleBuffer, 2 * sizeof(otaPktPtr->std.tlm_dl.payload));
-                    packageIndexRadio1 = 0xFF;
-                    packageIndexRadio2 = 0xFF;
-                }
-            }
-            else
-            {
-                MspSender.ConfirmCurrentPayload(otaPktPtr->std.tlm_dl.tlmConfirm);
-                TelemetryReceiver.ReceiveData(otaPktPtr->std.tlm_dl.packageIndex & ELRS4_TELEMETRY_MAX_PACKAGES,
-                    otaPktPtr->std.tlm_dl.payload,
-                    sizeof(otaPktPtr->std.tlm_dl.payload));
-            }
+            processDoublePayload(otaPktPtr->std.tlm_dl.packageIndex, otaPktPtrSecond->std.tlm_dl.packageIndex, otaPktPtr->std.tlm_dl.payload, otaPktPtrSecond->std.tlm_dl.payload, sizeof(otaPktPtr->std.tlm_dl.payload), otaPktPtr->std.tlm_dl.tlmConfirm);
         }
         break;
     }
