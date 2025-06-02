@@ -50,6 +50,10 @@
 #include "devThermal.h"
 #include <SPIFFS.h>
 #include "esp_task_wdt.h"
+#if defined(PLATFORM_ESP32_C3) || defined(PLATFORM_ESP32_S3)
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
+#endif
 #endif
 
 //
@@ -2238,6 +2242,10 @@ void reset_into_bootloader(void)
 #if defined(PLATFORM_ESP8266)
     delay(100);
     ESP.rebootIntoUartDownloadMode();
+#elif defined(PLATFORM_ESP32_C3) || defined(PLATFORM_ESP32_S3)
+    delay(100);
+    REG_WRITE(RTC_CNTL_OPTION1_REG, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
+    esp_restart();
 #elif defined(PLATFORM_ESP32)
     delay(100);
     setConnectionState(serialUpdate);
