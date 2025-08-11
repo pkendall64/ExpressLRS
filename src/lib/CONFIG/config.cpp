@@ -959,9 +959,29 @@ void RxConfig::UpgradeEepromV9()
 
     if ((v9Config.version & ~CONFIG_MAGIC_MASK) == 9)
     {
+        memcpy(m_config.uid, v9Config.uid, UID_LEN);
+        m_config.vbat.scale = v9Config.vbat.scale;
+        m_config.vbat.offset = v9Config.vbat.offset;
+        m_config.serial1Protocol = v9Config.serial1Protocol;
+        m_config.bindStorage = v9Config.bindStorage;
+        m_config.power = v9Config.power;
+        m_config.antennaMode = v9Config.antennaMode;
         m_config.powerOnCounter = v9Config.powerOnCounter;
         m_config.forceTlmOff = v9Config.forceTlmOff;
         m_config.rateInitialIdx = v9Config.rateInitialIdx;
+        m_config.modelId = v9Config.modelId;
+        m_config.serialProtocol = v9Config.serialProtocol;
+        m_config.failsafeMode = v9Config.failsafeMode;
+        m_config.teamraceChannel = v9Config.teamraceChannel;
+        m_config.teamracePosition = v9Config.teamracePosition;
+        m_config.teamracePitMode = v9Config.teamracePitMode;
+        m_config.targetSysId = v9Config.targetSysId;
+        m_config.sourceSysId = v9Config.sourceSysId;
+
+        for (unsigned ch=0; ch<16; ++ch)
+        {
+            m_config.pwmChannels[ch].raw = v9Config.pwmChannels[ch].raw;
+        }
     }
 }
 
