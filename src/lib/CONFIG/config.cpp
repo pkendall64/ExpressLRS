@@ -980,7 +980,11 @@ void RxConfig::UpgradeEepromV9()
 
         for (unsigned ch=0; ch<16; ++ch)
         {
-            m_config.pwmChannels[ch].raw = v9Config.pwmChannels[ch].raw;
+            m_config.pwmChannels[ch].val.failsafe = CRSF_to_US(UINT10_to_CRSF(v9Config.pwmChannels[ch].val.failsafe));
+            m_config.pwmChannels[ch].val.inputChannel = v9Config.pwmChannels[ch].val.inputChannel;
+            m_config.pwmChannels[ch].val.inverted = v9Config.pwmChannels[ch].val.inverted;
+            m_config.pwmChannels[ch].val.mode = v9Config.pwmChannels[ch].val.mode;
+            m_config.pwmChannels[ch].val.narrow = v9Config.pwmChannels[ch].val.narrow;
         }
     }
 }
@@ -1175,9 +1179,9 @@ RxConfig::SetDefaults(bool commit)
                 mode = somSerial;
             }
         }
-        SetPwmChannel(ch, 512, ch, false, mode, false);
+        SetPwmChannel(ch, 1500, ch, false, mode, false);
     }
-    SetPwmChannel(2, 0, 2, false, 0, false); // ch2 is throttle, failsafe it to 988
+    SetPwmChannel(2, 988, 2, false, 0, false); // ch2 is throttle, failsafe it to 988us
 
     m_config.teamraceChannel = AUX7; // CH11
 
