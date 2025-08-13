@@ -2,11 +2,13 @@
 #include "config_legacy.h"
 #include "common.h"
 #include "device.h"
-#include "gyro.h"
 #include "POWERMGNT.h"
 #include "OTA.h"
 #include "helpers.h"
 #include "logging.h"
+#if !defined(TARGET_TX)
+#include "gyro.h"
+#endif
 
 #if defined(TARGET_TX)
 
@@ -1217,14 +1219,14 @@ RxConfig::SetDefaults(bool commit)
         SetPwmChannel(ch, 1500, ch, false, mode, false);
         SetPwmChannelLimits(ch, 885, 2115);
     }
-
+#if defined(PLATFORM_ESP32)
     SetGyroSAFEPitch(45);
     SetGyroSAFERoll(45);
     SetGyroLevelPitch(60);
     SetGyroLevelRoll(60);
     SetGyroLaunchAngle(10);
     SetGyroHoverStrength(8);
-
+#endif
     m_config.teamraceChannel = AUX7; // CH11
 
     // Configure a mix from each input channel to each output channel
@@ -1249,6 +1251,7 @@ RxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
     }
 }
 
+#if defined(PLATFORM_ESP32)
 void
 RxConfig::SetGyroModePos(uint8_t pos, gyro_mode_t mode)
 {
@@ -1433,6 +1436,7 @@ RxConfig::SetGyroCalibration(uint16_t x, uint16_t y, uint16_t z)
     gyro->z = z;
     m_modified = true;
 }
+#endif
 
 void
 RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inverted, uint8_t mode, bool narrow)

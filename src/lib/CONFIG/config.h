@@ -331,7 +331,7 @@ typedef struct __attribute__((packed)) {
     uint8_t     sourceSysId;
     rx_config_pwm_limits_t pwmLimits[PWM_MAX_CHANNELS];
     rx_config_mix_t mixes[MAX_MIXES];
-    #if defined(HAS_GYRO)
+    #if defined(PLATFORM_ESP32)
     rx_config_gyro_mode_pos_t gyroModes; // Gyro functions for switch positions
     rx_config_gyro_gains_t gyroGains[GYRO_N_AXES]; // PID gains for each axis
     rx_config_gyro_calibration_t accelCalibration;
@@ -373,7 +373,7 @@ public:
     const bool GetPwmChannelInverted(uint8_t ch) const { return m_config.pwmChannels[ch].val.inverted; }
     const rx_config_pwm_limits_t *GetPwmChannelLimits(uint8_t ch) const { return &m_config.pwmLimits[ch]; }
     const rx_config_mix_t *GetMix(uint8_t mixNumber) const { return &m_config.mixes[mixNumber]; }
-    #if defined(HAS_GYRO)
+    #if defined(PLATFORM_ESP32)
     const rx_config_gyro_gains_t *GetGyroGains(gyro_axis_t axis) const { return &m_config.gyroGains[axis]; }
 
     const rx_config_gyro_mode_pos_t *GetGyroModePos() const { return &m_config.gyroModes;}
@@ -414,6 +414,7 @@ public:
     void SetPwmChannelRaw(uint8_t ch, uint32_t raw);
     void SetPwmChannelLimits(uint8_t ch, uint16_t min, uint16_t max);
     void SetPwmChannelLimitsRaw(uint8_t ch, uint32_t raw);
+#if defined(PLATFORM_ESP32)
     void SetGyroModePos(uint8_t pos, gyro_mode_t mode);
     void SetGyroPIDRate(gyro_axis_t axis, gyro_rate_variable_t var, uint8_t value);
     void SetGyroPIDGain(gyro_axis_t axis, uint8_t value);
@@ -427,6 +428,7 @@ public:
     void SetGyroLevelPitch(uint8_t);
     void SetGyroLevelRoll(uint8_t);
     void SetGyroHoverStrength(uint8_t strength);
+#endif
     void SetMixer(
         uint8_t mixNumber, mix_source_t source, mix_destination_t destination,
         int8_t weight_negative, int8_t weight_positive, uint16_t offset,

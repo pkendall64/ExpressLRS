@@ -1,8 +1,7 @@
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "mode_hover.h"
 #include "gyro.h"
 #include "config.h"
-
-#if defined(HAS_GYRO)
 /**
  * Airplane Hover Mode
  *

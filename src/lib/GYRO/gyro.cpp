@@ -1,6 +1,7 @@
 #include "targets.h"
 
-#if defined(HAS_GYRO)
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
+#include "elrs_eeprom.h" // only needed to satisfy PIO
 #include "config.h"
 #include "gyro.h"
 #include "gyro_types.h"

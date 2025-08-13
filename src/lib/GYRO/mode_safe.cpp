@@ -1,6 +1,6 @@
-#include "gyro.h"
 
-#if defined(HAS_GYRO)
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
+#include "gyro.h"
 #include "config.h"
 #include "mode_safe.h"
 #include "mixer.h"

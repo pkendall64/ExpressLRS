@@ -122,7 +122,7 @@ static struct luaItem_string luaELRSversion = {
 //---------------------------- WiFi -----------------------------
 
 // --------------------------- Gyro Setup ---------------------------------
-
+#if defined(PLATFORM_ESP32)
 static struct luaItem_int8 luaGyroLaunchAngle = {
   {"Launch Angle", CRSF_UINT8},
   {
@@ -448,7 +448,7 @@ static void luaparamGyroPIDGain(struct luaPropertiesCommon *item, uint8_t arg)
   const gyro_axis_t axis = (gyro_axis_t) luaGyroGainAxis.value;
   config.SetGyroPIDGain(axis, arg);
 }
-
+#endif
 // --------------------------- Gyro Setup ---------------------------------
 
 //---------------------------- Output Mapping -----------------------------
@@ -931,7 +931,7 @@ static void registerLuaParameters()
     registerLUAParameter(&luaSetFailsafe, &luaparamSetFailsafe);
     registerLUAParameter(&luaMappingChannelLimitMin, &luaparamMappingChannelLimitMin, luaMappingFolder.common.id);
     registerLUAParameter(&luaMappingChannelLimitMax, &luaparamMappingChannelLimitMax, luaMappingFolder.common.id);
-
+#if defined(PLATFORM_ESP32)
     registerLUAParameter(&luaGyroModesFolder);
     registerLUAParameter(&luaGyroModePos1, &luaparamGyroModePos1, luaGyroModesFolder.common.id);
     registerLUAParameter(&luaGyroModePos2, &luaparamGyroModePos2, luaGyroModesFolder.common.id);
@@ -956,6 +956,7 @@ static void registerLuaParameters()
     registerLUAParameter(&luaGyroLevelRoll, &luaparamGyroLevelRoll, luaGyroSettingsFolder.common.id);
     registerLUAParameter(&luaGyroLaunchAngle, &luaparamGyroLaunchAngle, luaGyroSettingsFolder.common.id);
     registerLUAParameter(&luaGyroHoverStrength, &luaparamGyroHoverStrength, luaGyroSettingsFolder.common.id);
+#endif
   }
 
   registerLUAParameter(&luaBindStorage, [](struct luaPropertiesCommon* item, uint8_t arg) {
@@ -1019,6 +1020,7 @@ static int event()
     setLuaUint16Value(&luaMappingChannelLimitMin, (uint16_t) limits->val.min);
     setLuaUint16Value(&luaMappingChannelLimitMax, (uint16_t) limits->val.max);
 
+#if defined(PLATFORM_ESP32)
     const rx_config_gyro_mode_pos_t *gyroModes = config.GetGyroModePos();
     setLuaTextSelectionValue(&luaGyroModePos1, gyroModes->val.pos1);
     setLuaTextSelectionValue(&luaGyroModePos2, gyroModes->val.pos2);
@@ -1039,6 +1041,7 @@ static int event()
     setLuaUint8Value(&luaGyroLevelRoll, config.GetGyroLevelRoll());
     setLuaUint8Value(&luaGyroLaunchAngle, config.GetGyroLaunchAngle());
     setLuaUint8Value(&luaGyroHoverStrength, config.GetGyroHoverStrength());
+#endif
   }
 
   if (config.GetModelId() == 255)

@@ -1,6 +1,5 @@
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "gyro.h"
-
-#if defined(HAS_GYRO)
 #include "mode_rate.h"
 
 /**

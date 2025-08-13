@@ -1,5 +1,4 @@
-#include "targets.h"
-
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "gyro.h"
 #include "gyro_mpu6050.h"
 #include "mixer.h"
@@ -89,3 +88,4 @@ device_t Gyro_device = {
     .timeout = timeout,
     .subscribe = EVENT_CONFIG_GYRO_CHANGE,
 };
+#endif

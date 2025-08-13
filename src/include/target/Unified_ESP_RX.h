@@ -83,11 +83,6 @@
 #define ANALOG_VBAT_SCALE hardware_int(HARDWARE_vbat_scale)
 
 #if defined(PLATFORM_ESP32)
-#define HAS_GYRO
-#define GYRO_DEVICE_MPU6050
-#endif
-
-#if defined(PLATFORM_ESP32)
 // VTX
 #define OPT_HAS_VTX_SPI (hardware_pin(HARDWARE_vtx_nss) != UNDEF_PIN)
 #define GPIO_PIN_RF_AMP_PWM hardware_pin(HARDWARE_vtx_amp_pwm)

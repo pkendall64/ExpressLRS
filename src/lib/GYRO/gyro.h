@@ -1,7 +1,7 @@
 #pragma once
-#include "targets.h"
 
-#if defined(HAS_GYRO)
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
+#include "targets.h"
 #include "device.h"
 #include "config.h"
 #include "pid.h"

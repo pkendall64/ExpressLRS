@@ -7,9 +7,7 @@
 #include "logging.h"
 #include "rxtx_intf.h"
 #include "logging.h"
-#if defined(HAS_GYRO)
 #include "gyro.h"
-#endif
 
 static int8_t servoPins[PWM_MAX_CHANNELS];
 static pwm_channel_t pwmChannels[PWM_MAX_CHANNELS];
@@ -129,7 +127,7 @@ static void servosUpdate(unsigned long now)
 
             uint16_t us = CRSF_to_US(crsfVal);
 
-            #if defined(HAS_GYRO)
+            #if defined(PLATFORM_ESP32)
             // Mix in gyro adjustments before handling inversion
             gyro.mixer(ch, &us);
             #endif

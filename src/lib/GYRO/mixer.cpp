@@ -1,6 +1,5 @@
+#if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "targets.h"
-
-#if defined(HAS_GYRO)
 #include "config.h"
 #include "mixer.h"
 #include "gyro.h"

@@ -19,10 +19,10 @@ public:
     float pv;
     float output;
 
-    float Pout;
-    float Iout;
-    float Dout;
-    unsigned long t_delta;
+    float Pout = 0.0;
+    float Iout = 0.0;
+    float Dout = 0.0;
+    unsigned long t_delta = 0;
 
     /* Derivative low-pass filter time constant */
     float tau;
