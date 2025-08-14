@@ -1,7 +1,7 @@
 #pragma once
 #include "gyro_types.h"
 
-bool mixer_initialize();
+void mixer_initialize();
 
 float us_command_to_float(uint16_t us);
 float crsf_command_to_float(uint32_t us);

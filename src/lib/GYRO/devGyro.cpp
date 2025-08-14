@@ -21,22 +21,15 @@ static bool initialize()
         gyro.dev = new GyroDevMPU6050();
         gyro.dev->initialize();
         DBGLN("Detected MPU6050 Gyro");
+        gyro.initialized = true;
         return true;
     }
     return false;
 }
 
-static bool gyro_detect() {
-    return gyro.dev != nullptr;
-}
-
 static int start()
 {
-    if (!mixer_initialize() || !gyro_detect()) {
-        DBGLN("Gyro initialization failed");
-        return DURATION_NEVER;
-    }
-    gyro.initialized = true;
+    mixer_initialize();
     if (config.GetCalibrateGyro()) {
         gyro.dev->calibrate();
     }

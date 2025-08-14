@@ -18,9 +18,8 @@ bool auto_subtrim_complete = false;
 
 unsigned long time_of_first_packet = 0;
 
-bool mixer_initialize()
+void mixer_initialize()
 {
-    bool valid = true;
     // Called once during boot to fill arrays and sanity check
     for (int i = 0; i < GYRO_MAX_CHANNELS; i++)
     {
@@ -31,8 +30,6 @@ bool mixer_initialize()
             ch_map_auto_subtrim[i] = true;
         }
     }
-
-    return valid;
 }
 
 void auto_subtrim(uint8_t ch, uint16_t us)
