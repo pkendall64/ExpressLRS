@@ -1,4 +1,4 @@
-## ExpressLRS RX with Gyro Support
+# ExpressLRS RX with Gyro Support
 
 This branch adds support for an external i2c gyroscope for various stabilization
 modes.
@@ -8,7 +8,6 @@ This is an experimental branch not ready for prime time.
 Experiment at your own risk.
 
 ## Todo List
-
 - [x] Global servo output limits
 - [x] LUA PID adjustment settings
 - [x] LUA Input channel assignments
@@ -32,33 +31,25 @@ Experiment at your own risk.
   - [ ] ICM42688P 
 
 ## Setup
-
-The gyro settings are available through the
+The gyro settings are available through the 
 [ExpressLRS Lua script](https://www.expresslrs.org/quick-start/transmitters/lua-howto/).
+The Mixer settings are proved in the receiver web UI.
 
-### Gyro Inputs
+### Mixer Sources
+* ch1-16 - channel data from the tramsnitter
+* Gyro Roll Out
+* Gyro Pitch Out
+* Gyro Yaw Out
 
-In the "Gyro Inputs" menu you can setup mappings between input channels to gyro
-functions.
-
-The gyro input functions are:
-
-* Roll input
-* Pitch input
-* Yaw input
+### Mixer Destinations
+* ch1-16 - the mixed channel outputs (can be mapped to a PWM output independently)
 * Mode - Selection of stabilization mode
 * Gain - Gyro Gain 0% - 100%
+* Gyro Roll Cmd
+* Gyro Pitch Cmd
+* Gyro Yaw Cmd
 
-### Gyro Outputs
-
-The gyro output functions are:
-
-* Aileron output
-* Elevator output
-* Rudder output
-* Elevon output
-* V-Tail output
-
+### Stabalization Modes
 A input channel configured for "Mode" in the "Gyro Inputs" menu can be used to
 select the active stabilization mode.
 
@@ -73,20 +64,24 @@ Not yet implemented.
 
 #### SAFE Mode
 
-In this mode the gyro will work to limit pitch and roll angles within the configured limits.
+The gyro will work to limit pitch and roll angles within the configured limits.
 
 #### Level Mode
 
-In this mode the gyro will work to keep the pitch and roll angles at zero when
+The gyro will work to keep the pitch and roll angles at zero when
 channel inputs are zero.
 
 If the roll stick command is 50%, the gyro will attempt to keep the roll angle
 at 50% of the max roll angle.
 
+#### Launch Mode
+
+The gyro keeps the craft in a straight-ahead, inclined launch set by the launch angle.
+
 #### Hover Mode
 
-In this mode the gyro will add corrections to elevator and rudder channels in
-order to keep aircraft pointing directly upwards.
+The gyro will add corrections to elevator and rudder channels in
+order to keep the aircraft pointing directly upwards.
 
 ## DIY Hardware
 
