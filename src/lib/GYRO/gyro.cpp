@@ -17,14 +17,14 @@
 
 extern Telemetry telemetry;
 
-PID pid_roll  = PID(1, -1, 0.0, 0.0, 0.0);
-PID pid_pitch = PID(1, -1, 0.0, 0.0, 0.0);
-PID pid_yaw   = PID(1, -1, 0.0, 0.0, 0.0);
+PID pid_roll(1, -1, 0.0, 0.0, 0.0);
+PID pid_pitch(1, -1, 0.0, 0.0, 0.0);
+PID pid_yaw(1, -1, 0.0, 0.0, 0.0);
 
 #ifdef GYRO_BOOT_JITTER
-uint8_t boot_jitter_times = 0;
-uint32_t boot_jitter_time = 0;
-int8_t boot_jitter_offset = GYRO_BOOT_JITTER_US;
+static uint8_t boot_jitter_times = 0;
+static uint32_t boot_jitter_time = 0;
+static int8_t boot_jitter_offset = GYRO_BOOT_JITTER_US;
 
 bool boot_jitter(uint16_t *us)
 {

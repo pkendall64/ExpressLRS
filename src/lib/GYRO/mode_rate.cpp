@@ -7,7 +7,7 @@
  *
  * This is a basic "wind rejection mode" and counteracts roll and pitch changes.
  *
- * As the channel command increases the correction decreases allowing unlimited
+ * As the channel command increases, the correction decreases allowing unlimited
  * angular rates.
  */
 

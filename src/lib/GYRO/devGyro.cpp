@@ -3,13 +3,11 @@
 #include "gyro_mpu6050.h"
 #include "mixer.h"
 #include "logging.h"
-#include "elrs_eeprom.h" // only needed to satisfy PIO
-#include "config.h"
 #include "MPU6050.h"
 
 extern boolean i2c_enabled;
 
-Gyro gyro = Gyro();
+Gyro gyro;
 
 static bool initialize()
 {
@@ -17,8 +15,7 @@ static bool initialize()
     {
         return false;
     }
-    Wire.setClock(400000);
-    auto mpu = MPU6050();
+    MPU6050 mpu;
     if (mpu.testConnection())
     {
         gyro.dev = new GyroDevMPU6050();

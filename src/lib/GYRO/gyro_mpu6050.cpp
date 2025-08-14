@@ -6,18 +6,12 @@
 #include "logging.h"
 #include "config.h"
 
-#define I2C_MASTER_FREQ_HZ 400000
-
 #define gscale ((250. / 32768.0) / 100) // gyro default 250 LSB per d/s
 
 // MPU control/status vars
-bool dmpReady = false;    // set true if DMP init was successful
-uint8_t mpuIntStatus;     // holds actual interrupt status byte from MPU
-uint8_t devStatus;        // return status after each device operation (0 = success, !0 = error)
-uint16_t fifoCount;       // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64];   // FIFO storage buffer
-
-unsigned long last_gyro_update;
+static uint8_t mpuIntStatus;     // holds actual interrupt status byte from MPU
+static uint16_t fifoCount;       // count of all bytes currently in FIFO
+static uint8_t fifoBuffer[64];   // FIFO storage buffer
 
 #ifdef DEBUG_GYRO_STATS
 /**
@@ -75,11 +69,7 @@ void GyroDevMPU6050::print_gyro_stats()
 }
 #endif
 
-MPU6050 mpu = MPU6050();
-
-void GyroDevMPU6050::initialize() {
-    Wire.setClock(I2C_MASTER_FREQ_HZ);
-}
+static MPU6050 mpu;
 
 void GyroDevMPU6050::calibrate()
 {
@@ -160,11 +150,6 @@ uint8_t GyroDevMPU6050::start(bool calibrate) {
     return DURATION_IMMEDIATELY; // Call timeout() immediately
 }
 
-uint8_t GyroDevMPU6050::event() {
-    return DURATION_IGNORE;
-}
-
-
 /**
  * This method is used instead of mpu.dmpGetYawPitchRoll() as that method has
  * issues when gravity switches at high pitch angles.
@@ -197,7 +182,7 @@ bool GyroDevMPU6050::read() {
         mpu.resetFIFO();
         return false;
     }
-    else if (mpuIntStatus & 0x02)
+    if (mpuIntStatus & 0x02)
     {
         int result = mpu.GetCurrentFIFOPacket(fifoBuffer, 28);
         if (result != 1)
@@ -267,8 +252,6 @@ bool GyroDevMPU6050::read() {
     print_gyro_stats();
     #endif
 
-        // unsigned long time_since_update = micros() - last_gyro_update;
-        last_gyro_update = micros();
     return true;
 }
 #endif
