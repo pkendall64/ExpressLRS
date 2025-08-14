@@ -14,6 +14,8 @@ extern void reconfigureSerial1();
 #endif
 extern bool BindingModeRequest;
 
+static uint32_t lastLcsPoll = 0;
+
 static char modelString[] = "000";
 static char pwmModes[] = "50Hz;60Hz;100Hz;160Hz;333Hz;400Hz;10kHzDuty;On/Off;DShot;Serial RX;Serial TX;I2C SCL;I2C SDA;Serial2 RX;Serial2 TX";
 
@@ -235,13 +237,14 @@ static void luaparamGyroCalibrate(struct luaPropertiesCommon *item, uint8_t arg)
     sendLuaCommandResponse((struct luaItem_command *)item, newStep, msg);
     gyro_event = GYRO_EVENT_CALIBRATE;
     devicesTriggerEvent(EVENT_CONFIG_GYRO_CHANGE);
+    lastLcsPoll = millis();
     return;
   }
-  else if (arg == lcsQuery)
+  else if (arg == lcsQuery && millis() - lastLcsPoll < 2000)
   {
     msg = "Calibrating gyro";
     newStep = lcsExecuting;
-    sendLuaCommandResponse((struct luaItem_command *)item, newStep, msg);
+    sendLuaCommandResponse((luaItem_command *)item, newStep, msg);
   }
   else
   {
@@ -270,9 +273,10 @@ static void luaparamGyroSubtrims(struct luaPropertiesCommon *item, uint8_t arg)
     sendLuaCommandResponse((struct luaItem_command *)item, newStep, msg);
     gyro_event = GYRO_EVENT_SUBTRIMS;
     devicesTriggerEvent(EVENT_CONFIG_GYRO_CHANGE);
+    lastLcsPoll = millis();
     return;
   }
-  else if (arg == lcsQuery)
+  else if (arg == lcsQuery && millis() - lastLcsPoll < 2000)
   {
     msg = "Setting subtrims";
     newStep = lcsExecuting;
