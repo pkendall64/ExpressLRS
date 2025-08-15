@@ -236,28 +236,16 @@ void applyMixes()
         // The fist 16 enums are CRSF input channels
         if (mix->val.source < 16)
         {
-            const unsigned crsfVal = ChannelData[mix->val.source];
-            if (crsfVal < CRSF_CHANNEL_VALUE_MID)
-            {
-                uint16_t command = CRSF_CHANNEL_VALUE_MID - crsfVal;
-                int8_t scale = mix->val.weight_negative;
-                int32_t scaled = command * scale / 100;
-                newChannelData[mix->val.destination] -= scaled;
-            }
-            else
-            {
-                uint16_t value = crsfVal - CRSF_CHANNEL_VALUE_MID;
-                int8_t scale = mix->val.weight_positive;
-                int32_t result = value * scale / 100;
-                newChannelData[mix->val.destination] += result;
-            }
+            const auto crsfVal = (int32_t)ChannelData[mix->val.source] - CRSF_CHANNEL_VALUE_MID;
+            const int8_t scale = crsfVal < 0 ? mix->val.weight_negative : mix->val.weight_positive;
+            const int32_t scaled = crsfVal * scale / 100;
+            newChannelData[mix->val.destination] += scaled;
         }
         else
         {
             switch (mix->val.source)
             {
-            case MIX_SOURCE_FAILSAFE:
-            {
+            case MIX_SOURCE_FAILSAFE: {
                 // This is a full max throw input when we are in failsafe which
                 // can be mixed to other channels.
                 int8_t scale = (int8_t) mix->val.weight_positive;
@@ -276,12 +264,7 @@ void applyMixes()
 
     for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS; ch++)
     {
-        if (newChannelData[ch] < CRSF_CHANNEL_VALUE_MIN)
-            ChannelMixedData[ch] = CRSF_CHANNEL_VALUE_MIN;
-        else if (newChannelData[ch] > CRSF_CHANNEL_VALUE_MAX)
-            ChannelMixedData[ch] = CRSF_CHANNEL_VALUE_MAX;
-        else
-            ChannelMixedData[ch] = newChannelData[ch];
+        ChannelMixedData[ch] = constrain(newChannelData[ch], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX);
     }
 }
 
