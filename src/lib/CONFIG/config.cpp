@@ -776,12 +776,23 @@ void RxConfig::Load()
     if (version == RX_CONFIG_VERSION)
     {
         CheckUpdateFlashedUid(false);
-        DBGVLN("Limits:")
+#if defined(DEBUG_PWM)
+        DBGLN("PWM Settings:");
         for (uint8_t i = 0; i < PWM_MAX_CHANNELS; i++)
         {
+            const auto pwm = GetPwmChannel(i);
             const rx_config_pwm_limits_t *limits = GetPwmChannelLimits(i);
-            DBGVLN("Channel %d: %d - %d", i, limits->val.min, limits->val.max);
+            DBGLN("Channel %d: mode=%d input=%d inv:%d narrow:%d fsmode:%d fs:%d min=%d - max=%d",
+                i,
+                pwm->val.mode,
+                pwm->val.inputChannel,
+                pwm->val.inverted,
+                pwm->val.narrow,
+                pwm->val.failsafeMode,
+                pwm->val.failsafe,
+                limits->val.min, limits->val.max);
         }
+#endif
         return;
     }
 
