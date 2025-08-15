@@ -103,6 +103,7 @@ device_affinity_t ui_devices[] = {
 
 uint8_t antenna = 0;    // which antenna is currently in use
 uint8_t geminiMode = 0;
+static volatile bool newChannelDataAvailable = false;
 
 PFD PFDloop;
 Crc2Byte ota_crc;
@@ -218,55 +219,6 @@ static uint32_t BindingRateChangeTime;
 
 extern void setWifiUpdateMode();
 void reconfigureSerial();
-
-void applyMixes()
-{
-    int64_t newChannelData[CRSF_NUM_CHANNELS + GYRO_DESTINATIONS];
-    for (uint8_t i = 0; i < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; i++)
-        newChannelData[i] = CRSF_CHANNEL_VALUE_MID;
-    
-    for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
-    {
-        const rx_config_mix_t *mix = config.GetMix(mix_number);
-
-        if (!mix->val.active)
-            continue;
-        
-        newChannelData[mix->val.destination] += mix->val.offset;
-
-        // The fist 16 enums are CRSF input channels, and the next three are gyro outputs
-        if (mix->val.source < CRSF_NUM_CHANNELS + GYRO_SOURCES)
-        {
-            const auto crsfVal = (int32_t)ChannelData[mix->val.source] - CRSF_CHANNEL_VALUE_MID;
-            const int8_t scale = crsfVal < 0 ? mix->val.weight_negative : mix->val.weight_positive;
-            const int32_t scaled = crsfVal * scale / 100;
-            newChannelData[mix->val.destination] += scaled;
-        }
-        else
-        {
-            switch ((mix_source_t) mix->val.source)
-            {
-            case MIX_SOURCE_FAILSAFE: {
-                // This is a full max throw input when we are in failsafe which
-                // can be mixed to other channels.
-                int8_t scale = (int8_t) mix->val.weight_positive;
-                uint32_t result = (CRSF_CHANNEL_VALUE_MAX - CRSF_CHANNEL_VALUE_MID) * scale / 100;
-                newChannelData[mix->val.destination] += result;
-                break;
-            }
-
-            // Later we may add other source mixes here (gyro, failsafe, etc)
-            default:
-                break;
-            }
-        }
-    }
-
-    for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; ch++)
-    {
-        ChannelMixedData[ch] = constrain(newChannelData[ch], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX);
-    }
-}
 
 uint8_t getLq()
 {
@@ -885,9 +837,7 @@ void ICACHE_RAM_ATTR HWtimerCallbackTock()
     {
         if (LQCalcDVDA.currentIsSet())
         {
-            crsfRCFrameAvailable();
-            if (teamraceHasModelMatch)
-                servoNewChannelsAvailable();
+            newChannelDataAvailable = true;
         }
         else
         {
@@ -900,7 +850,6 @@ void ICACHE_RAM_ATTR HWtimerCallbackTock()
         {
             crsfRCFrameMissed();
         }
-        applyMixes();
     }
 
     // For any serial drivers that need to send on a regular cadence (i.e. CRSF to betaflight)
@@ -1019,12 +968,7 @@ static void ICACHE_RAM_ATTR ProcessRfPacket_RC(OTA_Packet_s const * const otaPkt
     {
         if (ExpressLRS_currAirRate_Modparams->numOfSends == 1)
         {
-            applyMixes();
-            crsfRCFrameAvailable();
-            // teamrace is only checked for servos because the teamrace model select logic only runs
-            // when new frames are available, and will decide later if the frame will be forwarded
-            if (teamraceHasModelMatch)
-                servoNewChannelsAvailable();
+            newChannelDataAvailable = true;
         }
         else if (!LQCalcDVDA.currentIsSet())
         {
@@ -2232,6 +2176,18 @@ void loop()
         MspReceiveComplete();
     }
 
+    if (newChannelDataAvailable)
+    {
+        newChannelDataAvailable = false;
+        applyMixes();
+        crsfRCFrameAvailable();
+        // team-race is only checked for servos because the team-race model select logic only runs
+        // when new frames are available and will decide later if the frame will be forwarded
+        if (teamraceHasModelMatch)
+        {
+            servoNewChannelsAvailable();
+        }
+    }
     devicesUpdate(now);
 
     // read and process any data from serial ports, send any queued non-RC data
