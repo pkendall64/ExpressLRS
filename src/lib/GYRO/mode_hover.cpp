@@ -1,5 +1,7 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
+
 #include "gyro.h"
+
 /**
  * Airplane Hover Mode
  *
@@ -24,31 +26,10 @@ void hover_controller_calculate_pid()
     pid_roll.calculate(0, gyro.f_gyro[0]);
     pid_pitch.calculate(0, gyro.f_gyro[1]);
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
-}
 
-float hover_controller_out(
-    gyro_output_channel_function_t channel_function,
-    float command
-)
-{
-    float correction = 0.0;
     float error = gyro.ypr[1] - M_PI_2; // Pi/2 = 90degrees
     error *= (float) config.GetGyroHoverStrength() / 16;
-
-    switch (channel_function)
-    {
-    case FN_AILERON:
-        return pid_roll.output;
-
-    case FN_ELEVATOR:
-        return pid_pitch.output + (error * cos(gyro.ypr[2]));
-
-    case FN_RUDDER:
-        return pid_yaw.output + (error * sin(gyro.ypr[2]));
-
-    default: ;
-    }
-
-    return correction;
+    pid_pitch.output += error * cos(gyro.ypr[2]);
+    pid_yaw.output += error * sin(gyro.ypr[2]);
 }
 #endif

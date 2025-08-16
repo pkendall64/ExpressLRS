@@ -53,13 +53,13 @@ public:
     bool initialized;
 
 private:
-    gyro_mode_t gyro_mode;
+    gyro_mode_t gyro_mode = GYRO_MODE_OFF;
     void detect_gain(uint16_t us);
     void detect_mode(uint16_t us);
     void switch_mode(gyro_mode_t mode);
     float apply_gain(float correction, mix_destination_t channel);
 
-    unsigned long pid_delay;
+    unsigned long pid_delay = 0;
 };
 
 extern Gyro gyro;
