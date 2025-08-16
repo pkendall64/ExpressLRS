@@ -1,5 +1,5 @@
 #pragma once
-#include "mixer.h"
+#include "gyro_types.h"
 
 void hover_controller_initialize();
 void hover_controller_calculate_pid();

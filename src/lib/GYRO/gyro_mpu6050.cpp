@@ -1,10 +1,12 @@
 #include "targets.h"
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "gyro_mpu6050.h"
-#include "MPU6050_6Axis_MotionApps612.h"
-#include "logging.h"
 #include "config.h"
+#include "gyro.h"
+#include "gyro_mpu6050.h"
+#include "logging.h"
+
+#include "MPU6050_6Axis_MotionApps612.h"
 
 #define gscale ((250. / 32768.0) / 100) // gyro default 250 LSB per d/s
 
@@ -24,7 +26,7 @@ void GyroDevMPU6050::print_gyro_stats()
 
     // Calculate gyro update rate in HZ
     int update_rate = 1.0 /
-                      ((micros() - last_gyro_update) / 1000000.0);
+                      ((micros() - gyro.last_update) / 1000000.0);
 
     char rate_str[5]; sprintf(rate_str, "%4d", update_rate);
 
@@ -32,37 +34,19 @@ void GyroDevMPU6050::print_gyro_stats()
     char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.ypr[2] * 180 / M_PI);
     char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.ypr[0] * 180 / M_PI);
 
-    char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.v_gyro.x);
-    char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.v_gyro.y);
-    char gyro_z[8]; sprintf(gyro_z, "%6.2f", gyro.v_gyro.z);
+    char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.f_gyro[0]);
+    char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.f_gyro[1]);
+    char gyro_z[8]; sprintf(gyro_z, "%6.2f", gyro.f_gyro[2]);
 
-    char gravity_x[8]; sprintf(gravity_x, "%4.2f", gyro.gravity.x);
-    char gravity_y[8]; sprintf(gravity_y, "%4.2f", gyro.gravity.y);
-    char gravity_z[8]; sprintf(gravity_z, "%4.2f", gyro.gravity.z);
-
-    char debug_line[128];
-    sprintf(debug_line,
-        "Pitch: %.2f Roll: %.2f Yaw: %.2f"
-        , gyro.ypr[1], gyro.ypr[2], gyro.ypr[0]
-    );
-    DBGLN(debug_line);
-
-    // Uncomment lines needed for debugging
     DBGLN(
-        // "%s HZ "
+        "%s HZ "
         "Gain %f "
-        "Pitch:%s Roll:%s Yaw:%s "
-        // "e1: %f, e2: %f, e3: %f "
-        "Qw: %f Qx: %f Qy: %f Qz: %f "
-        // "Gyro x: %s Gyro y: %s Gyro z: %s "
-        "Gravity gX: %s gY: %s gZ: %s "
-        // ,rate_str
-        , gyro.gain
+        "Pitch: %s Roll: %s Yaw: %s "
+        "Gyro x: %s Gyro y: %s Gyro z: %s "
+        ,rate_str
+        ,gyro.gain
         ,pitch_str, roll_str, yaw_str
-        // ,gyro.euler[0], gyro.euler[1], gyro.euler[2]
-        ,gyro.q.w, gyro.q.x, gyro.q.y, gyro.q.z
-        // ,gyro_x, gyro_y, gyro_z
-        ,gravity_x, gravity_y, gravity_z
+        ,gyro_x, gyro_y, gyro_z
         );
 
     last_gyro_stats_time = millis();
@@ -188,8 +172,10 @@ bool GyroDevMPU6050::read() {
         if (result != 1)
             return DURATION_IMMEDIATELY;
 
-        mpu.dmpGetGyro(&gyro.v_gyro, fifoBuffer);
-        mpu.dmpGetQuaternion(&gyro.q, fifoBuffer); // [w, x, y, z] quaternion container
+        VectorInt16 v_gyro;
+        Quaternion q;       // [w, x, y, z]         quaternion container
+        mpu.dmpGetGyro(&v_gyro, fifoBuffer);
+        mpu.dmpGetQuaternion(&q, fifoBuffer); // [w, x, y, z] quaternion container
 
         const gyro_sensor_align_t alignment = config.GetGyroSensorAlignment();
         if (alignment != GYRO_ALIGN_CW0_DEG)
@@ -232,16 +218,16 @@ bool GyroDevMPU6050::read() {
             default: ;
             }
 
-            gyro.v_gyro = gyro.v_gyro.getRotated(&v_rotation);
-            gyro.q = gyro.q.getProduct(q_rotation);
+            v_gyro = v_gyro.getRotated(&v_rotation);
+            q = q.getProduct(q_rotation);
         }
 
-        gyro.f_gyro[0] = gyro.v_gyro.x * gscale; // Roll
-        gyro.f_gyro[1] = gyro.v_gyro.y * gscale; // Pitch
-        gyro.f_gyro[2] = gyro.v_gyro.z * gscale; // Yaw
-        mpu.dmpGetEuler(gyro.euler, &gyro.q);
-        mpu.dmpGetGravity(&gyro.gravity, &gyro.q);
-        dmpGetYawPitchRoll(gyro.ypr, &gyro.q, &gyro.gravity);
+        gyro.f_gyro[0] = v_gyro.x * gscale; // Roll rate (radians/s)
+        gyro.f_gyro[1] = v_gyro.y * gscale; // Pitch rate (radians/s)
+        gyro.f_gyro[2] = v_gyro.z * gscale; // Yaw rate (radians/s)
+        VectorFloat gravity;
+        mpu.dmpGetGravity(&gravity, &q);
+        dmpGetYawPitchRoll(gyro.ypr, &q, &gravity);
     }
     else
     {

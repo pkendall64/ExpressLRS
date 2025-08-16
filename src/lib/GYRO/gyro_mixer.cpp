@@ -1,8 +1,8 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "targets.h"
 #include "config.h"
-#include "mixer.h"
 #include "gyro.h"
+#include "gyro_types.h"
 #include "logging.h"
 #include "crsf_protocol.h"
 
@@ -32,7 +32,7 @@ void mixer_initialize()
     }
 }
 
-void auto_subtrim(uint8_t ch, uint16_t us)
+static void auto_subtrim(uint8_t ch, uint16_t us)
 {
     // Set midpoint (subtrim) from an average of a set of samples
     if (ch_map_auto_subtrim[ch] && subtrim_init < GYRO_SUBTRIM_INIT_SAMPLES) {
@@ -110,59 +110,8 @@ uint16_t float_to_us(uint8_t ch, float value)
     const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
 
     return value < 0
-        ? mid + ((mid - limits->val.min) * value)
-        : mid + ((limits->val.max - mid) * value);
-}
-
-void applyMixes()
-{
-    int32_t newChannelData[CRSF_NUM_CHANNELS + GYRO_DESTINATIONS];
-    for (int i = 0; i < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; i++)
-    {
-        newChannelData[i] = CRSF_CHANNEL_VALUE_MID;
-    }
-
-    for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
-    {
-        const rx_config_mix_t *mix = config.GetMix(mix_number);
-
-        if (!mix->val.active)
-            continue;
-
-        newChannelData[mix->val.destination] += mix->val.offset;
-
-        // The fist 16 enums are CRSF input channels, and the next three are gyro outputs
-        if (mix->val.source < CRSF_NUM_CHANNELS + GYRO_SOURCES)
-        {
-            const auto crsfVal = (int32_t)ChannelData[mix->val.source] - CRSF_CHANNEL_VALUE_MID;
-            const auto scale = crsfVal < 0 ? (int)mix->val.weight_negative : (int)mix->val.weight_positive;
-            const auto scaled = crsfVal * scale / 100;
-            newChannelData[mix->val.destination] += scaled;
-        }
-        else
-        {
-            switch ((mix_source_t) mix->val.source)
-            {
-            case MIX_SOURCE_FAILSAFE: {
-                // This is a full max throw input when we are in failsafe which
-                // can be mixed to other channels.
-                const auto scale = (int) mix->val.weight_positive;
-                const auto result = (CRSF_CHANNEL_VALUE_MAX - CRSF_CHANNEL_VALUE_MID) * scale / 100;
-                newChannelData[mix->val.destination] += result;
-                break;
-            }
-
-                // Later we may add other source mixes here (gyro, failsafe, etc)
-            default:
-                break;
-            }
-        }
-    }
-
-    for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS + GYRO_DESTINATIONS; ch++)
-    {
-        ChannelMixedData[ch] = constrain(newChannelData[ch], CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX);
-    }
+        ? mid + (int)((mid - limits->val.min) * value)
+        : mid + (int)((limits->val.max - mid) * value);
 }
 
 #endif

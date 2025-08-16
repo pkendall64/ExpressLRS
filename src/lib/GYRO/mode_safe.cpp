@@ -1,11 +1,6 @@
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "gyro.h"
-#include "config.h"
-#include "mode_safe.h"
-#include "mixer.h"
-#include "pid.h"
-#include "gyro_types.h"
 
 /**
  * Airplane Safe Mode
@@ -15,8 +10,8 @@
 
 #define PI_180 0.0174532925199
 
-const float max_angle_roll = 30 * PI_180; // Convert degrees to radians
-const float max_angle_pitch = 30 * PI_180; // Convert degrees to radians
+constexpr float max_angle_roll = 30 * PI_180; // Convert degrees to radians
+constexpr float max_angle_pitch = 30 * PI_180; // Convert degrees to radians
 
 void safe_controller_initialize()
 {
@@ -25,7 +20,7 @@ void safe_controller_initialize()
     configure_pids(2.0, 2.0, 1.0);
 }
 
-void _calculate_pid(PID *pid, float angle, float max_angle)
+static void _calculate_pid(PID *pid, float angle, float max_angle)
 {
     if (abs(angle) < max_angle) {
         pid->reset();

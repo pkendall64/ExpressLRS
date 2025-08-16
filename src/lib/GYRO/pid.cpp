@@ -44,7 +44,7 @@ float PID::calculate(float _setpoint, float _pv)
     unsigned long now = micros();
     t_delta = now - last_update;
     t_delta = t_delta == 0 ? 1 : t_delta; // Stop any chance of div/0
-    float _dt = 1.0 / t_delta;
+    float _dt = 1.0f / t_delta;
     last_update = now;
 
     // Store input for debugging

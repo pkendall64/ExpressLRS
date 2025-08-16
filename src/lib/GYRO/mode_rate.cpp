@@ -1,6 +1,5 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "gyro.h"
-#include "mode_rate.h"
 
 /**
  * Airplane Normal Mode / Rate Mode

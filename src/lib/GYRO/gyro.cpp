@@ -1,19 +1,19 @@
 #include "targets.h"
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "elrs_eeprom.h" // only needed to satisfy PIO
 #include "config.h"
-#include "gyro.h"
-#include "gyro_types.h"
-#include "mixer.h"
 #include "device.h"
+#include "elrs_eeprom.h" // only needed to satisfy PIO
+#include "gyro.h"
+#include "gyro_mixer.h"
 #include "gyro_mpu6050.h"
-#include "mode_level.h"
+#include "gyro_types.h"
+#include "logging.h"
 #include "mode_hover.h"
+#include "mode_level.h"
 #include "mode_rate.h"
 #include "mode_safe.h"
 #include "telemetry.h"
-#include "logging.h"
 
 extern Telemetry telemetry;
 
@@ -266,6 +266,7 @@ void Gyro::tick()
         break;
     }
 
+    // TODO: the PID outputs should come from the selected mode controller
     ChannelData[MIX_SOURCE_GYRO_ROLL] =
         constrain(
             CRSF_CHANNEL_VALUE_MID + apply_gain(pid_roll.output, MIX_DESTINATION_GYRO_ROLL) * (CRSF_CHANNEL_VALUE_MID),
@@ -299,22 +300,7 @@ void Gyro::tick()
     #endif
 }
 
-void configure_pids(float roll_limit, float pitch_limit, float yaw_limit)
-{
-    const rx_config_gyro_gains_t *roll_gains =
-        config.GetGyroGains(GYRO_AXIS_ROLL);
-    const rx_config_gyro_gains_t *pitch_gains =
-        config.GetGyroGains(GYRO_AXIS_PITCH);
-    const rx_config_gyro_gains_t *yaw_gains =
-        config.GetGyroGains(GYRO_AXIS_YAW);
-
-    configure_pid_gains(&pid_roll, roll_gains, roll_limit, -1.0 * roll_limit);
-    configure_pid_gains(&pid_pitch, pitch_gains, pitch_limit,
-                        -1.0 * pitch_limit);
-    configure_pid_gains(&pid_yaw, yaw_gains, yaw_limit, -1.0 * yaw_limit);
-}
-
-void configure_pid_gains(PID *pid, const rx_config_gyro_gains_t *gains,
+static void configure_pid_gains(PID *pid, const rx_config_gyro_gains_t *gains,
                          float max, float min)
 {
     DBGLN("Config gains: P %d I %d D %d G %d", gains->p, gains->i, gains->d, gains->gain);
@@ -330,6 +316,21 @@ void configure_pid_gains(PID *pid, const rx_config_gyro_gains_t *gains,
         pid->configure(p, i, d, max, min);
     }
     pid->reset();
+}
+
+void configure_pids(float roll_limit, float pitch_limit, float yaw_limit)
+{
+    const rx_config_gyro_gains_t *roll_gains =
+        config.GetGyroGains(GYRO_AXIS_ROLL);
+    const rx_config_gyro_gains_t *pitch_gains =
+        config.GetGyroGains(GYRO_AXIS_PITCH);
+    const rx_config_gyro_gains_t *yaw_gains =
+        config.GetGyroGains(GYRO_AXIS_YAW);
+
+    configure_pid_gains(&pid_roll, roll_gains, roll_limit, -1.0 * roll_limit);
+    configure_pid_gains(&pid_pitch, pitch_gains, pitch_limit,
+                        -1.0 * pitch_limit);
+    configure_pid_gains(&pid_yaw, yaw_gains, yaw_limit, -1.0 * yaw_limit);
 }
 
 #endif

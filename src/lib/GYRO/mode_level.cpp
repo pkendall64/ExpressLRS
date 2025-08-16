@@ -1,12 +1,7 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "gyro.h"
-#include "config.h"
 #include "crsf_protocol.h"
-
-#include "mode_level.h"
-#include "mixer.h"
-#include "pid.h"
-#include "gyro_types.h"
+#include "gyro.h"
+#include "gyro_mixer.h"
 
 /**
  * Airplane Level/Stable Mode
@@ -84,7 +79,7 @@ float level_controller_out(
     if (channel_function == FN_ELEVATOR)
         return pid_pitch.output;
     if (channel_function == FN_RUDDER)
-        // Because the calling gyro fuction will not add command to the output
+        // Because the calling gyro function will not add command to the output
         // of the level controller, we have to add it ourselves here.
         return pid_yaw.output + command;
 

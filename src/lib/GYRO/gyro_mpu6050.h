@@ -1,7 +1,6 @@
 #pragma once
 
-#include "stdint.h"
-#include "gyro.h"
+#include "helper_3dmath.h"
 
 // See betaflight src/main/drivers/accgyro/accgyro_mpu6050.c
 
@@ -26,6 +25,6 @@ private:
     void dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity);
     #ifdef DEBUG_GYRO_STATS
     void print_gyro_stats();
-    unsigned long last_gyro_stats_time;
+    unsigned long last_gyro_stats_time = 0;
     #endif
 };

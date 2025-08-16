@@ -1,9 +1,9 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "gyro.h"
-#include "gyro_mpu6050.h"
-#include "mixer.h"
-#include "logging.h"
 #include "MPU6050.h"
+#include "gyro.h"
+#include "gyro_mixer.h"
+#include "gyro_mpu6050.h"
+#include "logging.h"
 
 extern boolean i2c_enabled;
 

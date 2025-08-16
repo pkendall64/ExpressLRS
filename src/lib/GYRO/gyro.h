@@ -2,12 +2,9 @@
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "targets.h"
-#include "device.h"
 #include "config.h"
-#include "pid.h"
 #include "gyro_types.h"
-#include <math.h>
-#include "helper_3dmath.h"
+#include "pid.h"
 
 #define GYRO_US_MIN 988
 #define GYRO_US_MID 1500
@@ -48,15 +45,8 @@ public:
 // protected:
 
     // orientation/motion vars
-    Quaternion q;        // [w, x, y, z]         quaternion container
-    VectorInt16 aa;      // [x, y, z]            accel sensor measurements
-    VectorInt16 aaReal;  // [x, y, z]            gravity-free accel sensor measurements
-    VectorInt16 aaWorld; // [x, y, z]            world-frame accel sensor measurements
-    VectorInt16 v_gyro;
-    VectorFloat gravity; // [x, y, z]            gravity vector
-    float f_gyro[3];
-    float euler[3];      // [psi, theta, phi]    Euler angle container
-    float ypr[3];        // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+    float f_gyro[3];    // roll/pitch/yaw rates radians/s
+    float ypr[3];       // [yaw, pitch, roll]   angle in degrees
 
     uint16_t update_rate;
     unsigned long last_update;
@@ -78,6 +68,4 @@ extern Gyro gyro;
 // (typically 1.0). Set a limit to 0.0 to disable PID control on an axis.
 void configure_pids(float roll_limit, float pitch_limit, float yaw_limit);
 
-// Helper method to configure a PID controller instance use the rx config values
-void configure_pid_gains(PID* pid, const rx_config_gyro_gains_t* gains, float max, float min);
 #endif

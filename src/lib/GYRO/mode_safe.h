@@ -1,5 +1,5 @@
 #pragma once
-#include "mixer.h"
+#include "gyro_types.h"
 
 void safe_controller_initialize();
 void safe_controller_calculate_pid();
