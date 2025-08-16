@@ -16,6 +16,9 @@ static uint16_t pwmChannelValues[PWM_MAX_CHANNELS];
 #if defined(PLATFORM_ESP32)
 static DShotRMT *dshotInstances[PWM_MAX_CHANNELS] = {nullptr};
 const uint8_t RMT_MAX_CHANNELS = 8;
+#define CHANNELS ChannelMixedData
+#else
+#define CHANNELS ChannelData
 #endif
 
 // true when the RX has a new channels packet
@@ -114,9 +117,7 @@ static void servosUpdate(unsigned long now)
         for (int ch = 0 ; ch < GPIO_PIN_PWM_OUTPUTS_COUNT ; ++ch)
         {
             const rx_config_pwm_t *chConfig = config.GetPwmChannel(ch);
-            const unsigned crsfVal = ChannelMixedData[chConfig->val.inputChannel];
-
-            // DBGLN("Ch %d CRSF %d Mixed %d", ch, ChannelData[chConfig->val.inputChannel], ChannelMixedData[chConfig->val.inputChannel])
+            const unsigned crsfVal = CHANNELS[chConfig->val.inputChannel];
 
             // crsfVal might 0 if this is a switch channel, and it has not been
             // received yet. Delay initializing the servo until the channel is valid

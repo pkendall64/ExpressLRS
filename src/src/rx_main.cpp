@@ -2179,7 +2179,9 @@ void loop()
     if (newChannelDataAvailable)
     {
         newChannelDataAvailable = false;
+#if defined(PLATFORM_ESP32)
         applyMixes();
+#endif
         crsfRCFrameAvailable();
         // team-race is only checked for servos because the team-race model select logic only runs
         // when new frames are available and will decide later if the frame will be forwarded
