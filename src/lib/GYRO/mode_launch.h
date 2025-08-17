@@ -1,7 +1,7 @@
 #pragma once
 #include "controller.h"
 
-class LevelController : public Controller
+class LaunchController : public Controller
 {
 public:
     void initialize() override;

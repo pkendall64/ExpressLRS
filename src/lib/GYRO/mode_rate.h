@@ -1,4 +1,9 @@
 #pragma once
+#include "controller.h"
 
-void rate_controller_initialize();
-void rate_controller_calculate_pid();
+class RateController : public Controller
+{
+public:
+    void initialize() override;
+    void update() override;
+};

@@ -1,0 +1,14 @@
+#pragma once
+#include "controller.h"
+
+class NoneController : public Controller
+{
+public:
+    void initialize() override
+    {
+        pid_roll.output = 0;
+        pid_pitch.output = 0;
+        pid_yaw.output = 0;
+    }
+    void update() override {}
+};

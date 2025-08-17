@@ -1,4 +1,9 @@
 #pragma once
+#include "controller.h"
 
-void safe_controller_initialize();
-void safe_controller_calculate_pid();
+class SafeController : public Controller
+{
+public:
+    void initialize() override;
+    void update() override;
+};

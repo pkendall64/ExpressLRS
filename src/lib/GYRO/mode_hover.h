@@ -1,4 +1,9 @@
 #pragma once
+#include "controller.h"
 
-void hover_controller_initialize();
-void hover_controller_calculate_pid();
+class HoverController final : public Controller
+{
+public:
+    void initialize() override;
+    void update() override;
+};

@@ -1,6 +1,6 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 
-#include "mode_level.h"
+#include "mode_launch.h"
 
 /**
  * Airplane Level/Stable Mode
@@ -11,13 +11,12 @@
 
 #define degToRad(angleInDegrees) (float)((angleInDegrees) * M_PI / 180.0)
 
-
-void LevelController::initialize()
+void LaunchController::initialize()
 {
     configure_pids(1.0, 1.0, 1.0);
 }
 
-void LevelController::update()
+void LaunchController::update()
 {
     const float roll = get_command(MIX_DESTINATION_GYRO_ROLL);
     pid_roll.calculate(
@@ -29,10 +28,12 @@ void LevelController::update()
     const float pitch = get_command(MIX_DESTINATION_GYRO_PITCH);
     pid_pitch.calculate(
         pitch * degToRad(config.GetGyroLevelPitch()),
-        -gyro.ypr[1]
+        // For the pitch axis in launch mode (pitch_offset != 0)
+        // we change what the PID controller sees as level
+        degToRad(config.GetGyroLaunchAngle()) - gyro.ypr[1]
     );
     pid_pitch.output -= pitch;
-    
+
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
 }
 

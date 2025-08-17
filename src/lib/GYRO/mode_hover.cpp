@@ -1,6 +1,6 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 
-#include "gyro.h"
+#include "mode_hover.h"
 
 /**
  * Airplane Hover Mode
@@ -17,11 +17,11 @@
  * directly up attitude.
  */
 
-void hover_controller_initialize() {
+void HoverController::initialize() {
     configure_pids(1.0, 1.0, 1.0);
 }
 
-void hover_controller_calculate_pid()
+void HoverController::update()
 {
     pid_roll.calculate(0, gyro.f_gyro[0]);
     pid_pitch.calculate(0, gyro.f_gyro[1]);
@@ -31,5 +31,12 @@ void hover_controller_calculate_pid()
     error *= (float) config.GetGyroHoverStrength() / 16;
     pid_pitch.output += error * cos(gyro.ypr[2]);
     pid_yaw.output += error * sin(gyro.ypr[2]);
+
+    // Limit correction as set from gain input channel and
+    // modulate the correction depending on how much axis stick command
+    pid_roll.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_ROLL)));
+    pid_pitch.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_PITCH)));
+    pid_yaw.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_YAW)));
 }
+
 #endif

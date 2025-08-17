@@ -1,6 +1,6 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 
-#include "gyro.h"
+#include "mode_safe.h"
 
 /**
  * Airplane Safe Mode
@@ -13,7 +13,7 @@
 constexpr float max_angle_roll = 30 * PI_180; // Convert degrees to radians
 constexpr float max_angle_pitch = 30 * PI_180; // Convert degrees to radians
 
-void safe_controller_initialize()
+void SafeController::initialize()
 {
     // Set limits to two to be able to fully override a full stick input command
     // on roll and pitch axes
@@ -30,12 +30,11 @@ static void _calculate_pid(PID *pid, float angle, float max_angle)
     }
 }
 
-void safe_controller_calculate_pid()
+void SafeController::update()
 {
     _calculate_pid(&pid_pitch, -gyro.ypr[1], config.GetGyroSAFEPitch() * PI_180);
     _calculate_pid(&pid_roll, gyro.ypr[2], config.GetGyroSAFERoll() * PI_180);
 
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
 }
-
 #endif
