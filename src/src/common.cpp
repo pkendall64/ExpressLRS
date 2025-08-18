@@ -164,9 +164,10 @@ connectionState_e connectionState = disconnected;
 expresslrs_mod_settings_s *ExpressLRS_currAirRate_Modparams = nullptr;
 expresslrs_rf_pref_params_s *ExpressLRS_currAirRate_RFperfParams = nullptr;
 
-uint32_t ChannelData[CRSF_NUM_CHANNELS + GYRO_SOURCES];      // Current state of channels, CRSF format
+uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
+int32_t gyroCorrectionData[GYRO_SOURCES];      // Current state of gyro channel corrections
 // Current state of channels after mixing, CRSF format
 // Note that we have extra destination channels due to gyro mix destinations
 uint32_t ChannelMixedData[CRSF_NUM_CHANNELS + GYRO_DESTINATIONS];

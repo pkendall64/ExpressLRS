@@ -44,7 +44,7 @@ bool boot_jitter(uint16_t *us)
     if (boot_jitter_times > GYRO_BOOT_JITTER_TIMES)
         return false;
 
-    if ((millis() - boot_jitter_time) > GYRO_BOOT_JITTER_MS)
+    if (millis() - boot_jitter_time > GYRO_BOOT_JITTER_MS)
     {
         boot_jitter_times++;
         boot_jitter_time = millis();
@@ -89,7 +89,7 @@ void Gyro::detect_mode(uint16_t us)
 
 /**
  * Trigger a gyro re-initialization of the current gyro mode
-*/
+ */
 void Gyro::reload()
 {
     gyro_mode = GYRO_MODE_OFF;
@@ -97,7 +97,7 @@ void Gyro::reload()
     controller->initialize();
 }
 
-void Gyro::switch_mode(gyro_mode_t mode)
+void Gyro::switch_mode(const gyro_mode_t mode)
 {
     DBGLN("Gyro: Switching mode to %d", mode);
     gyro_mode = mode;
@@ -105,15 +105,15 @@ void Gyro::switch_mode(gyro_mode_t mode)
     controller->initialize();
 }
 
-void Gyro::detect_gain(uint16_t us)
+void Gyro::detect_gain(const uint16_t us)
 {
-    gain = (float(us - GYRO_US_MIN) / (GYRO_US_MAX - GYRO_US_MIN)) * 500;
+    gain = (us - GYRO_US_MIN) / (GYRO_US_MAX - GYRO_US_MIN) * 500.0f;
 }
 
 /**
  * Apply gyro servo output mixing and detect gyro mode
  */
-void Gyro::mixer(uint8_t ch, uint16_t *us)
+void Gyro::mixer(const uint8_t ch, uint16_t *us)
 {
     // We get called before the gyro configuration is initialized
     if (!initialized) return;
@@ -135,19 +135,19 @@ static int16_t decidegrees2Radians10000(int16_t angle_decidegree)
     {
         angle_decidegree += 3600;
     }
-    return (int16_t)((M_PI / 180.0f) * 1000.0f * angle_decidegree);
+    return (int16_t)(M_PI / 180.0f * 1000.0f * angle_decidegree);
 }
 
 void Gyro::send_telemetry()
 {
     // Get yaw/pitch/roll in decidegrees and convert to uint16_t
-    uint16_t ypr16[3] = {0};
+    uint16_t ypr16[3] = {};
     ypr16[0] = (uint16_t)(gyro.ypr[0] * 1800 / M_PI);
     ypr16[1] = (uint16_t)(gyro.ypr[1] * 1800 / M_PI);
     ypr16[2] = (uint16_t)(gyro.ypr[2] * 1800 / M_PI);
 
     CRSF_MK_FRAME_T(crsf_sensor_attitude_t)
-    crsfAttitude = {0};
+    crsfAttitude = {};
     crsfAttitude.p.pitch = htobe16(decidegrees2Radians10000(ypr16[1]));
     crsfAttitude.p.roll = htobe16(decidegrees2Radians10000(ypr16[2]));
     crsfAttitude.p.yaw = htobe16(decidegrees2Radians10000(ypr16[0]));
@@ -161,9 +161,7 @@ bool Gyro::read_device()
     if (dev->read())
     {
         // Calculate gyro update rate in HZ
-        update_rate = 1.0 /
-                      ((micros() - last_update) / 1000000.0);
-
+        update_rate = 1.0 / ((micros() - last_update) / 1000000.0);
         last_update = micros();
         send_telemetry();
     }
@@ -174,10 +172,10 @@ bool Gyro::read_device()
 unsigned long gyro_debug_time = 0;
 
 #ifdef GYRO_PID_DEBUG_TIME
-void _make_gyro_debug_string(PID *pid, char *str) {
+void _make_gyro_debug_string(PID *pid, char *str)
+{
     sprintf(str, "Setpoint: %5.2f PV: %5.2f I:%5.2f D:%5.2f Error: %5.2f Out: %5.2f",
         pid->setpoint, pid->pv, pid->Iout, pid->Dout, pid->error, pid->output);
-
 }
 #endif
 
@@ -199,34 +197,22 @@ void Gyro::tick()
 
     controller->update();
 
-    ChannelData[MIX_SOURCE_GYRO_ROLL] =
-        constrain(
-            CRSF_CHANNEL_VALUE_MID + pid_roll.output * (CRSF_CHANNEL_VALUE_MID),
-            CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX
-        );
-    ChannelData[MIX_SOURCE_GYRO_PITCH] =
-        constrain(
-            CRSF_CHANNEL_VALUE_MID + pid_pitch.output * (CRSF_CHANNEL_VALUE_MID),
-            CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX
-        );
-    ChannelData[MIX_SOURCE_GYRO_YAW] =
-        constrain(
-            CRSF_CHANNEL_VALUE_MID + pid_yaw.output * (CRSF_CHANNEL_VALUE_MID),
-            CRSF_CHANNEL_VALUE_MIN, CRSF_CHANNEL_VALUE_MAX
-        );
+    // These CAN NOT be channel data based because they may have to counteract the input channel so they may be as high as 2x full deflection!
+    gyroCorrectionData[GYRO_AXIS_ROLL] = pid_roll.output * CRSF_CHANNEL_VALUE_MID;
+    gyroCorrectionData[GYRO_AXIS_PITCH] = pid_pitch.output * CRSF_CHANNEL_VALUE_MID;
+    gyroCorrectionData[GYRO_AXIS_YAW] = pid_yaw.output * CRSF_CHANNEL_VALUE_MID;
 
     #ifdef GYRO_PID_DEBUG_TIME
-    if (gyro_mode != GYRO_MODE_OFF &&
-        micros() - gyro_debug_time > GYRO_PID_DEBUG_TIME * 1000
-    ) {
+    if (gyro_mode != GYRO_MODE_OFF && micros() - gyro_debug_time > GYRO_PID_DEBUG_TIME * 1000 )
+    {
         char piddebug[128];
         _make_gyro_debug_string(&pid_pitch, piddebug);
-        DBGLN("\nPID Pitch %s", piddebug)
+        DBGLN("\nPID Pitch %s", piddebug);
         _make_gyro_debug_string(&pid_roll, piddebug);
-        DBGLN("PID Roll  %s", piddebug)
+        DBGLN("PID Roll  %s", piddebug);
         _make_gyro_debug_string(&pid_yaw, piddebug);
-        DBGLN("PID Yaw   %s", piddebug)
-        DBGLN("GAIN %f", gain)
+        DBGLN("PID Yaw   %s", piddebug);
+        DBGLN("GAIN %f", gain);
         gyro_debug_time = micros();
     }
     #endif

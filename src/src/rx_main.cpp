@@ -237,10 +237,18 @@ void applyMixes()
 
         newChannelData[mix->val.destination] += mix->val.offset;
 
-        // The fist 16 enums are CRSF input channels, and the next three are gyro outputs
-        if (mix->val.source < CRSF_NUM_CHANNELS + GYRO_SOURCES)
+        if (mix->val.source < CRSF_NUM_CHANNELS)
         {
+            // The fist 16 slots are CRSF input channels
             const auto crsfVal = (int32_t)ChannelData[mix->val.source] - CRSF_CHANNEL_VALUE_MID;
+            const auto scale = crsfVal < 0 ? (int)mix->val.weight_negative : (int)mix->val.weight_positive;
+            const auto scaled = crsfVal * scale / 100;
+            newChannelData[mix->val.destination] += scaled;
+        }
+        else if (mix->val.source < CRSF_NUM_CHANNELS + GYRO_SOURCES)
+        {
+            // The 3 GYRO sources are adjustment values and are already signed values
+            const auto crsfVal = gyroCorrectionData[mix->val.source - CRSF_NUM_CHANNELS];
             const auto scale = crsfVal < 0 ? (int)mix->val.weight_negative : (int)mix->val.weight_positive;
             const auto scaled = crsfVal * scale / 100;
             newChannelData[mix->val.destination] += scaled;

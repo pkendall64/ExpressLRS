@@ -1,7 +1,7 @@
 #include "targets.h"
 #include "pid.h"
 
-unsigned long last_update;
+
 
 PID::PID(const float max, const float min, const float Kp, const float Ki, const float Kd)
     : _maximum(max),
@@ -29,7 +29,7 @@ void PID::reset()
     output = 0;
 }
 
-float PID::calculate(const float setpoint, const float pv)
+float PID::calculate(const float _setpoint, const float _pv)
 {
     const unsigned long now = micros();
     t_delta = now - last_update;
@@ -37,14 +37,17 @@ float PID::calculate(const float setpoint, const float pv)
     const float _dt = 1.0f / t_delta;
     last_update = now;
 
+    setpoint = _setpoint;
+    pv = _pv;
+
     // Calculate error
-    const float current_error = setpoint - pv;
+    error = setpoint - pv;
 
     // Proportional term
-    float Pout = _Kp * current_error;
+    float Pout = _Kp * error;
 
     // Integral term
-    _integral += current_error * _dt;
+    _integral += error * _dt;
 
     // Limit the 'I' accumulation within min/max
     _integral = (_integral * _Ki) > _maximum
@@ -53,7 +56,7 @@ float PID::calculate(const float setpoint, const float pv)
                     ? _minimum / _Ki
                     : _integral;
 
-    float Iout = _Ki * _integral;
+    Iout = _Ki * _integral;
 
     // Derivative term
     Dout = -(2.0f * _Kd * (pv - prevMeasurement)	/* Note: derivative on measurement, therefore minus sign in front of equation! */

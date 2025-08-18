@@ -9,7 +9,15 @@ public:
     void reset();
 
     float output = 0;
+
+    float setpoint;
+    float pv;
+    float Iout;
+    float Dout = 0;
+    float error;
+
 private:
+    unsigned long last_update = 0;
     float _maximum;
     float _minimum;
     float _Kp;
@@ -17,7 +25,6 @@ private:
     float _Kd;
     float _integral = 0;
 
-    float Dout = 0;
     unsigned long t_delta = 0;
 
     /* Derivative low-pass filter time constant */
