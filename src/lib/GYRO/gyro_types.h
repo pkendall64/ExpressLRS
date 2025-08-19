@@ -94,12 +94,15 @@ typedef union {
 
 typedef union {
     struct {
-        uint32_t pos1: 4,
-                 pos2: 4,
-                 pos3: 4,
-                 pos4: 4,
-                 pos5: 4,
-                 unused: 12;
+        //                     2/3pos / 6way
+        uint32_t pos1: 4,   // LOW      1/6
+                 pos2: 4,   //  -       2/6
+                 pos3: 4,   //  -       3/6
+                 pos4: 4,   //  -       4/6
+                 pos5: 4,   //  -       5/6
+                 pos6: 4,   // HIGH     6/6
+                 pos7: 4,   // MID
+                 unused: 4;
     } val;
     uint32_t raw;
 } rx_config_gyro_mode_pos_t;

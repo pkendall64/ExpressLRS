@@ -70,21 +70,23 @@ void Gyro::calibrate()
 void Gyro::detect_mode(uint16_t us)
 {
     const rx_config_gyro_mode_pos_t *modes = config.GetGyroModePos();
-    const uint16_t width = (GYRO_US_MAX - GYRO_US_MIN) / 5;
-    uint8_t channel_position = (us - GYRO_US_MIN) / width;
-    channel_position = channel_position > 4 ? 4 : channel_position;
     gyro_mode_t selected_mode;
-    switch (channel_position)
+    const uint8_t switch_pos = CRSF_to_SWITCH3b(us);
+    switch (switch_pos)
     {
         case 0: selected_mode = (gyro_mode_t) modes->val.pos1; break;
         case 1: selected_mode = (gyro_mode_t) modes->val.pos2; break;
         case 2: selected_mode = (gyro_mode_t) modes->val.pos3; break;
         case 3: selected_mode = (gyro_mode_t) modes->val.pos4; break;
         case 4: selected_mode = (gyro_mode_t) modes->val.pos5; break;
+        case 5: selected_mode = (gyro_mode_t) modes->val.pos6; break;
+        case 7: selected_mode = (gyro_mode_t) modes->val.pos7; break;
         default: selected_mode = GYRO_MODE_OFF; break;
     }
     if (gyro_mode != selected_mode)
+    {
         switch_mode(selected_mode);
+    }
 }
 
 /**
@@ -189,10 +191,8 @@ void Gyro::tick()
     if ((micros() - pid_delay) < 1000 ) return; // ~1k PID loop
     pid_delay = micros();
 
-    detect_mode(CRSF_to_US(ChannelMixedData[MIX_DESTINATION_GYRO_MODE]));
-    // detect_gain(CRSF_to_US(ChannelMixedData[MIX_DESTINATION_GYRO_GAIN]));
-    // gain = (float(us - GYRO_US_MIN) / (GYRO_US_MAX - GYRO_US_MIN)) * 500;
-    // convert the -1 to +1 float to 0 - 1.0
+    detect_mode(ChannelMixedData[MIX_DESTINATION_GYRO_MODE]);
+    // convert the gain from -1 to +1 float to 0 - 1.0
     gain = (1 + CRSF_to_FLOAT((uint16_t) ChannelMixedData[MIX_DESTINATION_GYRO_GAIN])) / 2;
 
     controller->update();

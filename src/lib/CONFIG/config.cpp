@@ -1253,9 +1253,9 @@ RxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
 
 #if defined(PLATFORM_ESP32)
 void
-RxConfig::SetGyroModePos(uint8_t pos, gyro_mode_t mode)
+RxConfig::SetGyroModePos(const uint8_t pos, const gyro_mode_t mode)
 {
-    if (pos > 4)
+    if (pos > 6)
         return;
 
     rx_config_gyro_mode_pos_t *modes = &m_config.gyroModes;
@@ -1278,6 +1278,12 @@ RxConfig::SetGyroModePos(uint8_t pos, gyro_mode_t mode)
         break;
     case 4:
         newModes.val.pos5 = mode;
+        break;
+    case 5:
+        newModes.val.pos6 = mode;
+        break;
+    case 6:
+        newModes.val.pos7 = mode;
         break;
     }
     if (modes->raw == newModes.raw)

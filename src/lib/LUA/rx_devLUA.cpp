@@ -312,35 +312,49 @@ static struct luaItem_folder luaGyroGainFolder = {
 };
 
 static struct luaItem_selection luaGyroModePos1 = {
-    {"Position 1", CRSF_TEXT_SELECTION},
+    {"LOW / Pos 1", CRSF_TEXT_SELECTION},
     0, // value
     gyroModes,
     STR_EMPTYSPACE
 };
 
 static struct luaItem_selection luaGyroModePos2 = {
-    {"Position 2", CRSF_TEXT_SELECTION},
+    {"Pos 2", CRSF_TEXT_SELECTION},
     0, // value
     gyroModes,
     STR_EMPTYSPACE
 };
 
 static struct luaItem_selection luaGyroModePos3 = {
-    {"Position 3", CRSF_TEXT_SELECTION},
+    {"Pos 3", CRSF_TEXT_SELECTION},
+    0, // value
+    gyroModes,
+    STR_EMPTYSPACE
+};
+
+static struct luaItem_selection luaGyroModePos7 = {
+    {"Middle", CRSF_TEXT_SELECTION},
     0, // value
     gyroModes,
     STR_EMPTYSPACE
 };
 
 static struct luaItem_selection luaGyroModePos4 = {
-    {"Position 4", CRSF_TEXT_SELECTION},
+    {"Pos 4", CRSF_TEXT_SELECTION},
     0, // value
     gyroModes,
     STR_EMPTYSPACE
 };
 
 static struct luaItem_selection luaGyroModePos5 = {
-    {"Position 5", CRSF_TEXT_SELECTION},
+    {"Pos 5", CRSF_TEXT_SELECTION},
+    0, // value
+    gyroModes,
+    STR_EMPTYSPACE
+};
+
+static struct luaItem_selection luaGyroModePos6 = {
+    {"HIGH / Pos 6", CRSF_TEXT_SELECTION},
     0, // value
     gyroModes,
     STR_EMPTYSPACE
@@ -360,6 +374,10 @@ static void luaparamGyroModePos4(struct luaPropertiesCommon *item, uint8_t arg)
 { config.SetGyroModePos(3, (gyro_mode_t) arg); }
 static void luaparamGyroModePos5(struct luaPropertiesCommon *item, uint8_t arg)
 { config.SetGyroModePos(4, (gyro_mode_t) arg); }
+static void luaparamGyroModePos6(struct luaPropertiesCommon *item, uint8_t arg)
+{ config.SetGyroModePos(5, (gyro_mode_t) arg); }
+static void luaparamGyroModePos7(struct luaPropertiesCommon *item, uint8_t arg)
+{ config.SetGyroModePos(6, (gyro_mode_t) arg); }
 
 static struct luaItem_selection luaGyroAlign = {
     {"Gyro Align", CRSF_TEXT_SELECTION},
@@ -944,6 +962,8 @@ static void registerLuaParameters()
       registerLUAParameter(&luaGyroModePos3, &luaparamGyroModePos3, luaGyroModesFolder.common.id);
       registerLUAParameter(&luaGyroModePos4, &luaparamGyroModePos4, luaGyroModesFolder.common.id);
       registerLUAParameter(&luaGyroModePos5, &luaparamGyroModePos5, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos6, &luaparamGyroModePos6, luaGyroModesFolder.common.id);
+      registerLUAParameter(&luaGyroModePos7, &luaparamGyroModePos7, luaGyroModesFolder.common.id);
 
       registerLUAParameter(&luaGyroGainFolder);
       registerLUAParameter(&luaGyroGainAxis, &luaparamGyroGainAxis, luaGyroGainFolder.common.id);
@@ -1036,7 +1056,9 @@ static int event()
       setLuaTextSelectionValue(&luaGyroModePos3, gyroModes->val.pos3);
       setLuaTextSelectionValue(&luaGyroModePos4, gyroModes->val.pos4);
       setLuaTextSelectionValue(&luaGyroModePos5, gyroModes->val.pos5);
-      
+      setLuaTextSelectionValue(&luaGyroModePos6, gyroModes->val.pos6);
+      setLuaTextSelectionValue(&luaGyroModePos7, gyroModes->val.pos7);
+
       const rx_config_gyro_gains_t *gyroGains = config.GetGyroGains((gyro_axis_t) (luaGyroGainAxis.value));
       setLuaUint8Value(&luaGyroPIDRateP, gyroGains->p);
       setLuaUint8Value(&luaGyroPIDRateI, gyroGains->i);
