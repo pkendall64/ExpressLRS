@@ -21,19 +21,20 @@ protected:
      */
     static float get_command(const mix_destination_t type)
     {
-
         for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
         {
             const rx_config_mix_t *mix = config.GetMix(mix_number);
-            if (!mix->val.active || mix->val.destination != type)
-                continue;
-
-            const uint8_t ch = mix->val.source;
-            const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
-            const uint16_t val_us = CRSF_to_US(ChannelData[mix->val.source]) - (mid - GYRO_US_MID);
-            return us_command_to_float(val_us);
+            if (mix->val.active && mix->val.destination == type)
+            {
+                const uint8_t ch = mix->val.source;
+                const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
+                const uint16_t us = CRSF_to_US(ChannelData[mix->val.source]) - (mid - GYRO_US_MID);
+                return us <= GYRO_US_MID
+                    ? float(us - GYRO_US_MID) / (GYRO_US_MID - GYRO_US_MIN)
+                    : float(us - GYRO_US_MID) / (GYRO_US_MAX - GYRO_US_MID);
+            }
         }
-        return 0;
+        return 0.0f;
     }
 
     static float getChannelData(const mix_destination_t destination)
@@ -46,7 +47,7 @@ protected:
                 return CRSF_to_FLOAT((uint16_t) ChannelMixedData[mix->val.source]);
             }
         }
-        return 0.0;
+        return 0.0f;
     }
 
     static void configure_pid_gains(PID * const pid, const rx_config_gyro_gains_t *gains, const float max, const float min)
