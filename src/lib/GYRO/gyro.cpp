@@ -105,11 +105,6 @@ void Gyro::switch_mode(const gyro_mode_t mode)
     controller->configure();
 }
 
-void Gyro::detect_gain(const uint16_t us)
-{
-    gain = (us - GYRO_US_MIN) / (GYRO_US_MAX - GYRO_US_MIN) * 500.0f;
-}
-
 /**
  * Apply gyro servo output mixing and detect gyro mode
  */
@@ -137,18 +132,6 @@ void Gyro::send_telemetry()
 
     CRSF::SetHeaderAndCrc((uint8_t *)&crsfAttitude, CRSF_FRAMETYPE_ATTITUDE, CRSF_FRAME_SIZE(sizeof(crsf_sensor_attitude_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
     telemetry.AppendTelemetryPackage((uint8_t *)&crsfAttitude);
-}
-
-bool Gyro::read_device()
-{
-    if (dev->read())
-    {
-        // Calculate gyro update rate in HZ
-        update_rate = 1.0 / ((micros() - last_update) / 1000000.0);
-        last_update = micros();
-        send_telemetry();
-    }
-    return DURATION_IMMEDIATELY;
 }
 
 // #define GYRO_PID_DEBUG_TIME 100

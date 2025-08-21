@@ -31,10 +31,8 @@ extern volatile gyro_event_t gyro_event;
 class Gyro
 {
 public:
-    gyro_mode_t getMode(void);
     void mixer(uint8_t ch, uint16_t *us);
     void send_telemetry();
-    bool read_device();
     void tick();
     void calibrate();
     void reload();
@@ -54,18 +52,12 @@ public:
 
 private:
     gyro_mode_t gyro_mode = GYRO_MODE_OFF;
-    void detect_gain(uint16_t us);
     void detect_mode(uint16_t us);
     void switch_mode(gyro_mode_t mode);
-    float apply_gain(float correction, mix_destination_t channel);
 
     unsigned long pid_delay = 0;
 };
 
 extern Gyro gyro;
-
-// configure PID controllers from LUA gains for each axis with the specified limit
-// (typically 1.0). Set a limit to 0.0 to disable PID control on an axis.
-void configure_pids(float roll_limit, float pitch_limit, float yaw_limit);
 
 #endif
