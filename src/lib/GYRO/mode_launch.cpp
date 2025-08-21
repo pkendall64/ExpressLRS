@@ -18,23 +18,24 @@ void LaunchController::initialize()
 
 void LaunchController::update()
 {
-    const float roll = get_command(roll_channel);
+    const float roll = get_command(GYRO_AXIS_ROLL);
     pid_roll.calculate(
         roll * degToRad(config.GetGyroLevelRoll()),
         gyro.ypr[2]
     );
-    pid_roll.output -= roll;
+    setOutput(GYRO_AXIS_ROLL, pid_roll.output - roll);
 
-    const float pitch = get_command(pitch_channel);
+    const float pitch = get_command(GYRO_AXIS_PITCH);
     pid_pitch.calculate(
         pitch * degToRad(config.GetGyroLevelPitch()),
         // For the pitch axis in launch mode (pitch_offset != 0)
         // we change what the PID controller sees as level
         degToRad(config.GetGyroLaunchAngle()) - gyro.ypr[1]
     );
-    pid_pitch.output -= pitch;
+    setOutput(GYRO_AXIS_PITCH, pid_pitch.output - pitch);
 
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    setOutput(GYRO_AXIS_YAW, pid_yaw.output);
 }
 
 #endif

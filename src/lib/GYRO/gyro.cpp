@@ -195,11 +195,6 @@ void Gyro::tick()
 
     controller->update();
 
-    // These CAN NOT be channel data based because they may have to counteract the input channel so they may be as high as 2x full deflection!
-    gyroCorrectionData[GYRO_AXIS_ROLL] = pid_roll.output * CRSF_CHANNEL_VALUE_MID;
-    gyroCorrectionData[GYRO_AXIS_PITCH] = pid_pitch.output * CRSF_CHANNEL_VALUE_MID;
-    gyroCorrectionData[GYRO_AXIS_YAW] = pid_yaw.output * CRSF_CHANNEL_VALUE_MID;
-
     #ifdef GYRO_PID_DEBUG_TIME
     if (gyro_mode != GYRO_MODE_OFF && micros() - gyro_debug_time > GYRO_PID_DEBUG_TIME * 1000 )
     {

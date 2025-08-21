@@ -13,20 +13,23 @@ public:
 
     void configure()
     {
-        roll_channel = getChannel(MIX_DESTINATION_GYRO_ROLL);
-        pitch_channel = getChannel(MIX_DESTINATION_GYRO_PITCH);
-        yaw_channel = getChannel(MIX_DESTINATION_GYRO_YAW);
+        axisChannel[GYRO_AXIS_ROLL] = getChannel(MIX_DESTINATION_GYRO_ROLL);
+        axisChannel[GYRO_AXIS_PITCH] = getChannel(MIX_DESTINATION_GYRO_PITCH);
+        axisChannel[GYRO_AXIS_YAW] = getChannel(MIX_DESTINATION_GYRO_YAW);
         initialize();
     }
 
     virtual void update() = 0;
 
 protected:
-    int8_t roll_channel = -1;
-    int8_t pitch_channel = -1;
-    int8_t yaw_channel = -1;
+    int8_t axisChannel[3] = {-1, -1, -1};
 
     virtual void initialize() = 0;
+
+    void setOutput(const gyro_axis_t axis, const float value) const
+    {
+        gyroCorrectionData[axis] = (value + get_command(axis)) * CRSF_CHANNEL_VALUE_MID;
+    }
 
     static int8_t getChannel(const mix_destination_t destination)
     {
@@ -44,8 +47,9 @@ protected:
     /**
      * Get a -1 to +1 float for the gyro input command
      */
-    static float get_command(const int8_t ch)
+    float get_command(const gyro_axis_t axis) const
     {
+        const auto ch = axisChannel[axis];
         if (ch < 0) return 0.0f;
         const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
         const uint16_t us = CRSF_to_US(ChannelData[ch]) - (mid - GYRO_US_MID);
@@ -54,8 +58,9 @@ protected:
             : float(us - GYRO_US_MID) / (GYRO_US_MAX - GYRO_US_MID);
     }
 
-    static float getChannelData(const int8_t ch)
+    float getChannelData(const gyro_axis_t axis) const
     {
+        const auto ch = axisChannel[axis];
         if (ch < 0) return 0.0f;
         return CRSF_to_FLOAT((uint16_t) ChannelMixedData[ch]);
     }

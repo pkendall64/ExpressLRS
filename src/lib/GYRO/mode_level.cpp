@@ -15,26 +15,26 @@
 void LevelController::initialize()
 {
     configure_pids(1.0, 1.0, 1.0);
-    uint8_t roll_ch =
 }
 
 void LevelController::update()
 {
-    const float roll = get_command(roll_channel);
+    const float roll = get_command(GYRO_AXIS_ROLL);
     pid_roll.calculate(
         roll * degToRad(config.GetGyroLevelRoll()),
         gyro.ypr[2]
     );
-    pid_roll.output -= roll;
+    setOutput(GYRO_AXIS_ROLL, pid_roll.output - roll);
 
-    const float pitch = get_command(pitch_channel);
+    const float pitch = get_command(GYRO_AXIS_PITCH);
     pid_pitch.calculate(
         pitch * degToRad(config.GetGyroLevelPitch()),
         -gyro.ypr[1]
     );
-    pid_pitch.output -= pitch;
-    
+    setOutput(GYRO_AXIS_PITCH, pid_pitch.output - pitch);
+
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    setOutput(GYRO_AXIS_YAW, pid_yaw.output);
 }
 
 #endif

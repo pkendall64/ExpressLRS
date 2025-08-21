@@ -36,5 +36,9 @@ void SafeController::update()
     _calculate_pid(&pid_roll, gyro.ypr[2], config.GetGyroSAFERoll() * PI_180);
 
     pid_yaw.calculate(0, -gyro.f_gyro[2]);
+
+    setOutput(GYRO_AXIS_ROLL, pid_roll.output);
+    setOutput(GYRO_AXIS_PITCH, pid_pitch.output);
+    setOutput(GYRO_AXIS_YAW, pid_yaw.output);
 }
 #endif
