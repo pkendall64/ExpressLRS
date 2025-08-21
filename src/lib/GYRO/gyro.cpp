@@ -94,9 +94,7 @@ void Gyro::detect_mode(uint16_t us)
  */
 void Gyro::reload()
 {
-    gyro_mode = GYRO_MODE_OFF;
-    controller = controllers[gyro_mode];
-    controller->initialize();
+    switch_mode(GYRO_MODE_OFF);
 }
 
 void Gyro::switch_mode(const gyro_mode_t mode)
@@ -104,7 +102,7 @@ void Gyro::switch_mode(const gyro_mode_t mode)
     DBGLN("Gyro: Switching mode to %d", mode);
     gyro_mode = mode;
     controller = controllers[gyro_mode];
-    controller->initialize();
+    controller->configure();
 }
 
 void Gyro::detect_gain(const uint16_t us)

@@ -1,7 +1,6 @@
 #pragma once
 #include "crsf_protocol.h"
 #include "gyro.h"
-#include "gyro_mixer.h"
 #include "logging.h"
 
 extern uint16_t midpoint[GYRO_MAX_CHANNELS];
@@ -12,42 +11,53 @@ class Controller
 public:
     virtual ~Controller() = default;
 
-    virtual void initialize() = 0;
+    void configure()
+    {
+        roll_channel = getChannel(MIX_DESTINATION_GYRO_ROLL);
+        pitch_channel = getChannel(MIX_DESTINATION_GYRO_PITCH);
+        yaw_channel = getChannel(MIX_DESTINATION_GYRO_YAW);
+        initialize();
+    }
+
     virtual void update() = 0;
 
 protected:
-    /**
-     * Get a -1 to +1 float for the gyro input command
-     */
-    static float get_command(const mix_destination_t type)
-    {
-        for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
-        {
-            const rx_config_mix_t *mix = config.GetMix(mix_number);
-            if (mix->val.active && mix->val.destination == type)
-            {
-                const uint8_t ch = mix->val.source;
-                const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
-                const uint16_t us = CRSF_to_US(ChannelData[mix->val.source]) - (mid - GYRO_US_MID);
-                return us <= GYRO_US_MID
-                    ? float(us - GYRO_US_MID) / (GYRO_US_MID - GYRO_US_MIN)
-                    : float(us - GYRO_US_MID) / (GYRO_US_MAX - GYRO_US_MID);
-            }
-        }
-        return 0.0f;
-    }
+    int8_t roll_channel = -1;
+    int8_t pitch_channel = -1;
+    int8_t yaw_channel = -1;
 
-    static float getChannelData(const mix_destination_t destination)
+    virtual void initialize() = 0;
+
+    static int8_t getChannel(const mix_destination_t destination)
     {
         for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
         {
             const rx_config_mix_t *mix = config.GetMix(mix_number);
             if (mix->val.active && mix->val.destination == destination)
             {
-                return CRSF_to_FLOAT((uint16_t) ChannelMixedData[mix->val.source]);
+                return mix->val.source;
             }
         }
-        return 0.0f;
+        return -1;
+    }
+
+    /**
+     * Get a -1 to +1 float for the gyro input command
+     */
+    static float get_command(const int8_t ch)
+    {
+        if (ch < 0) return 0.0f;
+        const uint16_t mid = ch_map_auto_subtrim[ch] ? midpoint[ch] : GYRO_US_MID;
+        const uint16_t us = CRSF_to_US(ChannelData[ch]) - (mid - GYRO_US_MID);
+        return us <= GYRO_US_MID
+            ? float(us - GYRO_US_MID) / (GYRO_US_MID - GYRO_US_MIN)
+            : float(us - GYRO_US_MID) / (GYRO_US_MAX - GYRO_US_MID);
+    }
+
+    static float getChannelData(const int8_t ch)
+    {
+        if (ch < 0) return 0.0f;
+        return CRSF_to_FLOAT((uint16_t) ChannelMixedData[ch]);
     }
 
     static void configure_pid_gains(PID * const pid, const rx_config_gyro_gains_t *gains, const float max, const float min)

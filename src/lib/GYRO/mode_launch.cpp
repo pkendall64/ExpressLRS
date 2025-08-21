@@ -18,14 +18,14 @@ void LaunchController::initialize()
 
 void LaunchController::update()
 {
-    const float roll = get_command(MIX_DESTINATION_GYRO_ROLL);
+    const float roll = get_command(roll_channel);
     pid_roll.calculate(
         roll * degToRad(config.GetGyroLevelRoll()),
         gyro.ypr[2]
     );
     pid_roll.output -= roll;
 
-    const float pitch = get_command(MIX_DESTINATION_GYRO_PITCH);
+    const float pitch = get_command(pitch_channel);
     pid_pitch.calculate(
         pitch * degToRad(config.GetGyroLevelPitch()),
         // For the pitch axis in launch mode (pitch_offset != 0)

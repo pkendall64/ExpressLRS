@@ -32,8 +32,8 @@ void RateController::update()
     // Limit correction as set from gain input channel and
     // modulate the correction depending on how much axis stick command
     // FIXME this is using the output (mixed) channel data rather than the stick input!
-    pid_roll.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_ROLL)));
-    pid_pitch.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_PITCH)));
-    pid_yaw.output *= gyro.gain * (1 - fabs(getChannelData(MIX_DESTINATION_GYRO_YAW)));
+    pid_roll.output *= gyro.gain * (1 - fabs(getChannelData(roll_channel)));
+    pid_pitch.output *= gyro.gain * (1 - fabs(getChannelData(pitch_channel)));
+    pid_yaw.output *= gyro.gain * (1 - fabs(getChannelData(yaw_channel)));
 }
 #endif
