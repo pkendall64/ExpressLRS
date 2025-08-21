@@ -23,14 +23,14 @@ void HoverController::initialize() {
 
 void HoverController::update()
 {
-    pid_roll.calculate(0, gyro.f_gyro[0]);
-    pid_pitch.calculate(0, gyro.f_gyro[1]);
-    pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    pid_roll.calculate(0, gyro.f_gyro[GYRO_AXIS_ROLL]);
+    pid_pitch.calculate(0, gyro.f_gyro[GYRO_AXIS_PITCH]);
+    pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
 
-    float error = gyro.ypr[1] - M_PI_2; // Pi/2 = 90degrees
+    float error = gyro.f_angle[GYRO_AXIS_PITCH] - M_PI_2; // Pi/2 = 90degrees
     error *= (float) config.GetGyroHoverStrength() / 16;
-    pid_pitch.output += error * cos(gyro.ypr[2]);
-    pid_yaw.output += error * sin(gyro.ypr[2]);
+    pid_pitch.output += error * cos(gyro.f_angle[GYRO_AXIS_ROLL]);
+    pid_yaw.output += error * sin(gyro.f_angle[GYRO_AXIS_ROLL]);
 
     // Limit correction as set from gain input channel and
     // modulate the correction depending on how much axis stick command

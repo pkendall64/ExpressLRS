@@ -30,13 +30,13 @@ void GyroDevMPU6050::print_gyro_stats()
 
     char rate_str[5]; sprintf(rate_str, "%4d", update_rate);
 
-    char pitch_str[8]; sprintf(pitch_str, "%6.2f", gyro.ypr[1] * 180 / M_PI);
-    char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.ypr[2] * 180 / M_PI);
-    char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.ypr[0] * 180 / M_PI);
+    char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.f_angle[GYRO_AXIS_ROLL] * 180 / M_PI);
+    char pitch_str[8]; sprintf(pitch_str, "%6.2f", gyro.f_angle[GYRO_AXIS_PITCH] * 180 / M_PI);
+    char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.f_angle[GYRO_AXIS_YAW] * 180 / M_PI);
 
-    char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.f_gyro[0]);
-    char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.f_gyro[1]);
-    char gyro_z[8]; sprintf(gyro_z, "%6.2f", gyro.f_gyro[2]);
+    char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.f_gyro[GYRO_AXIS_ROLL]);
+    char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.f_gyro[GYRO_AXIS_PITCH]);
+    char gyro_z[8]; sprintf(gyro_z, "%6.2f", gyro.f_gyro[GYRO_AXIS_YAW]);
 
     DBGLN(
         "%s HZ "
@@ -140,12 +140,12 @@ uint8_t GyroDevMPU6050::start(bool calibrate) {
 */
 void GyroDevMPU6050::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
 {
-    // yaw: (about Z axis)
-    data[0] = atan2(2*q -> x*q -> y - 2*q -> w*q -> z, 2*q -> w*q -> w + 2*q -> x*q -> x - 1);
-    // pitch: (nose up/down, about Y axis)
-    data[1] = atan2(gravity -> x , sqrt(gravity -> y*gravity -> y + gravity -> z*gravity -> z));
     // roll: (tilt left/right, about X axis)
-    data[2] = atan2(gravity -> y , gravity -> z);
+    data[GYRO_AXIS_ROLL] = atan2(gravity -> y , gravity -> z);
+    // pitch: (nose up/down, about Y axis)
+    data[GYRO_AXIS_PITCH] = atan2(gravity -> x , sqrt(gravity -> y*gravity -> y + gravity -> z*gravity -> z));
+    // yaw: (about Z axis)
+    data[GYRO_AXIS_YAW] = atan2(2*q -> x*q -> y - 2*q -> w*q -> z, 2*q -> w*q -> w + 2*q -> x*q -> x - 1);
 
     // NOTE: This is buggy at high pitch angles when gravity flips
     // if (gravity -> z < 0) {
@@ -222,12 +222,12 @@ bool GyroDevMPU6050::read() {
             q = q.getProduct(q_rotation);
         }
 
-        gyro.f_gyro[0] = v_gyro.x * gscale; // Roll rate (radians/s)
-        gyro.f_gyro[1] = v_gyro.y * gscale; // Pitch rate (radians/s)
-        gyro.f_gyro[2] = v_gyro.z * gscale; // Yaw rate (radians/s)
+        gyro.f_gyro[GYRO_AXIS_ROLL] = v_gyro.x * gscale; // Roll rate (radians/s)
+        gyro.f_gyro[GYRO_AXIS_PITCH] = v_gyro.y * gscale; // Pitch rate (radians/s)
+        gyro.f_gyro[GYRO_AXIS_YAW] = v_gyro.z * gscale; // Yaw rate (radians/s)
         VectorFloat gravity;
         mpu.dmpGetGravity(&gravity, &q);
-        dmpGetYawPitchRoll(gyro.ypr, &q, &gravity);
+        dmpGetYawPitchRoll(gyro.f_angle, &q, &gravity);
     }
     else
     {

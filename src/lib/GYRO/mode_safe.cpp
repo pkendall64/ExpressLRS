@@ -32,10 +32,9 @@ static void _calculate_pid(PID *pid, float angle, float max_angle)
 
 void SafeController::update()
 {
-    _calculate_pid(&pid_pitch, -gyro.ypr[1], config.GetGyroSAFEPitch() * PI_180);
-    _calculate_pid(&pid_roll, gyro.ypr[2], config.GetGyroSAFERoll() * PI_180);
-
-    pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    _calculate_pid(&pid_roll, gyro.f_angle[GYRO_AXIS_ROLL], config.GetGyroSAFERoll() * PI_180);
+    _calculate_pid(&pid_pitch, -gyro.f_angle[GYRO_AXIS_PITCH], config.GetGyroSAFEPitch() * PI_180);
+    pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
 
     setOutput(GYRO_AXIS_ROLL, pid_roll.output);
     setOutput(GYRO_AXIS_PITCH, pid_pitch.output);

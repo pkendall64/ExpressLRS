@@ -22,18 +22,18 @@ void LevelController::update()
     const float roll = get_command(GYRO_AXIS_ROLL);
     pid_roll.calculate(
         roll * degToRad(config.GetGyroLevelRoll()),
-        gyro.ypr[2]
+        gyro.f_angle[GYRO_AXIS_ROLL]
     );
     setOutput(GYRO_AXIS_ROLL, pid_roll.output - roll);
 
     const float pitch = get_command(GYRO_AXIS_PITCH);
     pid_pitch.calculate(
         pitch * degToRad(config.GetGyroLevelPitch()),
-        -gyro.ypr[1]
+        -gyro.f_angle[GYRO_AXIS_PITCH]
     );
     setOutput(GYRO_AXIS_PITCH, pid_pitch.output - pitch);
 
-    pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
     setOutput(GYRO_AXIS_YAW, pid_yaw.output);
 }
 

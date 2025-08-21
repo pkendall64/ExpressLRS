@@ -25,9 +25,9 @@ void RateController::initialize()
 void RateController::update()
 {
     // The desired angular rate is zero
-    pid_roll.calculate(0, gyro.f_gyro[0]);
-    pid_pitch.calculate(0, gyro.f_gyro[1]);
-    pid_yaw.calculate(0, -gyro.f_gyro[2]);
+    pid_roll.calculate(0, gyro.f_gyro[GYRO_AXIS_ROLL]);
+    pid_pitch.calculate(0, gyro.f_gyro[GYRO_AXIS_PITCH]);
+    pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
 
     // Limit correction as set from gain input channel and
     // modulate the correction depending on how much axis stick command

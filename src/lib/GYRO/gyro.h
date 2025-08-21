@@ -43,8 +43,8 @@ public:
 // protected:
 
     // orientation/motion vars
-    float f_gyro[3];    // roll/pitch/yaw rates radians/s
-    float ypr[3];       // [yaw, pitch, roll]   angle in degrees
+    float f_gyro[3];        // [roll, pitch, yaw] rate in degrees/s
+    float f_angle[3];       // [roll, pitch, yaw] angle in radians
 
     uint16_t update_rate;
     unsigned long last_update;
