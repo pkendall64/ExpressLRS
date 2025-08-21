@@ -125,32 +125,15 @@ void Gyro::mixer(const uint8_t ch, uint16_t *us)
     #endif
 }
 
-static int16_t decidegrees2Radians10000(int16_t angle_decidegree)
-{
-    while (angle_decidegree > 1800)
-    {
-        angle_decidegree -= 3600;
-    }
-    while (angle_decidegree < -1800)
-    {
-        angle_decidegree += 3600;
-    }
-    return (int16_t)(M_PI / 180.0f * 1000.0f * angle_decidegree);
-}
-
 void Gyro::send_telemetry()
 {
-    // Get yaw/pitch/roll in decidegrees and convert to uint16_t
-    uint16_t ypr16[3] = {};
-    ypr16[0] = (uint16_t)(gyro.ypr[0] * 1800 / M_PI);
-    ypr16[1] = (uint16_t)(gyro.ypr[1] * 1800 / M_PI);
-    ypr16[2] = (uint16_t)(gyro.ypr[2] * 1800 / M_PI);
-
     CRSF_MK_FRAME_T(crsf_sensor_attitude_t)
     crsfAttitude = {};
-    crsfAttitude.p.pitch = htobe16(decidegrees2Radians10000(ypr16[1]));
-    crsfAttitude.p.roll = htobe16(decidegrees2Radians10000(ypr16[2]));
-    crsfAttitude.p.yaw = htobe16(decidegrees2Radians10000(ypr16[0]));
+
+    // Scale radians to 100µ-radians for CRSF protocol
+    crsfAttitude.p.pitch = htobe16((int16_t)(gyro.ypr[1] * 10000.0f));
+    crsfAttitude.p.roll = htobe16((int16_t)(gyro.ypr[2] * 10000.0f));
+    crsfAttitude.p.yaw = htobe16((int16_t)(gyro.ypr[0] * 10000.0f));
 
     CRSF::SetHeaderAndCrc((uint8_t *)&crsfAttitude, CRSF_FRAMETYPE_ATTITUDE, CRSF_FRAME_SIZE(sizeof(crsf_sensor_attitude_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
     telemetry.AppendTelemetryPackage((uint8_t *)&crsfAttitude);
