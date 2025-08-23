@@ -112,6 +112,7 @@ typedef enum {
     // I2C & Misc devices
     HARDWARE_i2c_scl,
     HARDWARE_i2c_sda,
+    HARDWARE_i2c_int,
     HARDWARE_misc_gsensor_int,
     HARDWARE_misc_buzzer,  // stm32 only
     HARDWARE_misc_fan_en,

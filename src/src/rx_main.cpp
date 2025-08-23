@@ -93,7 +93,7 @@ device_affinity_t ui_devices[] = {
   {&ServoOut_device, 1},
   {&Baro_device, 0}, // must come after AnalogVbat_device to slow updates
 #if defined(PLATFORM_ESP32)
-  {&Gyro_device, 1},
+  {&Gyro_device, 0},
   {&VTxSPI_device, 0},
   {&MSPVTx_device, 0}, // dependency on VTxSPI_device
   {&Thermal_device, 0},

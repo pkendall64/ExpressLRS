@@ -1,6 +1,7 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "MPU6050.h"
+#include "config.h"
 #include "gyro.h"
+#include "gyro_icm42688.h"
 #include "gyro_mixer.h"
 #include "gyro_mpu6050.h"
 #include "logging.h"
@@ -15,15 +16,22 @@ static bool initialize()
     {
         return false;
     }
-    MPU6050 mpu;
-    if (mpu.testConnection())
+    gyro.dev = new GyroDevMPU6050();
+    if (gyro.dev->initialize())
     {
-        gyro.dev = new GyroDevMPU6050();
-        gyro.dev->initialize();
         DBGLN("Detected MPU6050 Gyro");
         gyro.initialized = true;
         return true;
     }
+    delete gyro.dev;
+    gyro.dev = new GyroDevICM42688();
+    if (gyro.dev->initialize())
+    {
+        DBGLN("Detected ICM42688 Gyro");
+        gyro.initialized = true;
+        return true;
+    }
+    delete gyro.dev;
     return false;
 }
 

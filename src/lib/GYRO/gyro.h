@@ -2,7 +2,6 @@
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "targets.h"
-#include "config.h"
 #include "gyro_types.h"
 #include "pid.h"
 
@@ -43,6 +42,7 @@ public:
 // protected:
 
     // orientation/motion vars
+    float f_accel[3];       // [x, y, z] in g's
     float f_gyro[3];        // [roll, pitch, yaw] rate in degrees/s
     float f_angle[3];       // [roll, pitch, yaw] angle in radians
 

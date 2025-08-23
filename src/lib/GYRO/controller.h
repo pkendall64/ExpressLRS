@@ -1,5 +1,6 @@
 #pragma once
 #include "crsf_protocol.h"
+#include "config.h"
 #include "gyro.h"
 #include "logging.h"
 

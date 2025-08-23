@@ -15,45 +15,12 @@ static uint8_t mpuIntStatus;     // holds actual interrupt status byte from MPU
 static uint16_t fifoCount;       // count of all bytes currently in FIFO
 static uint8_t fifoBuffer[64];   // FIFO storage buffer
 
-#ifdef DEBUG_GYRO_STATS
-/**
- * For debugging print useful gyro state
- */
-void GyroDevMPU6050::print_gyro_stats()
-{
-    if (millis() - last_gyro_stats_time < 500)
-        return;
-
-    // Calculate gyro update rate in HZ
-    int update_rate = 1.0 /
-                      ((micros() - gyro.last_update) / 1000000.0);
-
-    char rate_str[5]; sprintf(rate_str, "%4d", update_rate);
-
-    char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.f_angle[GYRO_AXIS_ROLL] * 180 / M_PI);
-    char pitch_str[8]; sprintf(pitch_str, "%6.2f", gyro.f_angle[GYRO_AXIS_PITCH] * 180 / M_PI);
-    char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.f_angle[GYRO_AXIS_YAW] * 180 / M_PI);
-
-    char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.f_gyro[GYRO_AXIS_ROLL]);
-    char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.f_gyro[GYRO_AXIS_PITCH]);
-    char gyro_z[8]; sprintf(gyro_z, "%6.2f", gyro.f_gyro[GYRO_AXIS_YAW]);
-
-    DBGLN(
-        "%s HZ "
-        "Gain %f "
-        "Pitch: %s Roll: %s Yaw: %s "
-        "Gyro x: %s Gyro y: %s Gyro z: %s "
-        ,rate_str
-        ,gyro.gain
-        ,pitch_str, roll_str, yaw_str
-        ,gyro_x, gyro_y, gyro_z
-        );
-
-    last_gyro_stats_time = millis();
-}
-#endif
-
 static MPU6050 mpu;
+
+bool GyroDevMPU6050::initialize()
+{
+    return mpu.testConnection();
+}
 
 void GyroDevMPU6050::calibrate()
 {
@@ -138,7 +105,7 @@ uint8_t GyroDevMPU6050::start(bool calibrate) {
  * This method is used instead of mpu.dmpGetYawPitchRoll() as that method has
  * issues when gravity switches at high pitch angles.
 */
-void GyroDevMPU6050::dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
+static void dmpGetYawPitchRoll(float *data, Quaternion *q, VectorFloat *gravity)
 {
     // roll: (tilt left/right, about X axis)
     data[GYRO_AXIS_ROLL] = atan2(gravity -> y , gravity -> z);
