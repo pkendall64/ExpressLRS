@@ -1,9 +1,8 @@
 #pragma once
-#include "controller.h"
+#include "mode_level.h"
 
-class LaunchController : public Controller
+class LaunchController : public LevelController
 {
 public:
     void initialize() override;
-    void update() override;
 };

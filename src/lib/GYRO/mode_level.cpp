@@ -21,7 +21,7 @@ void LevelController::update()
 
     // 2) Map sticks to body-frame tilt components (decoupled)
     const float alpha = roll_cmd  * roll_max_rad;   // desired roll
-    const float beta  = pitch_cmd * pitch_max_rad;  // desired pitch
+    const float beta  = fminf(pitch_max_rad, fmaxf(-pitch_max_rad, pitch_cmd * pitch_max_rad - pitch_bias));    // desired pitch
     const float u = tanf(alpha);  // roll component (body Y)
     const float v = tanf(beta);   // pitch component (body X)
 
