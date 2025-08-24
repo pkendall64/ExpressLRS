@@ -32,6 +32,11 @@ protected:
         gyroCorrectionData[axis] = (value + get_command(axis)) * CRSF_CHANNEL_VALUE_MID;
     }
 
+    void setOutputRaw(const gyro_axis_t axis, const float value) const
+    {
+        gyroCorrectionData[axis] = value * CRSF_CHANNEL_VALUE_MID;
+    }
+
     static int8_t getChannel(const mix_destination_t destination)
     {
         for (unsigned mix_number = 0; mix_number < MAX_MIXES; mix_number++)
@@ -93,4 +98,24 @@ protected:
         configure_pid_gains(&pid_pitch, pitch_gains, pitch_limit, -1.0 * pitch_limit);
         configure_pid_gains(&pid_yaw, yaw_gains, yaw_limit, -1.0 * yaw_limit);
     }
+
+    static FusionQuaternion FusionQuaternionConjugate(const FusionQuaternion& q)
+    {
+        FusionQuaternion result;
+        result.element.w = q.element.w;     // real part stays the same
+        result.element.x = -q.element.x;    // imaginary parts are negated
+        result.element.y = -q.element.y;
+        result.element.z = -q.element.z;
+        return result;
+    }
+
+    static FusionVector rotateVecByQuat(const FusionQuaternion q, const FusionVector v) {
+        const FusionMatrix R = FusionQuaternionToMatrix(q);
+        return (FusionVector){{
+            R.array[0][0]*v.array[0] + R.array[0][1]*v.array[1] + R.array[0][2]*v.array[2],
+            R.array[1][0]*v.array[0] + R.array[1][1]*v.array[1] + R.array[1][2]*v.array[2],
+            R.array[2][0]*v.array[0] + R.array[2][1]*v.array[1] + R.array[2][2]*v.array[2],
+        }};
+    }
+
 };

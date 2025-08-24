@@ -23,21 +23,21 @@ void HoverController::initialize() {
 
 void HoverController::update()
 {
-    pid_roll.calculate(0, gyro.f_gyro[GYRO_AXIS_ROLL]);
-    pid_pitch.calculate(0, gyro.f_gyro[GYRO_AXIS_PITCH]);
-    pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
-
-    float error = gyro.f_angle[GYRO_AXIS_PITCH] - M_PI_2; // Pi/2 = 90degrees
-    error *= (float) config.GetGyroHoverStrength() / 16;
-    pid_pitch.output += error * cos(gyro.f_angle[GYRO_AXIS_ROLL]);
-    pid_yaw.output += error * sin(gyro.f_angle[GYRO_AXIS_ROLL]);
-
-    // Limit correction as set from gain input channel and
-    // modulate the correction depending on how much axis stick command
-    // FIXME this is using the output (mixed) channel data rather than the stick input!
-    setOutput(GYRO_AXIS_ROLL, pid_roll.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_ROLL))));
-    setOutput(GYRO_AXIS_PITCH, pid_pitch.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_PITCH))));
-    setOutput(GYRO_AXIS_YAW, pid_yaw.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_YAW))));
+    // pid_roll.calculate(0, gyro.f_gyro[GYRO_AXIS_ROLL]);
+    // pid_pitch.calculate(0, gyro.f_gyro[GYRO_AXIS_PITCH]);
+    // pid_yaw.calculate(0, -gyro.f_gyro[GYRO_AXIS_YAW]);
+    //
+    // float error = gyro.f_angle[GYRO_AXIS_PITCH] - M_PI_2; // Pi/2 = 90degrees
+    // error *= (float) config.GetGyroHoverStrength() / 16;
+    // pid_pitch.output += error * cos(gyro.f_angle[GYRO_AXIS_ROLL]);
+    // pid_yaw.output += error * sin(gyro.f_angle[GYRO_AXIS_ROLL]);
+    //
+    // // Limit correction as set from gain input channel and
+    // // modulate the correction depending on how much axis stick command
+    // // FIXME this is using the output (mixed) channel data rather than the stick input!
+    // setOutput(GYRO_AXIS_ROLL, pid_roll.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_ROLL))));
+    // setOutput(GYRO_AXIS_PITCH, pid_pitch.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_PITCH))));
+    // setOutput(GYRO_AXIS_YAW, pid_yaw.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_YAW))));
 }
 
 #endif

@@ -1,9 +1,10 @@
 #pragma once
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
-#include "targets.h"
+#include "FusionMath.h"
 #include "gyro_types.h"
 #include "pid.h"
+#include "targets.h"
 
 #define GYRO_US_MIN 988
 #define GYRO_US_MID 1500
@@ -44,7 +45,9 @@ public:
     // orientation/motion vars
     float f_accel[3];       // [x, y, z] in g's
     float f_gyro[3];        // [roll, pitch, yaw] rate in degrees/s
-    float f_angle[3];       // [roll, pitch, yaw] angle in radians
+    // float f_angle[3];       // [roll, pitch, yaw] angle in radians
+    FusionQuaternion quaternion;  // orientation as quaternion
+    FusionEuler f_angle;         // Euler angles for telemetry (converted from quaternion)
 
     uint16_t update_rate;
     unsigned long last_update;

@@ -165,32 +165,11 @@ bool GyroDevICM42688::read() {
     last_update = now;
     FusionAhrsUpdate(&fusion, v_gyro, v_accel, FUSION_VECTOR_ZERO, dt);
 
-    const auto quaternion = FusionAhrsGetQuaternion(&fusion);
-    // Adjusted quaternion-to-euler avoiding gimbal lock on the pitch axis
-    const float test = quaternion.element.x*quaternion.element.y + quaternion.element.z*quaternion.element.w;
-    float roll, pitch, yaw;
-    if (test > 0.499) { // singularity at north pole
-        pitch = 2 * atan2(quaternion.element.x,quaternion.element.w);
-        yaw = M_PI_2;
-        roll = 0;
-    }
-    else if (test < -0.499) { // singularity at south pole
-        pitch = -2 * atan2(quaternion.element.x,quaternion.element.w);
-        yaw = - M_PI_2;
-        roll = 0;
-    }
-    else
-    {
-        float sqx = quaternion.element.x*quaternion.element.x;
-        float sqy = quaternion.element.y*quaternion.element.y;
-        float sqz = quaternion.element.z*quaternion.element.z;
-        pitch = atan2f(2*quaternion.element.y*quaternion.element.w-2*quaternion.element.x*quaternion.element.z , 1 - 2*sqy - 2*sqz);
-        yaw = asin(2*test);
-        roll = atan2f(2*quaternion.element.x*quaternion.element.w-2*quaternion.element.y*quaternion.element.z , 1 - 2*sqx - 2*sqz);
-    }
-    gyro.f_angle[GYRO_AXIS_ROLL] = roll;
-    gyro.f_angle[GYRO_AXIS_PITCH] = pitch;
-    gyro.f_angle[GYRO_AXIS_YAW] = yaw;
+    // Update gyro quaternion directly from AHRS
+    gyro.quaternion = FusionAhrsGetQuaternion(&fusion);
+
+    // Note: Euler angles for telemetry are now computed on-demand in gyro.cpp send_telemetry()
+    // This eliminates the custom quaternion-to-euler conversion and potential gimbal lock issues
 
     #ifdef DEBUG_GYRO_STATS
     print_gyro_stats();

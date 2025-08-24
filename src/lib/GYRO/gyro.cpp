@@ -125,10 +125,13 @@ void Gyro::send_telemetry()
     CRSF_MK_FRAME_T(crsf_sensor_attitude_t)
     crsfAttitude = {};
 
+    // Convert quaternion to Euler angles for telemetry
+    f_angle = FusionQuaternionToEuler(quaternion);
+
     // Scale radians to 100µ-radians for CRSF protocol
-    crsfAttitude.p.roll = htobe16((int16_t)(gyro.f_angle[GYRO_AXIS_ROLL] * 10000.0f));
-    crsfAttitude.p.pitch = htobe16((int16_t)(gyro.f_angle[GYRO_AXIS_PITCH] * 10000.0f));
-    crsfAttitude.p.yaw = htobe16((int16_t)(gyro.f_angle[GYRO_AXIS_YAW] * 10000.0f));
+    crsfAttitude.p.roll = htobe16((int16_t)(f_angle.angle.roll * 10000.0f));
+    crsfAttitude.p.pitch = htobe16((int16_t)(f_angle.angle.pitch * 10000.0f));
+    crsfAttitude.p.yaw = htobe16((int16_t)(f_angle.angle.yaw * 10000.0f));
 
     CRSF::SetHeaderAndCrc((uint8_t *)&crsfAttitude, CRSF_FRAMETYPE_ATTITUDE, CRSF_FRAME_SIZE(sizeof(crsf_sensor_attitude_t)), CRSF_ADDRESS_CRSF_TRANSMITTER);
     telemetry.AppendTelemetryPackage((uint8_t *)&crsfAttitude);

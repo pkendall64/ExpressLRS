@@ -192,9 +192,23 @@ bool GyroDevMPU6050::read() {
         gyro.f_gyro[GYRO_AXIS_ROLL] = v_gyro.x * gscale; // Roll rate (radians/s)
         gyro.f_gyro[GYRO_AXIS_PITCH] = v_gyro.y * gscale; // Pitch rate (radians/s)
         gyro.f_gyro[GYRO_AXIS_YAW] = v_gyro.z * gscale; // Yaw rate (radians/s)
-        VectorFloat gravity;
-        mpu.dmpGetGravity(&gravity, &q);
-        dmpGetYawPitchRoll(gyro.f_angle, &q, &gravity);
+
+        // Convert MPU6050 quaternion to Fusion quaternion format
+        FusionQuaternion fusionQuat;
+        fusionQuat.element.w = q.w;
+        fusionQuat.element.x = q.x;
+        fusionQuat.element.y = q.y;
+        fusionQuat.element.z = q.z;
+
+        // Update gyro quaternion
+        gyro.quaternion = fusionQuat;
+
+        // Create Fusion vectors for AHRS update
+        FusionVector fusionGyro = {.axis = {gyro.f_gyro[GYRO_AXIS_ROLL], gyro.f_gyro[GYRO_AXIS_PITCH], gyro.f_gyro[GYRO_AXIS_YAW]}};
+
+        // Note: We would need accelerometer data for full AHRS update, but for now use DMP quaternion directly
+        // In a full implementation, you would call: FusionAhrsUpdate(&gyro.ahrs, fusionGyro, fusionAccel, fusionMag, deltaTime);
+        // and then get quaternion from: gyro.quaternion = FusionAhrsGetQuaternion(&gyro.ahrs);
     }
     else
     {

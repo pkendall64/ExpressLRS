@@ -21,9 +21,9 @@ void GyroDevice::print_gyro_stats()
 
     char rate_str[5]; sprintf(rate_str, "%4d", update_rate);
 
-    char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.f_angle[GYRO_AXIS_ROLL] * 180 / M_PI);
-    char pitch_str[8]; sprintf(pitch_str, "%6.2f", gyro.f_angle[GYRO_AXIS_PITCH] * 180 / M_PI);
-    char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.f_angle[GYRO_AXIS_YAW] * 180 / M_PI);
+    char roll_str[8]; sprintf(roll_str, "%6.2f", gyro.f_angle.angle.roll);
+    char pitch_str[8]; sprintf(pitch_str, "%6.2f", gyro.f_angle.angle.pitch);
+    char yaw_str[8]; sprintf(yaw_str, "%6.2f", gyro.f_angle.angle.yaw);
 
     char gyro_x[8]; sprintf(gyro_x, "%6.2f", gyro.f_gyro[GYRO_AXIS_ROLL]);
     char gyro_y[8]; sprintf(gyro_y, "%6.2f", gyro.f_gyro[GYRO_AXIS_PITCH]);

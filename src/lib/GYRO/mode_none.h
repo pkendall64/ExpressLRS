@@ -9,8 +9,8 @@ public:
     }
     void update() override
     {
-        setOutput(GYRO_AXIS_ROLL, get_command(GYRO_AXIS_ROLL));
-        setOutput(GYRO_AXIS_PITCH, get_command(GYRO_AXIS_PITCH));
-        setOutput(GYRO_AXIS_YAW, get_command(GYRO_AXIS_YAW));
+        setOutputRaw(GYRO_AXIS_ROLL, get_command(GYRO_AXIS_ROLL));
+        setOutputRaw(GYRO_AXIS_PITCH, get_command(GYRO_AXIS_PITCH));
+        setOutputRaw(GYRO_AXIS_YAW, get_command(GYRO_AXIS_YAW));
     }
 };
