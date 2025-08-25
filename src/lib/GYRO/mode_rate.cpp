@@ -14,12 +14,6 @@
 void RateController::initialize()
 {
     configure_pids(1.0, 1.0, 1.0);
-
-    // For rate mode we have a basic derivative from the gyro which is the
-    // angular velocity. Therefor we turn of any derivative term.
-    // pid_pitch._Kd = 0;
-    // pid_roll._Kd = 0;
-    // pid_yaw._Kd = 0;
 }
 
 void RateController::update()
