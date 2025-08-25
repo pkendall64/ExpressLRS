@@ -118,4 +118,61 @@ protected:
         }};
     }
 
+    // --- Quaternion → body roll/pitch (no Euler sequence) ---
+    void quatToRollPitch(const FusionQuaternion& q_be, float& roll_rad, float& pitch_rad) {
+        const FusionQuaternion q_eb = FusionQuaternionConjugate(q_be);   // earth->body
+        const FusionMatrix R = FusionQuaternionToMatrix(q_eb);
+        const float zx = R.array[0][2], zy = R.array[1][2], zz = R.array[2][2]; // body gravity
+        roll_rad  = atan2f(zy, zz);
+        pitch_rad = -atan2f(zx, zz);  // minus keeps “nose-up positive” if that matched your old code
+    }
+
+    // --- Ignore outward stick when at/over the angle limit (Safe mode) ---
+    float stickIfAllowed(float angle_rad, float max_rad, float stick) {
+        const bool outward = (angle_rad >= 0.0f && stick > 0.0f) || (angle_rad < 0.0f && stick < 0.0f);
+        if (fabsf(angle_rad) >= max_rad && outward) return 0.0f; // block outward past limit
+        return stick;
+    }
+
+    // --- EdgeSmoother: low-pass + slew only near/over the angle limit ---
+    struct EdgeSmoother {
+        // config (you can surface to your config class later)
+        float hyst_rad        = 1.0f * (float)M_PI / 180.0f;  // 1° hysteresis
+        float smooth_margin   = 6.0f * (float)M_PI / 180.0f;  // start smoothing within 6°
+        float tau_far         = 0.015f;                       // ~15 ms far from limit
+        float tau_near        = 0.090f;                       // ~90 ms near/over the limit
+        float slew_fs_per_s   = 3.0f;                         // full-scale steps per second
+
+        // state
+        float prev_cmd = 0.0f;
+
+        void reset(float value = 0.0f) { prev_cmd = value; }
+
+        float process(float angle_rad, float limit_rad, float raw_cmd, float dt) {
+            // smoothing strength 0..1 (0 far inside, 1 at/over)
+            float s;
+            const float dist = limit_rad - fabsf(angle_rad);
+            if (dist >= smooth_margin) s = 0.0f;
+            else if (dist <= 0.0f)     s = 1.0f;
+            else {
+                const float x = 1.0f - (dist / smooth_margin);         // 0→1 approaching limit
+                s = x*x*(3.0f - 2.0f*x);                                // smoothstep
+            }
+
+            // first-order low-pass (blend tau by s)
+            const float tau   = tau_far * (1.0f - s) + tau_near * s;
+            const float alpha = (tau <= 1e-6f) ? 1.0f : (dt / (tau + dt));
+            float filt = prev_cmd + alpha * (raw_cmd - prev_cmd);
+
+            // slew-limit
+            const float max_step = slew_fs_per_s * dt;
+            const float delta = filt - prev_cmd;
+            if      (delta >  max_step) prev_cmd += max_step;
+            else if (delta < -max_step) prev_cmd -= max_step;
+            else                        prev_cmd  = filt;
+
+            return prev_cmd;
+        }
+    };
+
 };

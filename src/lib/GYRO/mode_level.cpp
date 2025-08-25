@@ -10,6 +10,10 @@ void LevelController::initialize()
 
 void LevelController::update()
 {
+    const uint32_t now_us = micros();
+    const float dt = (prev_us == 0) ? 0.002f : fmaxf(1e-3f, (now_us - prev_us) * 1e-6f);
+    prev_us = now_us;
+
     // 0) Pilot commands in [-1, 1]
     const float roll_cmd  = get_command(GYRO_AXIS_ROLL);
     const float pitch_cmd = get_command(GYRO_AXIS_PITCH);
@@ -40,12 +44,25 @@ void LevelController::update()
 
     // 6) Drive roll/pitch PIDs to zero error
     pid_roll.calculate(0.0f,  e_b.array[0]);
-    setOutputRaw(GYRO_AXIS_ROLL, pid_roll.output);
-
     pid_pitch.calculate(0.0f, e_b.array[1]);
-    setOutputRaw(GYRO_AXIS_PITCH, pid_pitch.output);
 
-    // 7) Yaw rate damper (unchanged) + pass-through of stick in setOutput
+    // get actual roll/pitch angles to feed the same smoothers/limits
+    float roll_rad_meas, pitch_rad_meas;
+    quatToRollPitch(gyro.quaternion, roll_rad_meas, pitch_rad_meas);
+
+    // Compose raw outputs (pilot stick already used in setpoint; keep it simple here)
+    const float out_roll_raw  = pid_roll.output;
+    const float out_pitch_raw = pid_pitch.output;
+
+    // Smooth near Level limits using the same EdgeSmoother
+    const float out_roll  = roll_smooth.process (roll_rad_meas,  roll_max_rad,  out_roll_raw,  dt);
+    const float out_pitch = pitch_smooth.process(pitch_rad_meas, pitch_max_rad, out_pitch_raw, dt);
+
+    // Outputs: stay Raw so we don’t double-add RC
+    setOutputRaw(GYRO_AXIS_ROLL,  out_roll);
+    setOutputRaw(GYRO_AXIS_PITCH, out_pitch);
+
+    // yaw rate damper stays as before
     pid_yaw.calculate(0.0f, -gyro.f_gyro[GYRO_AXIS_YAW]);
     setOutputRaw(GYRO_AXIS_YAW, pid_yaw.output + yaw_cmd);
 }
