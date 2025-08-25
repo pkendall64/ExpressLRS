@@ -11,7 +11,7 @@
 
 void LaunchController::initialize()
 {
-    configure_pids(1.0, 1.0, 1.0);
+    LevelController::initialize();
     pitch_bias = FusionDegreesToRadians(config.GetGyroLaunchAngle());
 }
 

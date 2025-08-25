@@ -118,30 +118,31 @@ protected:
         }};
     }
 
-    // --- Quaternion → body roll/pitch (no Euler sequence) ---
-    void quatToRollPitch(const FusionQuaternion& q_be, float& roll_rad, float& pitch_rad) {
-        const FusionQuaternion q_eb = FusionQuaternionConjugate(q_be);   // earth->body
+    // Body "down" (gravity) in BODY frame from the AHRS quaternion.
+    // q_be: body->earth. We need earth->body, so take the conjugate and convert to a matrix.
+    // The rotated [0,0,1] is simply the 3rd column of that matrix.
+    static FusionVector quatBodyDown(const FusionQuaternion& q_be) {
+        const FusionQuaternion q_eb = FusionQuaternionConjugate(q_be);
         const FusionMatrix R = FusionQuaternionToMatrix(q_eb);
-        const float zx = R.array[0][2], zy = R.array[1][2], zz = R.array[2][2]; // body gravity
-        roll_rad  = atan2f(zy, zz);
-        pitch_rad = -atan2f(zx, zz);  // minus keeps “nose-up positive” if that matched your old code
+        return (FusionVector){{ R.array[0][2], R.array[1][2], R.array[2][2] }};
     }
 
-    // --- Ignore outward stick when at/over the angle limit (Safe mode) ---
-    float stickIfAllowed(float angle_rad, float max_rad, float stick) {
-        const bool outward = (angle_rad >= 0.0f && stick > 0.0f) || (angle_rad < 0.0f && stick < 0.0f);
-        if (fabsf(angle_rad) >= max_rad && outward) return 0.0f; // block outward past limit
-        return stick;
+    // Roll/Pitch (radians) from the body "down" vector (no Euler sequence).
+    // Sign matches the patterns we’ve been using (nose-up positive).
+    static void quatToRollPitch(const FusionQuaternion& q_be, float& roll_rad, float& pitch_rad) {
+        const FusionVector z_b = quatBodyDown(q_be);
+        roll_rad  = atan2f(z_b.array[1], z_b.array[2]);
+        pitch_rad = -atan2f(z_b.array[0], z_b.array[2]);
     }
 
-    // --- EdgeSmoother: low-pass + slew only near/over the angle limit ---
+    // EdgeSmoother: low-pass + slew only near/over the angle limit
     struct EdgeSmoother {
         // config (you can surface to your config class later)
-        float hyst_rad        = 1.0f * (float)M_PI / 180.0f;  // 1° hysteresis
-        float smooth_margin   = 6.0f * (float)M_PI / 180.0f;  // start smoothing within 6°
-        float tau_far         = 0.015f;                       // ~15 ms far from limit
-        float tau_near        = 0.090f;                       // ~90 ms near/over the limit
-        float slew_fs_per_s   = 3.0f;                         // full-scale steps per second
+        static constexpr float hyst_rad        = 1.0f * M_PI / 180.0f;  // 1° hysteresis
+        static constexpr float smooth_margin   = 6.0f * M_PI / 180.0f;  // start smoothing within 6°
+        static constexpr float tau_far         = 0.015f;                // ~15 ms far from limit
+        static constexpr float tau_near        = 0.090f;                // ~90 ms near/over the limit
+        static constexpr float slew_fs_per_s   = 3.0f;                  // full-scale steps per second
 
         // state
         float prev_cmd = 0.0f;
@@ -162,17 +163,16 @@ protected:
             // first-order low-pass (blend tau by s)
             const float tau   = tau_far * (1.0f - s) + tau_near * s;
             const float alpha = (tau <= 1e-6f) ? 1.0f : (dt / (tau + dt));
-            float filt = prev_cmd + alpha * (raw_cmd - prev_cmd);
+            const float filter = prev_cmd + alpha * (raw_cmd - prev_cmd);
 
             // slew-limit
             const float max_step = slew_fs_per_s * dt;
-            const float delta = filt - prev_cmd;
+            const float delta = filter - prev_cmd;
             if      (delta >  max_step) prev_cmd += max_step;
             else if (delta < -max_step) prev_cmd -= max_step;
-            else                        prev_cmd  = filt;
+            else                        prev_cmd  = filter;
 
             return prev_cmd;
         }
     };
-
 };
