@@ -45,13 +45,12 @@ public:
     // orientation/motion vars
     float f_accel[3];       // [x, y, z] in g's
     float f_gyro[3];        // [roll, pitch, yaw] rate in degrees/s
-    // float f_angle[3];       // [roll, pitch, yaw] angle in radians
-    FusionQuaternion quaternion;  // orientation as quaternion
-    FusionEuler f_angle;         // Euler angles for telemetry (converted from quaternion)
+    FusionQuaternion quaternion {};  // orientation as quaternion
+    FusionEuler f_angle {};         // Euler angles for telemetry (converted from quaternion)
 
-    uint16_t update_rate;
-    unsigned long last_update;
-    bool initialized;
+    uint16_t update_rate = 0;
+    unsigned long last_update = 0;
+    bool initialized = false;
 
 private:
     gyro_mode_t gyro_mode = GYRO_MODE_OFF;

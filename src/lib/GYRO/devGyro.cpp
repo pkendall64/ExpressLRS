@@ -38,6 +38,7 @@ static bool initialize()
 static int start()
 {
     mixer_initialize();
+    gyro.reload();
     if (config.GetCalibrateGyro()) {
         gyro.dev->calibrate();
     }
