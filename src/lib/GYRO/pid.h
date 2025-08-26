@@ -3,6 +3,7 @@
 class PID
 {
 public:
+    PID() {}
     PID(float max, float min, float Kp, float Ki, float Kd);
     void configure(float Kp, float Ki, float Kd, float max = 1.0, float min = -1.0);
     float calculate(float setpoint, float pv);

@@ -44,7 +44,7 @@ void SafeController::update()
     };
 
     const float stick_roll  = stick_if_allowed(roll_rad,  roll_max_rad,  get_command(GYRO_AXIS_ROLL));
-    const float stick_pitch = stick_if_allowed(pitch_rad, pitch_max_rad, get_command(GYRO_AXIS_PITCH));
+    const float stick_pitch = stick_if_allowed(pitch_rad, pitch_max_rad, -get_command(GYRO_AXIS_PITCH));
     const float yaw_cmd     = get_command(GYRO_AXIS_YAW);
 
     // scale only the stabilizer by gyro.gain and smooth near limits (via members)

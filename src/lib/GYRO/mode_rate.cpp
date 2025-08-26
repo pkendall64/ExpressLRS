@@ -26,7 +26,7 @@ void RateController::update()
     // Limit correction as set from gain input channel and
     // modulate the correction depending on how much axis stick command
     setOutputRaw(GYRO_AXIS_ROLL, pid_roll.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_ROLL))) + get_command(GYRO_AXIS_ROLL));
-    setOutputRaw(GYRO_AXIS_PITCH, pid_pitch.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_PITCH))) + get_command(GYRO_AXIS_PITCH));
+    setOutputRaw(GYRO_AXIS_PITCH, pid_pitch.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_PITCH))) - get_command(GYRO_AXIS_PITCH));
     setOutputRaw(GYRO_AXIS_YAW, pid_yaw.output * gyro.gain * (1 - fabs(getChannelData(GYRO_AXIS_YAW))) + get_command(GYRO_AXIS_YAW));
 }
 #endif

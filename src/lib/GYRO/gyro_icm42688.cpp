@@ -37,7 +37,7 @@ bool GyroDevICM42688::initialize()
     FusionAhrsInitialise(&fusion);
     // Set AHRS algorithm settings
     constexpr FusionAhrsSettings settings = {
-        .convention = FusionConventionNwu,
+        .convention = FusionConventionEnu,
         .gain = 0.5f,
         .gyroscopeRange = 250, /* replace this with actual gyroscope range in degrees/s */
         .accelerationRejection = 10.0f,

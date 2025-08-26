@@ -189,15 +189,15 @@ bool GyroDevMPU6050::read() {
             q = q.getProduct(q_rotation);
         }
 
-        gyro.f_gyro[GYRO_AXIS_ROLL] = v_gyro.x * gscale; // Roll rate (radians/s)
-        gyro.f_gyro[GYRO_AXIS_PITCH] = v_gyro.y * gscale; // Pitch rate (radians/s)
+        gyro.f_gyro[GYRO_AXIS_PITCH] = v_gyro.x * gscale; // Pitch rate (radians/s)
+        gyro.f_gyro[GYRO_AXIS_ROLL] = v_gyro.y * gscale; // Roll rate (radians/s)
         gyro.f_gyro[GYRO_AXIS_YAW] = v_gyro.z * gscale; // Yaw rate (radians/s)
 
         // Convert MPU6050 quaternion to Fusion quaternion format
         FusionQuaternion fusionQuat;
         fusionQuat.element.w = q.w;
-        fusionQuat.element.x = q.x;
-        fusionQuat.element.y = q.y;
+        fusionQuat.element.x = q.y;
+        fusionQuat.element.y = q.x;
         fusionQuat.element.z = q.z;
 
         // Update gyro quaternion

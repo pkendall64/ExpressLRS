@@ -25,7 +25,7 @@ void LevelController::update()
 
     // decoupled body-frame mapping with optional pitch bias (set by Launch)
     const float alpha = roll_cmd  * roll_max_rad;
-    float       beta  = pitch_cmd * pitch_max_rad - pitch_bias;
+    float       beta  = -pitch_cmd * pitch_max_rad - pitch_bias;
     beta = fmaxf(-pitch_max_rad, fminf(pitch_max_rad, beta));
 
     // desired body "down" (normalized)
