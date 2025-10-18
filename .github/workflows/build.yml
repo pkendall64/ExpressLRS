@@ -234,7 +234,14 @@ jobs:
         run: |
           cd src
           build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} pio run -e Unified_ESP32_2400_TX_via_UART
-
+          
+      - name: Run the tests
+        run: |
+          cd src
+          sudo apt-get update
+          sudo apt-get install lcov
+          pio test -e coverage
+          
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6.0.0
         env:
