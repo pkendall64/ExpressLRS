@@ -7,7 +7,7 @@ import { minifyTemplateLiterals } from 'rollup-plugin-minify-template-literals';
 
 function toCIdentifier(p) {
   // Make a valid C identifier from a file path
-  let id = p.replace(/[^a-zA-Z0-9]/g, '_')
+  let id = p.replaceAll(/[^a-zA-Z0-9]/g, '_')
   if (/^[0-9]/.test(id)) id = '_' + id
   return id
 }

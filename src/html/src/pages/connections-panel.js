@@ -14,6 +14,7 @@ class ConnectionsPanel extends LitElement {
     pinModes = []
     pinRxIndex = undefined
     pinTxIndex = undefined
+    serialIndex = 0;
 
     createRenderRoot() {
         return this
@@ -141,16 +142,16 @@ class ConnectionsPanel extends LitElement {
 
     _generateFeatureBadges(features) {
         let str = []
-        if (!!(features & 1)) str.push(html`<span style="color: #696969; background-color: #a8dcfa" class="badge">TX</span>`)
-        else if (!!(features & 2)) str.push(html`<span style="color: #696969; background-color: #d2faa8" class="badge">RX</span>`)
+        if (features & 1) str.push(html`<span style="color: #696969; background-color: #a8dcfa" class="badge">TX</span>`)
+        else if (features & 2) str.push(html`<span style="color: #696969; background-color: #d2faa8" class="badge">RX</span>`)
         if ((features & 12) === 12) str.push(html`<span style="color: #696969; background-color: #fab4a8" class="badge">I2C</span>`)
-        else if (!!(features & 4)) str.push(html`<span style="color: #696969; background-color: #fab4a8" class="badge">SCL</span>`)
-        else if (!!(features & 8)) str.push(html`<span style="color: #696969; background-color: #fab4a8" class="badge">SDA</span>`)
+        else if (features & 4) str.push(html`<span style="color: #696969; background-color: #fab4a8" class="badge">SCL</span>`)
+        else if (features & 8) str.push(html`<span style="color: #696969; background-color: #fab4a8" class="badge">SDA</span>`)
 
         // Serial2
         if ((features & 96) === 96) str.push(html`<span style="color: #696969; background-color: #36b5ff" class="badge">Serial2</span>`)
-        else if (!!(features & 32)) str.push(html`<span style="color: #696969; background-color: #36b5ff" class="badge">RX2</span>`)
-        else if (!!(features & 64)) str.push(html`<span style="color: #696969; background-color: #36b5ff" class="badge">TX2</span>`)
+        else if (features & 32) str.push(html`<span style="color: #696969; background-color: #36b5ff" class="badge">RX2</span>`)
+        else if (features & 64) str.push(html`<span style="color: #696969; background-color: #36b5ff" class="badge">TX2</span>`)
 
         return str
     }
@@ -183,11 +184,13 @@ class ConnectionsPanel extends LitElement {
             } else {
                 modes.push(undefined)
             }
-            modes.push(features & 4 ? 'I2C SCL' : undefined)
-            modes.push(features & 8 ? 'I2C SDA' : undefined)
-            modes.push(undefined)  // true PWM (not yet supported)
-            modes.push(features & 32 ? 'Serial2 RX' : undefined)
-            modes.push(features & 64 ? 'Serial2 TX' : undefined)
+            modes.push(
+                features & 4 ? 'I2C SCL' : undefined,
+                features & 8 ? 'I2C SDA' : undefined,
+                undefined,  // true PWM (not yet supported)
+                features & 32 ? 'Serial2 RX' : undefined,
+                features & 64 ? 'Serial2 TX' : undefined
+            )
 
             htmlFields.push(html`
                 <tr><td class="mui--text-center mui--text-title">${index + 1}</td>

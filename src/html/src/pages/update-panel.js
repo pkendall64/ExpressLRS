@@ -13,6 +13,7 @@ class UpdatePanel extends LitElement {
     createRenderRoot() {
         this._completeHandler = this._completeHandler.bind(this)
         this._progressHandler = this._progressHandler.bind(this)
+        this._delayMessage = this._delayMessage.bind(this)
         return this
     }
 
@@ -78,37 +79,36 @@ class UpdatePanel extends LitElement {
         this.requestUpdate()
     }
 
-    _completeHandler(event) {
-        const self = this
-        this.progressText = ''
-        this.progress = 0
-        const data = JSON.parse(event.target.responseText)
-        if (data.status === 'ok') {
-            function showMessage() {
+    _delayMessage(data) {
+        let percent = 0
+        const interval = setInterval(()=>{
+            if (FEATURES.IS_8285)
+                percent = percent + 1
+            else
+                percent = percent + 2
+
+            this.progress = percent
+            this.progressText = percent + '% flashed... please wait'
+            if (percent === 100) {
+                clearInterval(interval)
+                this.progressText = ''
+                this.progress = 0
                 cuteAlert({
                     type: 'success',
                     title: 'Update Succeeded',
                     message: data.msg
                 })
             }
-            // This is basically a delayed display of the success dialog with a fake progress
-            let percent = 0
-            const interval = setInterval(()=>{
-                if (FEATURES.IS_8285)
-                    percent = percent + 1
-                else
-                    percent = percent + 2
+            this.requestUpdate()
+        }, 100)
+    }
 
-                self.progress = percent
-                self.progressText = percent + '% flashed... please wait'
-                if (percent === 100) {
-                    clearInterval(interval)
-                    self.progressText = ''
-                    self.progress = 0
-                    showMessage()
-                }
-                self.requestUpdate()
-            }, 100)
+    _completeHandler(event) {
+        this.progressText = ''
+        this.progress = 0
+        const data = JSON.parse(event.target.responseText)
+        if (data.status === 'ok') {
+            this._delayMessage(data)
         } else if (data.status === 'mismatch') {
             cuteAlert({
                 type: 'question',
@@ -118,27 +118,9 @@ class UpdatePanel extends LitElement {
                 cancelText: 'Cancel'
             }).then((e)=>{
                 const xmlhttp = new XMLHttpRequest()
-                xmlhttp.onreadystatechange = function() {
-                    if (this.readyState === 4) {
-                        self.progressText = ''
-                        self.progress = 0
-                        self.requestUpdate()
-                        if (this.status === 200) {
-                            const data = JSON.parse(this.responseText)
-                            cuteAlert({
-                                type: 'info',
-                                title: 'Force Update',
-                                message: data.msg
-                            })
-                        } else {
-                            cuteAlert({
-                                type: 'error',
-                                title: 'Force Update',
-                                message: 'An error occurred trying to force the update'
-                            })
-                        }
-                    }
-                }
+                xmlhttp.addEventListener('load', this._completeHandler, false)
+                xmlhttp.addEventListener('error', this._errorHandler, false)
+                xmlhttp.addEventListener('abort', this._abortHandler, false)
                 xmlhttp.open('POST', '/forceupdate', true)
                 const data = new FormData()
                 data.append('action', e)

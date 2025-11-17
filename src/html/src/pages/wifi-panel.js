@@ -41,7 +41,7 @@ class WifiPanel extends LitElement {
             <div class="mui-panel mui--text-title">WiFi Configuration</div>
             <div class="mui-panel">
                 <div class="mui-panel info-bg">
-                    ${elrsState.settings.mode !== 'STA' ? 'Currently in Access-Point mode' : 'Currently connected to home network: ' + elrsState.settings.ssid}
+                    ${elrsState.settings.mode === 'STA' ? 'Currently connected to home network: ' + elrsState.settings.ssid : 'Currently in Access-Point mode'}
                 </div>
                 <p>
                     Here you can join a network, and save it as your Home network. When you enable WiFi in range of your
@@ -69,7 +69,7 @@ class WifiPanel extends LitElement {
                     <div ?hidden="${this.selectedValue !== '0' && this.selectedValue !== '3'}">
                         <div class="mui-textfield">
                             <input id="interval" size='3' name='wifi-on-interval' type='number' placeholder="Disabled"
-                                   @input="${(e) => this.wifiOnInterval = parseInt(e.target.value)}"
+                                   @input="${(e) => this.wifiOnInterval = Number.parseInt(e.target.value)}"
                                    .value="${this.wifiOnInterval}"
                             />
                             <label for="interval">WiFi "auto on" interval in seconds (leave blank to disable)</label>
@@ -108,36 +108,35 @@ class WifiPanel extends LitElement {
 
     _setupNetwork(event) {
         event.preventDefault()
-        const self = this
         switch (this.selectedValue) {
             case '0':
-                postWithFeedback('Set Home Network', 'An error occurred setting the home network', '/sethome?save', function () {
-                    return new FormData(self.form)
-                }, function () {
+                postWithFeedback('Set Home Network', 'An error occurred setting the home network', '/sethome?save', () => {
+                    return new FormData(this.form)
+                }, () => {
                     elrsState.options = {
                         ...elrsState.options,
-                        'wifi-ssid': self.network.value,
-                        'wifi-password': self.password.value,
-                        'wifi-on-interval': self.wifiOnInterval,
+                        'wifi-ssid': this.network.value,
+                        'wifi-password': this.password.value,
+                        'wifi-on-interval': this.wifiOnInterval,
                         customised: true
                     }
                 })(event)
                 break
             case '1':
-                postWithFeedback('Connect To Network', 'An error occurred connecting to the network', '/sethome', function () {
-                    return new FormData(self.form)
+                postWithFeedback('Connect To Network', 'An error occurred connecting to the network', '/sethome', () => {
+                    return new FormData(this.form)
                 })(event)
                 break
             case '2':
                 postWithFeedback('Start Access Point', 'An error occurred starting the Access Point', '/access', null)(event)
                 break
             case '3':
-                postWithFeedback('Forget Home Network', 'An error occurred forgetting the home network', '/forget', function () {
-                    return new FormData(self.form)
-                }, function () {
+                postWithFeedback('Forget Home Network', 'An error occurred forgetting the home network', '/forget', () => {
+                    return new FormData(this.form)
+                }, () => {
                     elrsState.options = {
                         ...elrsState.options,
-                        'wifi-on-interval': self.wifiOnInterval,
+                        'wifi-on-interval': this.wifiOnInterval,
                         customised: true
                     }
                 })(event)
@@ -146,24 +145,23 @@ class WifiPanel extends LitElement {
     }
 
     _getNetworks() {
-        const self = this
         const xmlhttp = new XMLHttpRequest()
-        xmlhttp.onload = function () {
-            if (self.running) {
-                if (this.status === 204) {
-                    setTimeout(self._getNetworks, 2000)
+        xmlhttp.onload = () => {
+            if (this.running) {
+                if (xmlhttp.status === 204) {
+                    setTimeout(this._getNetworks, 2000)
                 } else {
-                    const data = JSON.parse(this.responseText)
+                    const data = JSON.parse(xmlhttp.responseText)
                     if (data.length > 0) {
-                        self.showLoader = false
-                        autocomplete(self.network, data)
+                        this.showLoader = false
+                        autocomplete(this.network, data)
                     }
                 }
             }
         }
-        xmlhttp.onerror = function () {
-            if (self.running) {
-                setTimeout(self._getNetworks, 2000)
+        xmlhttp.onerror = () => {
+            if (this.running) {
+                setTimeout(this._getNetworks, 2000)
             }
         }
         xmlhttp.open('GET', 'networks.json', true)

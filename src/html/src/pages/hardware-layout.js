@@ -168,7 +168,7 @@ export class HardwareLayout extends LitElement {
                 const arr = v.split(',').map((element) => Number(element))
                 return arr.length === 0 ? undefined : arr
             }
-            return isNaN(v) ? v : +v
+            return Number.isNaN(v) ? v : +v
         })
         // Use shared helper that prompts for reboot on success
         saveJSONWithReboot('Upload Succeeded', 'Upload Failed', '/hardware.json', {...JSON.parse(body), "customised": true})

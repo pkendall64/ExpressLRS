@@ -64,8 +64,8 @@ export function htmlFeatureBlocksPlugin(env) {
         return processWithRegex(
             html,
             re,
-            (esc) => new RegExp(`<!--\\s*FEATURE:${esc}\\s*-->`, 'gi'),
-            (esc) => new RegExp(`<!--\\s*\\/FEATURE:${esc}\\s*-->`, 'gi'),
+            (esc) => new RegExp(String.raw`<!--\s*FEATURE:${esc}\s*-->`, 'gi'),
+            (esc) => new RegExp(String.raw`<!--\s*/FEATURE:${esc}\s*-->`, 'gi'),
         )
     }
 
@@ -78,8 +78,8 @@ export function htmlFeatureBlocksPlugin(env) {
         code = processWithRegex(
             code,
             blockRe,
-            (esc) => new RegExp(`/\\*\\s*FEATURE:${esc}\\s*\\*/`, 'gi'),
-            (esc) => new RegExp(`/\\*\\s*\\/FEATURE:${esc}\\s*\\*/`, 'gi'),
+            (esc) => new RegExp(String.raw`/\*\s*FEATURE:${esc}\s*\*/`, 'gi'),
+            (esc) => new RegExp(String.raw`/\*\s*/FEATURE:${esc}\s*\*/`, 'gi'),
         )
         // Line comment markers (must use m flag to anchor at line starts)
         const lineRe = /^\s*\/\/\s*FEATURE:([\w\-.:\s]+)\s*$[\s\S]*?^\s*\/\/\s*\/FEATURE:\1\s*$/gim
@@ -90,8 +90,8 @@ export function htmlFeatureBlocksPlugin(env) {
             if (!keep) return ''
             // Remove only the opening/closing marker lines
             const esc = escapeRegExp(rawName)
-            const open = new RegExp(`^\\s*//\\s*FEATURE:${esc}\\s*$`, 'gim')
-            const close = new RegExp(`^\\s*//\\s*\\/FEATURE:${esc}\\s*$`, 'gim')
+            const open = new RegExp(String.raw`^\s*//\s*FEATURE:${esc}\s*$`, 'gim')
+            const close = new RegExp(String.raw`^\s*//\s*/FEATURE:${esc}\s*$`, 'gim')
             return match.replace(open, '').replace(close, '')
         })
         return code

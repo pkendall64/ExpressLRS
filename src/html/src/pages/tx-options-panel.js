@@ -30,7 +30,7 @@ class TxOptionsPanel extends LitElement {
                         persist across reboots, but <b>will be reset</b> when the firmware is reflashed.</p>
                     <!-- FEATURE:HAS_SUBGHZ -->
                     <div class="mui-select">
-                        <select id="domain" @change="${(e) => this.domain = parseInt(e.target.value)}">
+                        <select id="domain" @change="${(e) => this.domain = Number.parseInt(e.target.value)}">
                             ${_renderOptions(['AU915', 'FCC915', 'EU868', 'IN866', 'AU433', 'EU433', 'US433', 'US433-Wide'], this.domain)}
                         </select>
                         <label for="domain">Regulatory domain</label>
@@ -38,13 +38,13 @@ class TxOptionsPanel extends LitElement {
                     <!-- /FEATURE:HAS_SUBGHZ -->
                     <div class="mui-textfield">
                         <input id="tlm" size='5' type='number'
-                               @input="${(e) => this.tlmInterval = parseInt(e.target.value)}"
+                               @input="${(e) => this.tlmInterval = Number.parseInt(e.target.value)}"
                                .value="${this.tlmInterval}">
                         <label for="tlm">TLM report interval (ms)</label>
                     </div>
                     <div class="mui-textfield">
                         <input id="fan" size='3' type='number'
-                               @input="${(e) => this.fanRuntime = parseInt(e.target.value)}"
+                               @input="${(e) => this.fanRuntime = Number.parseInt(e.target.value)}"
                                .value="${this.fanRuntime}">
                         <label for="fan">Fan runtime (s)</label>
                     </div>
@@ -57,7 +57,7 @@ class TxOptionsPanel extends LitElement {
                     ${this.isAirport ? html`
                         <div class="mui-textfield"">
                         <input id="baud" size='7' type='number'
-                               @input="${(e) => this.baudRate = parseInt(e.target.value)}"
+                               @input="${(e) => this.baudRate = Number.parseInt(e.target.value)}"
                                .value="${this.baudRate}">
                         <label for="baud">AirPort UART baud</label>
                         </div>

@@ -24,7 +24,7 @@ class BindingPanel extends LitElement {
         this.uid = elrsState.config.uid
         this.bindType = elrsState.config.vbind
         this.originalUID = elrsState.config.uid
-        this.originalUIDType = (elrsState.settings && elrsState.settings.uidtype) ? elrsState.settings.uidtype : ''
+        this.originalUIDType = elrsState.settings?.uidtype ?? '';
         this._updateUIDType(this.originalUIDType)
     }
 
@@ -35,7 +35,7 @@ class BindingPanel extends LitElement {
                 <form class="mui-form">
                     <!-- FEATURE:NOT IS_TX -->
                     <div class="mui-select">
-                        <select @change="${(e) => {this.bindType = parseInt(e.target.value)}}" .value="${this.bindType}" >
+                        <select @change="${(e) => {this.bindType = Number.parseInt(e.target.value)}}" .value="${this.bindType}" >
                             <option value="0">Persistent (Default) - Bind information is stored across reboots
                             </option>
                             <option value="1">Volatile - Never store bind information across reboots</option>
@@ -47,32 +47,7 @@ class BindingPanel extends LitElement {
                         <label>Binding storage</label>
                     </div>
                     <!-- /FEATURE:NOT IS_TX -->
-                    ${this.bindType !== 1 ? html`
-                        <div>
-                            Enter a new binding phrase to replace the current binding information.
-                            This will persist across reboots, but <b>will be reset</b> if the firmware is flashed with a
-                            binding phrase.
-                            Note: The Binding phrase is not remembered; it is a temporary field used to generate the
-                            binding UID.
-                            You may also enter a binding UID directly (as six comma-separated numbers), which will be
-                            copied to the UID field and used as-is.
-                            <br/><br/>
-                            <div class="mui-textfield">
-                                <input type="text" id="phrase" placeholder="Binding Phrase"
-                                       @input="${this._updateBindingPhrase}"/>
-                                <label for="phrase">Binding Phrase</label>
-                            </div>
-                        </div>
-                        <div class="mui-textfield">
-                            ${this.bindType !== 1 ? html`
-                                <span class="badge" id="uid-type"
-                                      style="background-color: ${this.uidData.bg}; color: ${this.uidData.fg}">${this.uidData.uidtype}</span>
-                            ` : ''}
-                            <input size='40' type='text' class='array' readonly
-                                   value="${this.uid}"/>
-                            <label>Binding UID</label>
-                        </div>
-                    ` : ''}
+                    ${this._bindingPhrase()}
                     <button class="mui-btn mui-btn--primary"
                             ?disabled=${!this.checkChanged()}
                             @click="${this._submitOptions}">Save
@@ -82,16 +57,53 @@ class BindingPanel extends LitElement {
         `
     }
 
+    _badge() {
+        return this.bindType === 1 ? '' : html`
+            <span class="badge" id="uid-type"
+                  style="background-color: ${this.uidData.bg}; color: ${this.uidData.fg}">${this.uidData.uidtype}</span>
+        `
+    }
+
+    _bindingPhrase() {
+        return this.bindType === 1 ? '' : html`
+            <div>
+                Enter a new binding phrase to replace the current binding information.
+                This will persist across reboots, but <b>will be reset</b> if the firmware is flashed with a
+                binding phrase.
+                Note: The Binding phrase is not remembered, it is a temporary field used to generate the
+                binding UID.
+                You may also enter a binding UID directly (as six comma-separated numbers), which will be
+                copied to the UID field and used as-is.
+                <br/><br/>
+                <div class="mui-textfield">
+                    <input type="text" id="phrase" placeholder="Binding Phrase"
+                           @input="${this._updateBindingPhrase}"/>
+                    <label for="phrase">Binding Phrase</label>
+                </div>
+            </div>
+            <div class="mui-textfield">
+                ${this._badge()}
+                <input size='40' type='text' class='array' readonly
+                       value="${this.uid}"/>
+                <label>Binding UID</label>
+            </div>
+        `
+    }
+
+    _saveDisabled() {
+        return !(this.bindType !== elrsState.config.vbind || this.uidData.uidtype === 'Modified')
+    }
+
     _isValidUidByte(s) {
-        let f = parseFloat(s)
-        return !isNaN(f) && isFinite(s) && Number.isInteger(f) && f >= 0 && f < 256
+        const f = Number.parseInt(s)
+        return f >= 0 && f < 256
     }
 
     _uidBytesFromText(text) {
         // If text is 4-6 numbers separated with [commas]/[spaces] use as a literal UID
         // This is a strict parser to not just extract numbers from text, but only accept if text is only UID bytes
         if (/^[0-9, ]+$/.test(text)) {
-            let asArray = text.split(',').filter(this._isValidUidByte).map(Number)
+            const asArray = text.split(',').filter(this._isValidUidByte).map(Number)
             if (asArray.length >= 4 && asArray.length <= 6) {
                 while (asArray.length < 6)
                     asArray.unshift(0)
@@ -105,7 +117,7 @@ class BindingPanel extends LitElement {
     }
 
     _updateBindingPhrase(e) {
-        let text = e.target.value
+        const text = e.target.value
         if (text.length === 0) {
             this.uid = this.originalUID
             this._updateUIDType(this.originalUIDType)

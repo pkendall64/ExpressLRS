@@ -29,6 +29,75 @@ class SerialPanel extends LitElement {
         return this
     }
 
+    _serialField() {
+        return this._hasSerial1() ? html`
+            <div class="mui-select">
+                <select name='serial-protocol' @change=${this._updateSerial1}>
+                    ${_renderOptions([...this.SERIAL_OPTIONS, "AirPort"], this.serial1Protocol)}
+                </select>
+                <label>Serial 1 Protocol</label>
+            </div>
+            ` : '';
+    }
+
+    _serial1Field() {
+        return this._hasSerial2() ? html`
+            <div class="mui-select">
+                <select name='serial1-protocol' @change=${this._updateSerial2}>
+                    ${_renderOptions(["Off", ...this.SERIAL_OPTIONS], this.serial2Protocol)}
+                </select>
+                <label>Serial 2 Protocol</label>
+            </div>
+            ` : '';
+    }
+
+    _baudRateField() {
+        return this._displayBaudRate() ? html`
+            <div class="mui-textfield">
+                <input size='7' type='number'
+                       @input=${(e) => this.baudRate = Number.parseInt(e.target.value)}
+                       .value="${this.baudRate}" />
+                <label>CRSF/Airport baud</label>
+            </div>
+            ` : '';
+    }
+
+    _sbusSupport() {
+        return this._sbusSelected() ? html`
+            <div id="sbus-config">
+                <div class="mui--text-title">SBUS Failsafe</div>
+                Set the failsafe behaviour when using the SBUS protocol:<br/>
+                <ul>
+                    <li>"No Pulses" stops sending SBUS data when a connection to the transmitter is lost
+                    </li>
+                    <li>"Last Position" continues to send the last received channel data along with the
+                        FAILSAFE
+                        bit set
+                    </li>
+                </ul>
+                <br/>
+                <div class="mui-select">
+                    <select name='serial-failsafe'>
+                        <option value='0'>No Pulses</option>
+                        <option value='1'>Last Position</option>
+                    </select>
+                    <label>SBUS Failsafe</label>
+                </div>
+            </div>
+            ` : '';
+    }
+
+    _displayPortSupport() {
+        return this._displayPortSelected() ? html`
+            <div class="mui-checkbox">
+                <input id="dji" type='checkbox'
+                       ?checked="${this.djiArmed}"
+                       @change="${(e) => { this.djiArmed = e.target.checked}}"/>
+                <label for="dji">Permanently arm DJI air units</label>
+            </div>
+            ` : '';
+    }
+
     render() {
         return html`
             <div class="mui-panel mui--text-title">Serial/UART Options</div>
@@ -36,60 +105,11 @@ class SerialPanel extends LitElement {
             <div class="mui-panel">
                 <p>Set the protocol(s) used to communicate with the flight controller or other external devices.</p>
                 <form>
-                    ${this._hasSerial1() ? html`
-                    <div class="mui-select">
-                        <select name='serial-protocol' @change=${this._updateSerial1}>
-                            ${_renderOptions([...this.SERIAL_OPTIONS, "AirPort"], this.serial1Protocol)}
-                        </select>
-                        <label>Serial 1 Protocol</label>
-                    </div>
-                    ` : ''}
-                    ${this._hasSerial2() ? html`
-                    <div class="mui-select">
-                        <select name='serial1-protocol' @change=${this._updateSerial2}>
-                            ${_renderOptions(["Off", ...this.SERIAL_OPTIONS], this.serial2Protocol)}
-                        </select>
-                        <label>Serial 2 Protocol</label>
-                    </div>
-                    ` : ''}
-                    ${this._displayBaudRate() ? html`
-                    <div class="mui-textfield">
-                        <input size='7' type='number'
-                               @input=${(e) => this.baudRate = parseInt(e.target.value)}
-                               .value="${this.baudRate}" />
-                        <label>CRSF/Airport baud</label>
-                    </div>
-                    ` : ''}
-                    ${this._sbusSelected() ? html`
-                    <div id="sbus-config">
-                        <div class="mui--text-title">SBUS Failsafe</div>
-                        Set the failsafe behaviour when using the SBUS protocol:<br/>
-                        <ul>
-                            <li>"No Pulses" stops sending SBUS data when a connection to the transmitter is lost
-                            </li>
-                            <li>"Last Position" continues to send the last received channel data along with the
-                                FAILSAFE
-                                bit set
-                            </li>
-                        </ul>
-                        <br/>
-                        <div class="mui-select">
-                            <select name='serial-failsafe'>
-                                <option value='0'>No Pulses</option>
-                                <option value='1'>Last Position</option>
-                            </select>
-                            <label>SBUS Failsafe</label>
-                        </div>
-                    </div>
-                    ` : ''}
-                    ${this._displayPortSelected() ? html`
-                    <div class="mui-checkbox">
-                        <input id="dji" type='checkbox'
-                               ?checked="${this.djiArmed}"
-                               @change="${(e) => {this.djiArmed = e.target.checked}}"/>
-                        <label for="dji">Permanently arm DJI air units</label>
-                    </div>
-                    ` : ''}
+                    ${this._serialField()}
+                    ${this._serial1Field()}
+                    ${this._baudRateField()}
+                    ${(this._sbusSupport())}
+                    ${(this._displayPortSupport())}
                     <button class="mui-btn mui-btn--small mui-btn--primary"
                             ?disabled="${!this.checkChanged()}"
                             @click="${this._saveSerial}"
@@ -125,7 +145,7 @@ class SerialPanel extends LitElement {
 
     _hasSerial2() {
         if (!elrsState.config['pwm']) {
-            return elrsState.config['serial1-protocol'] !== undefined
+            return elrsState.config['serial1-protocol'] != null
         }
         for(const pwm of elrsState.config.pwm) {
             const mode = (pwm.config >> 16) & 15
@@ -136,7 +156,7 @@ class SerialPanel extends LitElement {
     }
 
     _updateSerial1(e) {
-        this.serial1Protocol = parseInt(e.target.value)
+        this.serial1Protocol = Number.parseInt(e.target.value)
         this.isAirport = this.serial1Protocol === PROTOCOL_AIRPORT
         if (this.serial1Protocol === 0 || this.serial1Protocol === 1) {
             this.baudRate = 420000
@@ -145,7 +165,7 @@ class SerialPanel extends LitElement {
     }
 
     _updateSerial2(e) {
-        this.serial2Protocol = parseInt(e.target.value)
+        this.serial2Protocol = Number.parseInt(e.target.value)
     }
 
     _displayBaudRate() {
