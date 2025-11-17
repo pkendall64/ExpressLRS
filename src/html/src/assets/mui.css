@@ -73,17 +73,12 @@ a {
 }
 
 /**
- * 1. Remove the bottom border in Chrome 57-
- * 2. Add the correct text decoration in Chrome, Edge, IE, Opera, and Safari.
+ * Add the correct text decoration in Chrome, Edge, IE, Opera, and Safari.
  */
 abbr[title] {
   border-bottom: none;
-  /* 1 */
-  text-decoration: underline;
-  /* 2 */
   -webkit-text-decoration: underline dotted;
   text-decoration: underline dotted;
-  /* 2 */
 }
 
 /**
@@ -345,7 +340,7 @@ html {
 }
 
 body {
-  font-family: Arial, Verdana, Tahoma;
+  font-family: Arial, Verdana, Tahoma, sans-serif;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.429;
@@ -468,7 +463,6 @@ h4, h5, h6 {
 .mui-btn {
   font-weight: 500;
   font-size: 14px;
-  line-height: 18px;
   text-transform: uppercase;
   color: rgba(0, 0, 0, 0.87);
   background-color: #FFF;
@@ -492,7 +486,6 @@ h4, h5, h6 {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  font-size: 14px;
   font-family: inherit;
   letter-spacing: 0.03em;
   position: relative;

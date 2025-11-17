@@ -62,4 +62,4 @@ export function saveOptionsAndConfig(changes, successCB) {
     })
 }
 
-export let elrsState = new ElrsState()
+export const elrsState = new ElrsState()

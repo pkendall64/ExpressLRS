@@ -17,7 +17,7 @@ export function calcMD5(str) {
   const h = [b = 1732584193, c = -271733879, ~b, ~c];
   let i = 0;
 
-  for (; i <= a;) x[i >> 2] |= (str2.charCodeAt(i) || 128) << 8 * (i++ % 4);
+  for (; i <= a;) x[i >> 2] |= (str2.codePointAt(i) || 128) << 8 * (i++ % 4);
 
   x[str = (a + 8 >> 6) * 16 + 14] = a * 8;
   i = 0;

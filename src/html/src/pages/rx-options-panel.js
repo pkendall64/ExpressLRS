@@ -32,7 +32,7 @@ class RxOptionsPanel extends LitElement {
                 <form id='upload_options' method='POST' action="/options">
                     <!-- FEATURE:HAS_SUBGHZ -->
                     <div class="mui-select">
-                        <select id="domain" @change="${(e) => this.domain = parseInt(e.target.value)}">
+                        <select id="domain" @change="${(e) => this.domain = Number.parseInt(e.target.value)}">
                             ${_renderOptions(['AU915','FCC915','EU868','IN866','AU433','EU433','US433','US433-Wide'], this.domain)}
                         </select>
                         <label for="domain">Regulatory domain</label>
@@ -65,7 +65,7 @@ class RxOptionsPanel extends LitElement {
                     ${this.enableModelMatch ? html`
                     <div class="mui-textfield">
                         <input id="modelId" min="0" max="63" type='number' required
-                               @change="${(e) => this.modelId = parseInt(e.target.value)}"
+                               @change="${(e) => this.modelId = Number.parseInt(e.target.value)}"
                                .value="${this.modelId}"
                                @keypress="${_uintInput}"/>
                         <label for="modelId">Receiver ID (0 - 63)</label>
