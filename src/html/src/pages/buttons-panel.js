@@ -32,21 +32,24 @@ class ButtonsPanel extends LitElement {
                             </tbody>
                         </table>
                     ` : ``}
-                    ${this.buttonActions[0] && this.buttonActions[0]['color'] !== undefined ? html`
+                    ${this.buttonActions[0]?.['color'] == null ? '' : html`
                         <p>
-                            <input id='button1-color' type='color' @input="${(e) => this._changeCurrentColors(e, 0)}"
+                            <input id='button1-color' type='color'
+                                   @input="${(e) => this._changeCurrentColors(e, 0)}"
                                    .value="${this._toRGB(this.buttonActions[0]['color'])}"/>
                             <label for="button1-color">User button 1 color</label>
                         </p>
-                    ` : ''}
-                    ${this.buttonActions[1] && this.buttonActions[1]['color'] !== undefined ? html`
+                    `}
+                    ${this.buttonActions[1]?.['color'] == null ? '' : html`
                         <p>
-                            <input id='button2-color' type='color' @input="${(e) => this._changeCurrentColors(e, 1)}"
+                            <input id='button2-color' type='color'
+                                   @input="${(e) => this._changeCurrentColors(e, 1)}"
                                    .value="${this._toRGB(this.buttonActions[1]['color'])}"/>
                             <label for="button2-color">User button 2 color</label>
                         </p>
-                    ` : ''}
-                    <button class="mui-btn mui-btn--primary" @click="${this._submitButtonActions}"
+                    `}
+                    <button class="mui-btn mui-btn--primary"
+                            @click="${this._submitButtonActions}"
                             ?disabled="${this._checkEnableButtonActionSave()}">Save
                     </button>
                 </form>
@@ -59,7 +62,7 @@ class ButtonsPanel extends LitElement {
         this.buttonActions = elrsState.config['button-actions'];
         for (const [b, _v] of Object.entries(this.buttonActions)) {
             for (const [p, v] of Object.entries(_v.action)) {
-                result.push(this._appendButtonActionRow(parseInt(b), parseInt(p), v));
+                result.push(this._appendButtonActionRow(Number.parseInt(b), Number.parseInt(p), v));
             }
         }
         return result
@@ -69,11 +72,11 @@ class ButtonsPanel extends LitElement {
         return html`
             <tr>
                 <td>
-                    Button ${parseInt(b) + 1}
+                    Button ${Number.parseInt(b) + 1}
                 </td>
                 <td>
                     <div class="mui-select">
-                        <select @change="${(e) => this._changeAction(b, p, parseInt(e.target.value))}">
+                        <select @change="${(e) => this._changeAction(b, p, Number.parseInt(e.target.value))}">
                             ${_renderOptions(['Unused', 'Increase Power', 'Go to VTX Band Menu', 'Go to VTX Channel Menu',
                                 'Send VTX Settings', 'Start WiFi', 'Enter Binding Mode', 'Start BLE Joystick'], v.action)}
                         </select>
@@ -97,7 +100,7 @@ class ButtonsPanel extends LitElement {
                 <td>
                     <div class="mui-select">
                         <select id="select-timing-${b}-${p}"
-                                @change="${(e) => this._changeCount(b, p, parseInt(e.target.value))}"
+                                @change="${(e) => this._changeCount(b, p, Number.parseInt(e.target.value))}"
                                 ?disabled="${v.action === 0}"
                         >
                             <option value='' disabled hidden ?selected="${v.action === 0}"></option>
@@ -134,7 +137,7 @@ class ButtonsPanel extends LitElement {
     }
 
     _to8bit(v) {
-        v = parseInt(v.substring(1), 16)
+        v = Number.parseInt(v.substring(1), 16)
         return ((v >> 16) & 0xE0) + ((v >> (8 + 3)) & 0x1C) + ((v >> 6) & 0x3)
     }
 
@@ -150,7 +153,7 @@ class ButtonsPanel extends LitElement {
 
     _sendCurrentColors() {
         let colors = [this.buttonActions[0].color];
-        if (this.buttonActions[1] && this.buttonActions[1].color !== undefined) colors.push(this.buttonActions[1].color);
+        if (this.buttonActions[1]?.color != null) colors.push(this.buttonActions[1].color);
         postJSON('/buttons', colors)
         this.colorUpdated = false;
     }
@@ -190,7 +193,7 @@ class ButtonsPanel extends LitElement {
     }
 
     _changeCount(b, p, value) {
-        (this.buttonActions)[b].action[p].count = parseInt(value);
+        (this.buttonActions)[b].action[p].count = Number.parseInt(value);
         this.requestUpdate()
     }
 }

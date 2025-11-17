@@ -1,23 +1,23 @@
 import FEATURES from "./src/features.js";
 
+function sendJSON(res, obj, status = 200) {
+    res.statusCode = status
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify(obj))
+}
+
+function sendText(res, text, status = 200) {
+    res.statusCode = status
+    res.setHeader('Content-Type', 'text/plain')
+    res.end(text)
+}
+
+function sendStatus(res, status = 204) {
+    res.statusCode = status
+    res.end()
+}
+
 export function devMockPlugin() {
-    function sendJSON(res, obj, status = 200) {
-        res.statusCode = status
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify(obj))
-    }
-
-    function sendText(res, text, status = 200) {
-        res.statusCode = status
-        res.setHeader('Content-Type', 'text/plain')
-        res.end(text)
-    }
-
-    function sendStatus(res, status = 204) {
-        res.statusCode = status
-        res.end()
-    }
-
     // Basic stub data used by multiple endpoints
     const stubState = {
         settings: {
@@ -63,8 +63,8 @@ export function devMockPlugin() {
                 {"config": 0, "pin": 0, "features": 12},
                 {"config": 1536, "pin": 4, "features": 12 + 16},
                 {"config": 2048, "pin": 5, "features": 12 + 16},
-                {"config": 3584, "pin": 1, "features": 1 + 16},
-                {"config": 4608, "pin": 3, "features": 2 + 16}
+                {"config": 3584, "pin": 1, "features": 1 + 4 + 8 + 16 + 32+ 64},
+                {"config": 4608, "pin": 3, "features": 2 + 4 + 8 + 16 + 32+ 64}
             ],
             vbind: 0,
             // TX config
@@ -146,7 +146,10 @@ export function devMockPlugin() {
                     return sendText(res, 'Rebooting...')
                 }
                 if (method === 'POST' && url === '/forceupdate') {
-                    return sendText(res, 'Force update scheduled')
+                    return sendJSON(res, {
+                        "status": "ok",
+                        "msg": "Update complete. Please wait for the LED to resume blinking before disconnecting power."
+                    })
                 }
                 if (method === 'POST' && url === '/import') {
                     return sendText(res, 'Import OK')
@@ -154,6 +157,8 @@ export function devMockPlugin() {
                 if (method === 'POST' && url === '/update') {
                     // Treat as file upload; we won’t parse multipart in this mock
                     return sendJSON(res, {
+                        // "status": "mismatch",
+                        // "msg": "Mismatched firmware, do it right."
                         "status": "ok",
                         "msg": "Update complete. Please wait for the LED to resume blinking before disconnecting power."
                     })
