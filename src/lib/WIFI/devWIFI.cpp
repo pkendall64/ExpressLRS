@@ -525,7 +525,7 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
   if (modelid < 0 || modelid > 63) modelid = 255;
   config.SetModelId((uint8_t)modelid);
 
-  long forceTlm = json["force-tlm"] | 0;
+  long forceTlm = json["force-tlm"] | false;
   config.SetForceTlmOff(forceTlm != 0);
 
   config.SetBindStorage((rx_config_bindstorage_t)(json["vbind"] | 0));
