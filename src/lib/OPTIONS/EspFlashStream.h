@@ -2,7 +2,7 @@
 
 #include "targets.h"
 
-class EspFlashStream : public Stream
+class EspFlashStream final : public Stream
 {
 public:
     EspFlashStream();
@@ -12,16 +12,16 @@ public:
     void setPosition(size_t offset);
 
     // Stream class overrides
-    virtual size_t write(uint8_t) { return 0; }
-    virtual int available() { return (_bufferPos <= sizeof(_buffer)) ? 1 : 0; }
-    virtual int read();
-    virtual int peek();
+    size_t write(uint8_t) override { return 0; }
+    int available() override { return (_bufferPos <= sizeof(_buffer)) ? 1 : 0; }
+    int read() override;
+    int peek() override;
 
 private:
-    WORD_ALIGNED_ATTR uint8_t _buffer[4];
-    size_t _flashBase;
-    size_t _flashOffset;
-    uint8_t _bufferPos;
+    WORD_ALIGNED_ATTR uint8_t _buffer[4]{};
+    size_t _flashBase = 0;
+    size_t _flashOffset = 0;
+    uint8_t _bufferPos = 0;
 
     void fillBuffer();
 };
