@@ -711,7 +711,7 @@ static void WebUploadResponseHandler(AsyncWebServerRequest *request) {
   }
 }
 
-static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool lastBlock) {
   force_update = force_update || request->hasArg("force");
   if (index == 0) {
     #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
@@ -1178,6 +1178,7 @@ static void HandleWebUpdate()
         #endif
         WiFi.begin(station_ssid, station_password);
         startServices();
+        break;
       default:
         break;
     }
