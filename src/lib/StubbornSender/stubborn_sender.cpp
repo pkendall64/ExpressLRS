@@ -66,7 +66,7 @@ uint8_t StubbornSender::GetCurrentPayload(uint8_t *outData, uint8_t maxLen)
     case SEND_PENDING:
         // This package can now be acked
         senderState = SENDING;
-        // fallthrough
+        [[fallthrough]];
     case SENDING:
         {
             bytesLastPayload = std::min((uint8_t)(length - currentOffset), maxLen);

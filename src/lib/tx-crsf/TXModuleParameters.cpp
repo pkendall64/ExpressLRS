@@ -509,7 +509,7 @@ void TXModuleEndpoint::handleWifiBle(propertiesCommon *item, uint8_t arg)
         sendCommandResponse(cmd, lcsAskConfirm, textConfirm);
         return;
       }
-      // fallthrough (clicking while not connected goes right to exectute)
+      [[fallthrough]]; // (clicking while not connected goes right to execute)
 
     case lcsConfirmed:
       sendCommandResponse(cmd, lcsExecuting, textRunning);
