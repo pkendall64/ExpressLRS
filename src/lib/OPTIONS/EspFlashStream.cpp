@@ -21,19 +21,19 @@ void EspFlashStream::fillBuffer()
     }
 }
 
-void EspFlashStream::setBaseAddress(size_t base)
+void EspFlashStream::setBaseAddress(const size_t base)
 {
     _flashBase = base;
     _flashOffset = 0 - sizeof(_buffer); // underflow intentionally so offset+pos = 0
     _bufferPos = sizeof(_buffer);
 }
 
-void EspFlashStream::setPosition(size_t offset)
+void EspFlashStream::setPosition(const size_t offset)
 {
     // align(4), rounding down
     _flashOffset = (offset >> 2) << 2;
     // capture the new bufferPos before fill advances it
-    uint8_t newBufferPos = offset - _flashOffset;
+    const uint8_t newBufferPos = offset - _flashOffset;
 
     fillBuffer();
     _bufferPos = newBufferPos;
@@ -41,7 +41,7 @@ void EspFlashStream::setPosition(size_t offset)
 
 int EspFlashStream::read()
 {
-    int retVal = peek();
+    const int retVal = peek();
     ++_bufferPos;
     return retVal;
 }
@@ -53,7 +53,7 @@ int EspFlashStream::peek()
         _flashOffset += sizeof(_buffer);
         fillBuffer();
     }
-    return _buffer[_bufferPos];
+    return _bufferPos >= sizeof(_buffer) ? -1 : _buffer[_bufferPos];
 }
 
 #endif
