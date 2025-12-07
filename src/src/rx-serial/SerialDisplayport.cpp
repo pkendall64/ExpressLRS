@@ -18,21 +18,20 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 #include "OTA.h"
 #include "options.h"
 
-void SerialDisplayport::send(uint8_t messageID, void * payload, uint8_t size, Stream * _stream)
+void SerialDisplayport::send(uint8_t messageID, const msp_status_t &payload, Stream * _stream)
 {
     _stream->write('$');
     _stream->write('M');
     _stream->write('>');
-    _stream->write(size);
+    _stream->write(sizeof(msp_status_t));
     _stream->write(messageID);
-    uint8_t checksum = size ^ messageID;
-    uint8_t * payloadPtr = (uint8_t*)payload;
-    for (uint8_t i = 0; i < size; ++i)
+    uint8_t checksum = sizeof(msp_status_t) ^ messageID;
+    const uint8_t *payloadPtr = (const uint8_t*)&payload;
+    for (uint8_t i = 0; i < sizeof(msp_status_t); ++i)
     {
-      uint8_t b = *(payloadPtr++);
-      checksum ^= b;
+      checksum ^= payloadPtr[i];
     }
-    _stream->write((uint8_t*)payload, size);
+    _stream->write(payloadPtr, sizeof(msp_status_t));
     _stream->write(checksum);
 }
 
@@ -40,24 +39,25 @@ uint32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, u
 {
     bool armed = getArmedState();
 
-    msp_status_t status;
-    status.task_delta_time = 0;
-    status.i2c_error_count = 0;
-    status.sensor_status = 0;
-    status.flight_mode_flags = armed ? 0x1 : 0x0;
-    status.pid_profile = 0;
-    status.system_load = 0;
-    status.gyro_cycle_time = 0;
-    status.box_mode_flags = 0;
-    status.arming_disable_flags_count = 1;
-    status.arming_disable_flags = armed ? 0x0 : 0x1;
-    status.extra_flags = 0;
+    msp_status_t status = {
+        .task_delta_time = 0,
+        .i2c_error_count = 0,
+        .sensor_status = 0,
+        .flight_mode_flags = armed ? 0x1U : 0x0U,
+        .pid_profile = 0,
+        .system_load = 0,
+        .gyro_cycle_time = 0,
+        .box_mode_flags = 0,
+        .arming_disable_flags_count = 1,
+        .arming_disable_flags = armed ? 0x0U : 0x1U,
+        .extra_flags = 0,
+    };
 
     // Send status MSP
-    send(MSP_STATUS, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS, status, _outputPort);
 
     // Send extended status MSP
-    send(MSP_STATUS_EX, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS_EX, status, _outputPort);
 
     return MSP_MSG_PERIOD_MS;   // Send MSP msgs to DJI at 10Hz
 }
@@ -94,12 +94,9 @@ bool SerialDisplayport::getArmedState()
 
         return false;
     }
-    else
-    {
-        // If we are not using permanent arming then we don't need to wait for the air-unit to be connected
-        // The arm channel will provide the required state change to arm the O3
-        return isArmed;
-    }
+    // If we are not using permanent arming then we don't need to wait for the air-unit to be connected
+    // The arm channel will provide the required state change to arm the O3
+    return isArmed;
 }
 
 #endif // defined(TARGET_RX)

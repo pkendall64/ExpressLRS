@@ -18,9 +18,9 @@ n+8     checksum                uint8, (n= payload size), crc8_dvb_s2 checksum
 ========================================== */
 
 // CRC helper function.
+static GENERIC_CRC8 crc8_dvb_s2_instance(0xD5);
 uint8_t crc8_dvb_s2(uint8_t crc, unsigned char a)
 {
-    static GENERIC_CRC8 crc8_dvb_s2_instance(0xD5);
     return crc8_dvb_s2_instance.calc(crc ^ a);
 }
 
@@ -166,31 +166,24 @@ MSP::sendPacket(mspPacket_t* packet, Stream* port)
     if (packet->type == MSP_PACKET_COMMAND) {
         port->write('<');
     }
-    else if (packet->type == MSP_PACKET_RESPONSE) {
+    else {
         port->write('>');
     }
 
-    // Subsequent bytes are contained in the crc
-    uint8_t crc = 0;
-
     // Pack header struct into buffer
-    uint8_t headerBuffer[5];
-    mspHeaderV2_t* header = (mspHeaderV2_t*)&headerBuffer[0];
-    header->flags = packet->flags;
-    header->function = packet->function;
-    header->payloadSize = packet->payloadSize;
+    mspHeaderV2_t header = {
+        .flags = packet->flags,
+        .function = packet->function,
+        .payloadSize = packet->payloadSize
+    };
 
     // Write out the header buffer, adding each byte to the crc
-    for (uint8_t i = 0; i < sizeof(mspHeaderV2_t); ++i) {
-        port->write(headerBuffer[i]);
-        crc = crc8_dvb_s2(crc, headerBuffer[i]);
-    }
+    port->write((uint8_t *)&header, sizeof(header));
+    uint8_t crc = crc8_dvb_s2_instance.calc((uint8_t *)&header, sizeof(header));
 
     // Write out the payload, adding each byte to the crc
-    for (uint16_t i = 0; i < packet->payloadSize; ++i) {
-        port->write(packet->payload[i]);
-        crc = crc8_dvb_s2(crc, packet->payload[i]);
-    }
+    port->write(packet->payload, packet->payloadSize);
+    crc = crc8_dvb_s2_instance.calc(packet->payload, packet->payloadSize, crc);
 
     // Write out the crc
     port->write(crc);
