@@ -712,7 +712,7 @@ TxConfig::SetDefaults(bool commit)
     m_modified = ALL_CHANGED;
 
     // Set defaults for button 1
-    tx_button_color_t default_actions1 = {
+    m_config.buttonColors[0].raw = (tx_button_color_t){
         .val = {
             .color = 226,   // R:255 G:0 B:182
             .actions = {
@@ -720,11 +720,10 @@ TxConfig::SetDefaults(bool commit)
                 {true, 0, ACTION_INCREASE_POWER}
             }
         }
-    };
-    m_config.buttonColors[0].raw = default_actions1.raw;
+    }.raw;
 
     // Set defaults for button 2
-    tx_button_color_t default_actions2 = {
+    m_config.buttonColors[1].raw = (tx_button_color_t){
         .val = {
             .color = 3,     // R:0 G:0 B:255
             .actions = {
@@ -732,8 +731,7 @@ TxConfig::SetDefaults(bool commit)
                 {true, 0, ACTION_SEND_VTX}
             }
         }
-    };
-    m_config.buttonColors[1].raw = default_actions2.raw;
+    }.raw;
 
     for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
     {
@@ -991,7 +989,7 @@ void RxConfig::UpgradeEepromV7V8(uint8_t ver)
 
     for (unsigned ch=0; ch<16; ++ch)
     {
-        m_config.pwmChannels[ch].raw = old.pwmChannels[ch].raw;
+        memcpy(&m_config.pwmChannels[ch], &old.pwmChannels[ch], sizeof(m_config.pwmChannels[ch]));
         m_config.pwmChannels[ch].val.mode = toServoOutputModeCurrent(ver, old.pwmChannels[ch].val.mode);
     }
 }
@@ -1275,17 +1273,20 @@ RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inv
     if (ch > PWM_MAX_CHANNELS)
         return;
 
-    rx_config_pwm_t *pwm = &m_config.pwmChannels[ch];
-    rx_config_pwm_t newConfig{};
-    newConfig.val.failsafe = failsafe;
-    newConfig.val.inputChannel = inputCh;
-    newConfig.val.inverted = inverted;
-    newConfig.val.mode = mode;
-    newConfig.val.stretched = stretched;
-    if (pwm->raw == newConfig.raw)
+    rx_config_pwm_t pwm = m_config.pwmChannels[ch];
+    const rx_config_pwm_t raw = {
+        .val = {
+            .failsafe = failsafe,
+            .inputChannel = inputCh,
+            .inverted = inverted,
+            .mode = mode,
+            .stretched = stretched,
+        }
+    };
+    if (memcmp(&pwm, &raw, sizeof(raw)) == 0)
         return;
 
-    pwm->raw = newConfig.raw;
+    pwm = raw;
     m_modified = EVENT_CONFIG_PWM_CHANGE;
 }
 
