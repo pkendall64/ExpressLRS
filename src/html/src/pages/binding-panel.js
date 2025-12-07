@@ -112,8 +112,7 @@ class BindingPanel extends LitElement {
         }
 
         const bindingPhraseFull = `-DMY_BINDING_PHRASE="${text}"`
-        const bindingPhraseHashed = calcMD5(bindingPhraseFull)
-        return [...bindingPhraseHashed.subarray(0, 6)]
+        return calcMD5(bindingPhraseFull)
     }
 
     _updateBindingPhrase(e) {

@@ -4,7 +4,7 @@
 const K = (() => {
   const k = [];
   for (let i = 0; i < 64;) {
-    k[i] = 0 | (Math.abs(Math.sin(++i)) * 4294967296);
+    k[i] = 0 | Math.sin(++i % Math.PI) * 4294967296;
   }
   return k;
 })();
@@ -27,7 +27,7 @@ export function calcMD5(str) {
     for (; j < 64;) {
       a = [
         d = a[3],
-        ((b = a[1] | 0) +
+        ((b = a[1]) +
           ((d = (
             (a[0] +
               [
@@ -60,7 +60,7 @@ export function calcMD5(str) {
   }
 
   const out = [];
-  for (j = 0; j < 32;) out.push(((h[j >> 3] >> ((1 ^ j++ & 7) * 4)) & 15) * 16 + ((h[j >> 3] >> ((1 ^ j++ & 7) * 4)) & 15));
+  for (j = 0; j < 12;) out.push(((h[j >> 3] >> ((1 ^ j++ & 7) * 4)) & 15) * 16 + ((h[j >> 3] >> ((1 ^ j++ & 7) * 4)) & 15));
 
   return new Uint8Array(out);
 }
