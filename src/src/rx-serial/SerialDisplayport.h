@@ -50,7 +50,7 @@ public:
 
 private:
     void processBytes(uint8_t *bytes, uint16_t size) override;
-    void send(uint8_t messageID, void * payload, uint8_t size, Stream * _stream);
+    void send(uint8_t messageID, const msp_status_t &payload, Stream * _stream);
     bool getArmedState();
 
     uint8_t m_receivedBytes;
