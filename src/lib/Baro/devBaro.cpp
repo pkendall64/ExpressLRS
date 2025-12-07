@@ -100,7 +100,7 @@ static void Baro_PublishPressure(uint32_t pressuredPa)
     crsfBaro.p.altitude = htobe16(crsfBaro.p.altitude);
 
     // Item: VSpd
-    int16_t vspd = altitude_diff_cm * 1000 / (int32_t)dT_ms;
+    int16_t vspd = static_cast<int16_t>(dT_ms == 0 ? 0 : altitude_diff_cm * 1000 / dT_ms);
     verticalspd_smoothed = (verticalspd_smoothed * 3 + vspd) / 4; // Simple smoothing
     crsfBaro.p.verticalspd = htobe16(verticalspd_smoothed);
     //DBGLN("diff=%d smooth=%d dT=%u", altitude_diff_cm, verticalspd_smoothed, dT_ms);

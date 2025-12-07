@@ -60,23 +60,23 @@ public:
     /**
      * @brief Reset the frequency offset to zero microseconds
      */
-    static ICACHE_RAM_ATTR void inline resetFreqOffset() { FreqOffset = 0; }
+    static ICACHE_RAM_ATTR void resetFreqOffset() { FreqOffset = 0; }
 
     /**
      * @brief Increment the frequency offset by one microsecond
      */
-    static ICACHE_RAM_ATTR void inline incFreqOffset() { FreqOffset++; }
+    static ICACHE_RAM_ATTR void incFreqOffset() { FreqOffset = FreqOffset + 1; }
 
 
     /**
      * @brief Decrement the frequency offset by one microsecond
      */
-    static ICACHE_RAM_ATTR void inline decFreqOffset() { FreqOffset--; }
+    static ICACHE_RAM_ATTR void decFreqOffset() { FreqOffset = FreqOffset - 1; }
 
     /**
      * @brief Get the frequency offset
      */
-    static ICACHE_RAM_ATTR int32_t inline getFreqOffset() { return FreqOffset; }
+    static ICACHE_RAM_ATTR int32_t getFreqOffset() { return FreqOffset; }
 
     /**
      * @brief Provides a coarse one time adjustment to the frequency to

@@ -53,9 +53,9 @@ data = b''
 
 def process(command: bytes):
     if command[0] == 0x14: # Link Stats
-        None
+        return
     elif command[0] == 0x16: # RC Packet
-        None
+        return
     elif command[0] >= 0x28:
         type = command[0]
         print('Type: ' + hex(type))

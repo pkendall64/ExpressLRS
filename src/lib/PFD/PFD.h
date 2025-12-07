@@ -5,26 +5,20 @@
 
 class PFD
 {
-private:
-    uint32_t intEventTime = 0;
-    uint32_t extEventTime = 0;
-    bool gotExtEvent;
-    bool gotIntEvent;
-
 public:
-    inline void extEvent(uint32_t time) // reference (external osc)
+    void extEvent(const int32_t time) // reference (external osc)
     {
         extEventTime = time;
         gotExtEvent = true;
     }
 
-    inline void intEvent(uint32_t time) // internal osc event
+    void intEvent(const uint32_t time) // internal osc event
     {
         intEventTime = time;
         gotIntEvent = true;
     }
 
-    inline void reset()
+    void reset()
     {
         gotExtEvent = false;
         gotIntEvent = false;
@@ -41,6 +35,12 @@ public:
         return gotExtEvent && gotIntEvent;
     }
 
-    volatile uint32_t getIntEventTime() const { return intEventTime; }
-    volatile uint32_t getExtEventTime() const { return extEventTime; }
+    uint32_t getIntEventTime() const { return intEventTime; }
+    uint32_t getExtEventTime() const { return extEventTime; }
+
+private:
+    uint32_t intEventTime = 0;
+    uint32_t extEventTime = 0;
+    bool gotExtEvent = false;
+    bool gotIntEvent = false;
 };
