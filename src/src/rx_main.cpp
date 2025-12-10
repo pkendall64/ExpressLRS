@@ -99,7 +99,6 @@ uint8_t geminiMode = 0;
 
 PFD PFDloop;
 Crc2Byte ota_crc;
-ELRS_EEPROM eeprom;
 RxConfig config;
 
 CRSFRouter crsfRouter;
@@ -1502,8 +1501,6 @@ void reconfigureSerial()
 
 static void setupConfigAndPocCheck()
 {
-    eeprom.Begin();
-    config.SetStorageProvider(&eeprom); // Pass pointer to the Config class for access to storage
     config.Load();
 
     // If bound, track number of plug/unplug cycles to go to binding mode in eeprom
