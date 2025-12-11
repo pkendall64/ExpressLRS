@@ -1271,7 +1271,7 @@ static void setupSerial()
     }
     if (config.GetSerialProtocol() == PROTOCOL_CRSF || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || firmwareOptions.is_airport)
     {
-        serialBaud = firmwareOptions.uart_baud;
+        serialBaud = config.GetRelayEnabled() ? 921600 : firmwareOptions.uart_baud;
     }
     else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
@@ -1548,7 +1548,7 @@ static void setupBindingFromConfig()
     DBGLN("UID=(%u, %u, %u, %u, %u, %u) ModelId=%u",
         UID[0], UID[1], UID[2], UID[3], UID[4], UID[5], config.GetModelId());
 
-    OtaUpdateCrcInitFromUid();
+    OtaUpdateCrcInitFromUid(config.GetRelayEnabled());
 }
 
 static void setupRadio()
@@ -1684,7 +1684,7 @@ static void ExitBindingMode()
     // Write the values to eeprom
     config.Commit();
 
-    OtaUpdateCrcInitFromUid();
+    OtaUpdateCrcInitFromUid(config.GetRelayEnabled());
     FHSSrandomiseFHSSsequence(uidMacSeedGet());
 
     webserverPreventAutoStart = true;

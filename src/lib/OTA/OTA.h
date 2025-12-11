@@ -170,7 +170,7 @@ typedef struct {
 extern bool OtaIsFullRes;
 extern volatile uint8_t OtaNonce;
 extern uint16_t OtaCrcInitializer;
-void OtaUpdateCrcInitFromUid();
+void OtaUpdateCrcInitFromUid(bool is_relay);
 
 enum OtaSwitchMode_e { smWideOr8ch = 0, smHybridOr16ch = 1, sm12ch = 2 };
 void OtaUpdateSerializers(OtaSwitchMode_e const mode, uint8_t packetSize);

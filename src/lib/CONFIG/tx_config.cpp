@@ -40,6 +40,33 @@ template<class T> static uint32_t Model_to_U32(T const *const model)
     return converter.u32;
 }
 
+template<class T> static void U64_to_Model(uint64_t const u64, T *const model)
+{
+    union {
+        union {
+            T model;
+            uint8_t padding[sizeof(uint64_t)-sizeof(T)];
+        } val;
+        uint64_t u64;
+    } converter = { .u64 = u64 };
+
+    *model = converter.val.model;
+}
+
+template<class T> static uint64_t Model_to_U64(T const *const model)
+{
+    // clear the entire union because the assignment will only fill sizeof(T)
+    union {
+        union {
+            T model;
+            uint8_t padding[sizeof(uint64_t)-sizeof(T)];
+        } val;
+        uint64_t u64;
+    } converter = { .val = {.model = *model } };
+
+    return converter.u64;
+}
+
 static uint8_t RateV6toV7(uint8_t rateV6)
 {
 #if defined(RADIO_SX127X) || defined(RADIO_LR1121)
@@ -93,7 +120,7 @@ static void ModelV6toV7(v6_model_config_t const * const v6, v7_model_config_t * 
     v7->boostChannel = v6->boostChannel;
 }
 
-static void ModelV7toV8(v7_model_config_t const * const v7, model_config_t * const v8)
+static void ModelV7toV8(v7_model_config_t const * const v7, v8_model_config_t * const v8)
 {
     uint8_t newRate = v7->rate;
 #if defined(RADIO_LR1121)
@@ -128,6 +155,22 @@ static void ModelV7toV8(v7_model_config_t const * const v7, model_config_t * con
     v8->ptrStartChannel = v7->ptrStartChannel;
     v8->ptrEnableChannel = v7->ptrEnableChannel;
     v8->linkMode = v7->linkMode;
+}
+
+static void ModelV8toV9(v8_model_config_t const * const v8, model_config_t * const v9)
+{
+    v9->rate = v8->rate;
+    v9->tlm = v8->tlm;
+    v9->power = v8->power;
+    v9->switchMode = v8->switchMode;
+    v9->boostChannel = v8->boostChannel;
+    v9->dynamicPower = v8->dynamicPower;
+    v9->modelMatch = v8->modelMatch;
+    v9->txAntenna = v8->txAntenna;
+    v9->ptrStartChannel = v8->ptrStartChannel;
+    v9->ptrEnableChannel = v8->ptrEnableChannel;
+    v9->linkMode = v8->linkMode;
+    v9->relay = false;
 }
 
 TxConfig::TxConfig() :
@@ -217,35 +260,45 @@ void TxConfig::Load()
 
     for(unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
     {
+        uint64_t model_value;
+        uint32_t old_value;
         char model[10] = "model";
         itoa(i, model+5, 10);
-        if (nvs_get_u32(handle, model, &value) == ESP_OK)
+        if (version < TX_CONFIG_VERSION && nvs_get_u32(handle, model, &old_value) == ESP_OK)
         {
-            // Chaining update, last calls nvs_set_u32, all others set `value`
+            // Chaining update, last calls nvs_set_u64, all others set `value`
             if (version == 6)
             {
                 // Upgrade v6 to v7
                 v6_model_config_t v6model;
-                U32_to_Model(value, &v6model);
+                U32_to_Model(old_value, &v6model);
                 v7_model_config_t v7Model;
                 ModelV6toV7(&v6model, &v7Model);
-                value = Model_to_U32(&v7Model);
+                old_value = Model_to_U32(&v7Model);
             }
 
             if (version <= 7)
             {
                 // Upgrade v7 to v8
                 v7_model_config_t v7model;
-                U32_to_Model(value, &v7model);
-                model_config_t * const newModel = &m_config.model_config[i];
-                ModelV7toV8(&v7model, newModel);
-                nvs_set_u32(handle, model, Model_to_U32(newModel));
+                U32_to_Model(old_value, &v7model);
+                v8_model_config_t v8Model;
+                ModelV7toV8(&v7model, &v8Model);
+                old_value = Model_to_U32(&v8Model);
             }
 
-            if (version == TX_CONFIG_VERSION)
+            if (version <= 8)
             {
-                U32_to_Model(value, &m_config.model_config[i]);
+                v8_model_config_t v8model;
+                U32_to_Model(old_value, &v8model);
+                model_config_t * const newModel = &m_config.model_config[i];
+                ModelV8toV9(&v8model, newModel);
+                nvs_set_u64(handle, model, Model_to_U64(newModel));
             }
+        }
+        else if (version == TX_CONFIG_VERSION && nvs_get_u64(handle, model, &model_value) == ESP_OK)
+        {
+            U64_to_Model(model_value, &m_config.model_config[i]);
         }
     } // for each model
 
@@ -296,6 +349,12 @@ void TxConfig::Load()
     if (version == 7)
     {
         UpgradeEepromV7ToV8();
+        version = 8;
+    }
+
+    if (version == 8)
+    {
+        UpgradeEepromV8ToV9();
     }
 }
 
@@ -354,10 +413,11 @@ void TxConfig::UpgradeEepromV6ToV7()
 void TxConfig::UpgradeEepromV7ToV8()
 {
     v7_tx_config_t v7Config;
+    v8_tx_config_t v8Config = {};
     EEPROM.get(0, v7Config);
 
     // Manual field copying as some fields were removed
-    #define LAZY(member) m_config.member = v7Config.member
+    #define LAZY(member) v8Config.member = v7Config.member
     LAZY(vtxBand);
     LAZY(vtxChannel);
     LAZY(vtxPower);
@@ -372,13 +432,45 @@ void TxConfig::UpgradeEepromV7ToV8()
 
     for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
     {
-        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
+        ModelV7toV8(&v7Config.model_config[i], &v8Config.model_config[i]);
     }
 
     m_modified = ALL_CHANGED;
 
     // Full Commit now
     m_config.version = 8U | TX_CONFIG_MAGIC;
+    EEPROM.put(0, v8Config);
+    EEPROM.commit();
+}
+
+void TxConfig::UpgradeEepromV8ToV9()
+{
+    v8_tx_config_t v8Config = {};
+    EEPROM.get(0, v8Config);
+
+    // Manual field copying as some fields were removed
+#define LAZY(member) m_config.member = v8Config.member
+    LAZY(vtxBand);
+    LAZY(vtxChannel);
+    LAZY(vtxPower);
+    LAZY(vtxPitmode);
+    LAZY(powerFanThreshold);
+    LAZY(fanMode);
+    LAZY(motionMode);
+    LAZY(dvrAux);
+    LAZY(dvrStartDelay);
+    LAZY(dvrStopDelay);
+#undef LAZY
+
+    for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
+    {
+        ModelV8toV9(&v8Config.model_config[i], &m_config.model_config[i]);
+    }
+
+    m_modified = ALL_CHANGED;
+
+    // Full Commit now
+    m_config.version = 9U | TX_CONFIG_MAGIC;
     Commit();
 }
 #endif
@@ -396,10 +488,10 @@ TxConfig::Commit()
     // Write parts to NVS
     if (m_modified & EVENT_CONFIG_MODEL_CHANGED)
     {
-        uint32_t value = Model_to_U32(m_model);
+        uint64_t value = Model_to_U64(m_model);
         char model[10] = "model";
         itoa(m_modelId, model+5, 10);
-        nvs_set_u32(handle, model, value);
+        nvs_set_u64(handle, model, value);
     }
     if (m_modified & EVENT_CONFIG_VTX_CHANGED)
     {
@@ -542,6 +634,16 @@ TxConfig::SetModelMatch(bool modelMatch)
     if (GetModelMatch() != modelMatch)
     {
         m_model->modelMatch = modelMatch;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED;
+    }
+}
+
+void
+TxConfig::SetRelayEnabled(bool relayEnabled)
+{
+    if (GetRelayEnabled() != relayEnabled)
+    {
+        m_model->relay = relayEnabled;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }

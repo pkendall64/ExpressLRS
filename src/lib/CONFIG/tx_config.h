@@ -1,13 +1,14 @@
 #pragma once
 
 #include "targets.h"
+#include "tx_config_legacy.h"
 
 #if defined(PLATFORM_ESP32)
 #include <nvs_flash.h>
 #include <nvs.h>
 #endif
 
-#define TX_CONFIG_VERSION   8U
+#define TX_CONFIG_VERSION   9U
 
 #define CONFIG_TX_BUTTON_ACTION_CNT 2
 #define CONFIG_TX_MODEL_CNT         64
@@ -59,22 +60,12 @@ typedef struct {
                 ptrStartChannel:4,
                 ptrEnableChannel:5,
                 linkMode:2;
+    uint32_t    relay:1,
+                _unused:31;
 } model_config_t;
 
-typedef struct {
-    uint8_t     pressType:1,    // 0 short, 1 long
-                count:3,        // 1-8 click count for short, .5sec hold count for long
-                action:4;       // action to execute
-} button_action_t;
-
-typedef union {
-    struct {
-        uint8_t color;                  // RRRGGGBB
-        button_action_t actions[CONFIG_TX_BUTTON_ACTION_CNT];
-        uint8_t unused;
-    } val;
-    uint32_t raw;
-} tx_button_color_t;
+typedef v8_button_action_t button_action_t;
+typedef v8_tx_button_color_t tx_button_color_t;
 
 typedef enum {
     BACKPACK_TELEM_MODE_OFF,
@@ -120,6 +111,7 @@ public:
     uint8_t GetAntennaMode() const { return m_model->txAntenna; }
     uint8_t GetLinkMode() const { return m_model->linkMode; }
     bool GetModelMatch() const { return m_model->modelMatch; }
+    bool GetRelayEnabled() const { return m_model->relay; }
     bool     IsModified() const { return m_modified != 0; }
     uint8_t  GetVtxBand() const { return m_config.vtxBand; }
     uint8_t  GetVtxChannel() const { return m_config.vtxChannel; }
@@ -148,6 +140,7 @@ public:
     void SetAntennaMode(uint8_t txAntenna);
     void SetLinkMode(uint8_t linkMode);
     void SetModelMatch(bool modelMatch);
+    void SetRelayEnabled(bool relayEnabled);
     void SetDefaults(bool commit);
     void SetVtxBand(uint8_t vtxBand);
     void SetVtxChannel(uint8_t vtxChannel);
@@ -173,6 +166,7 @@ private:
     void UpgradeEepromV5ToV6();
     void UpgradeEepromV6ToV7();
     void UpgradeEepromV7ToV8();
+    void UpgradeEepromV8ToV9();
 #endif
 
     tx_config_t m_config;

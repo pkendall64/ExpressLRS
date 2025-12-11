@@ -25,13 +25,17 @@ static Crc2Byte ota_crc;
 ValidatePacketCrc_t OtaValidatePacketCrc;
 GeneratePacketCrc_t OtaGeneratePacketCrc;
 
-void OtaUpdateCrcInitFromUid()
+void OtaUpdateCrcInitFromUid(const bool is_relay)
 {
 #if OTA_VERSION_ID > 15
 #error "OTA version can't be > 15"
 #endif
 
     OtaCrcInitializer = (UID[4] << 8) | UID[5];
+    if (is_relay)
+    {
+        OtaCrcInitializer ^= (UID[3] << 8) | UID[2];
+    }
 
     // shift OTA_VERSION_ID to the high byte to leave room for
     // xor-ing in the nonce in the GenerateCRC and ValidateCRC function

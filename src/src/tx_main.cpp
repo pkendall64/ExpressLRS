@@ -1044,7 +1044,7 @@ static void ExitBindingMode()
   DataUlSender.ResetState();
 
   // Reset CRCInit to UID-defined value
-  OtaUpdateCrcInitFromUid();
+  OtaUpdateCrcInitFromUid(config.GetRelayEnabled());
   InBindingMode = false; // Clear binding mode before SetRFLinkRate() for correct IQ
 
   UARTconnected();
@@ -1370,7 +1370,7 @@ static void setupBindingFromConfig()
   DBGLN("UID=(%u, %u, %u, %u, %u, %u)",
     UID[0], UID[1], UID[2], UID[3], UID[4], UID[5]);
 
-  OtaUpdateCrcInitFromUid();
+  OtaUpdateCrcInitFromUid(config.GetRelayEnabled());
 }
 
 
