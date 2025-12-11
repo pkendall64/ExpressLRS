@@ -35,7 +35,7 @@ static uint32_t lastPTRValidTimeMs;
 
 #include "hwTimer.h"
 
-[[noreturn]] static void startPassthrough(const bool useUSB = false)
+[[noreturn]] static void startPassthrough(const bool useDefaultSerial = false)
 {
     // stop everything
     devicesStop();
@@ -46,22 +46,9 @@ static uint32_t lastPTRValidTimeMs;
     Stream *uplink = &CRSFHandset::Port;
 
     uint32_t baud = PASSTHROUGH_BAUD == -1 ? BACKPACK_LOGGING_BAUD : PASSTHROUGH_BAUD;
-    // get ready for passthrough
-    if (GPIO_PIN_RCSIGNAL_RX == GPIO_PIN_RCSIGNAL_TX)
+    if (useDefaultSerial)
     {
-#if defined(PLATFORM_ESP32_S3)
-        // if UART0 is connected to the backpack then use the USB for the uplink
-        if (useUSB)
-        {
-            uplink = &Serial;
-        }
-        else
-        {
-            CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // pins are configured as 44 and 43
-        }
-#else
-        CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // default pin configuration 3 and 1
-#endif
+        uplink = &Serial;
     }
     else
     {
