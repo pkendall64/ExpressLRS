@@ -54,26 +54,18 @@ static uint32_t lastPTRValidTimeMs;
         if (useUSB)
         {
             uplink = &Serial;
-            Serial.setTxBufferSize(1024);
-            Serial.setRxBufferSize(16384);
         }
         else
         {
             CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // pins are configured as 44 and 43
-            CRSFHandset::Port.setTxBufferSize(1024);
-            CRSFHandset::Port.setRxBufferSize(16384);
         }
 #else
         CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // default pin configuration 3 and 1
-        CRSFHandset::Port.setTxBufferSize(1024);
-        CRSFHandset::Port.setRxBufferSize(16384);
 #endif
     }
     else
     {
         CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
-        CRSFHandset::Port.setTxBufferSize(1024);
-        CRSFHandset::Port.setRxBufferSize(16384);
     }
     disableLoopWDT();
 
@@ -82,8 +74,6 @@ static uint32_t lastPTRValidTimeMs;
     {
         backpack->begin(PASSTHROUGH_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
     }
-    backpack->setRxBufferSize(1024);
-    backpack->setTxBufferSize(16384);
 
     // reset ESP8285 into bootloader mode
     digitalWrite(GPIO_PIN_BACKPACK_BOOT, HIGH);
