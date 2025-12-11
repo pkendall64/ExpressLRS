@@ -59,12 +59,12 @@ static uint32_t lastPTRValidTimeMs;
         }
         else
         {
-            CRSFHandset::Port.begin(baud, SERIAL_8N1, 44, 43); // pins are configured as 44 and 43
+            CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // pins are configured as 44 and 43
             CRSFHandset::Port.setTxBufferSize(1024);
             CRSFHandset::Port.setRxBufferSize(16384);
         }
 #else
-        CRSFHandset::Port.begin(baud, SERIAL_8N1, 3, 1); // default pin configuration 3 and 1
+        CRSFHandset::Port.begin(baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM); // default pin configuration 3 and 1
         CRSFHandset::Port.setTxBufferSize(1024);
         CRSFHandset::Port.setRxBufferSize(16384);
 #endif
