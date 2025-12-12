@@ -171,6 +171,13 @@ static selectionParameter luaModelMatch = {
     modelMatchUnit
 };
 
+static selectionParameter luaRelay = {
+    {"Relay", CRSF_TEXT_SELECTION},
+    0, // value
+    luastrOffOn,
+    STR_EMPTYSPACE
+};
+
 static commandParameter luaBind = {
     {"Bind", CRSF_COMMAND},
     lcsIdle, // step
@@ -856,6 +863,10 @@ void TXModuleEndpoint::registerParameters()
         }
         updateModelID();
       });
+      registerParameter(&luaRelay, [this](propertiesCommon *item, uint8_t arg) {
+        config.SetRelayEnabled(arg);
+        OtaUpdateCrcInitFromUid(config.GetRelayEnabled());
+      });
     }
 
     // POWER folder
@@ -1024,6 +1035,7 @@ void TXModuleEndpoint::updateParameters()
   setTextSelectionValue(&luaLinkMode, config.GetLinkMode());
   updateModelID();
   setTextSelectionValue(&luaModelMatch, (uint8_t)config.GetModelMatch());
+  setTextSelectionValue(&luaRelay, (uint8_t)config.GetRelayEnabled());
   setTextSelectionValue(&luaPower, config.GetPower() - MinPower);
   if (GPIO_PIN_FAN_EN != UNDEF_PIN || GPIO_PIN_FAN_PWM != UNDEF_PIN)
   {
