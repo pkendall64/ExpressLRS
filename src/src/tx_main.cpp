@@ -94,7 +94,7 @@ CRSFRouter crsfRouter;
 TXModuleEndpoint crsfTransmitter;
 TXOTAConnector otaConnector;
 TXUSBConnector usbConnector;
-CRSFParser crsfParser;
+CRSFParser crsfParser(crsfRouter);
 
 device_affinity_t ui_devices[] = {
   {&Handset_device, 1},

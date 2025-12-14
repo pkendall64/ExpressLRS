@@ -1,14 +1,15 @@
 #ifndef CRSF_ENDPOINT_H
 #define CRSF_ENDPOINT_H
 
+#include "CRSF.h"
 #include "CRSFParameters.h"
 
 #define MAX_CRSF_PARAMETERS 64
 
 class CRSFEndpoint {
 public:
-    explicit CRSFEndpoint(const crsf_addr_e device_id)
-        : device_id(device_id) {}
+    explicit CRSFEndpoint(const CRSF &crsf, const crsf_addr_e device_id)
+        : crsf(crsf), device_id(device_id) {}
 
     virtual ~CRSFEndpoint() = default;
 
@@ -81,7 +82,7 @@ protected:
      * Sends device information to the CRSF network.
      * Called after receiving a device ping message.
      */
-    void sendDeviceInformationPacket();
+    void sendDeviceInformationPacket() const;
 
     /**
      * Handles parameter update requests from the CRSF network.
@@ -182,6 +183,7 @@ protected:
     static void setStringValue(stringParameter *parameter, const char *newValue) { parameter->value = newValue; }
 
 private:
+    const CRSF &crsf;
     crsf_addr_e device_id;
 
     // CRSF Parameter handling

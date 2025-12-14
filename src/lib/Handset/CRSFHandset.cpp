@@ -190,7 +190,7 @@ void CRSFHandset::sendSyncPacketToTX() // in values in us.
                 .rate = htobe32(packetRate),
                 .offset = htobe32(offset)
             },
-            .crc = crsfRouter.crsf_crc.calc((uint8_t *)&sync_packet + CRSF_TELEMETRY_TYPE_INDEX, sizeof(sync_packet)-3)
+            .crc = CRSF::CRC.calc((uint8_t *)&sync_packet + CRSF_TELEMETRY_TYPE_INDEX, sizeof(sync_packet)-3)
         };
         crsfRouter.deliverMessageTo(CRSF_ADDRESS_RADIO_TRANSMITTER, (crsf_header_t *)&sync_packet);
 
@@ -281,7 +281,7 @@ void CRSFHandset::handleInput()
     if (SerialInPacketPtr < totalLen)
         return;
 
-    uint8_t CalculatedCRC = crsfRouter.crsf_crc.calc(&inBuffer[2], totalLen - 3);
+    uint8_t CalculatedCRC = CRSF::CRC.calc(&inBuffer[2], totalLen - 3);
     if (CalculatedCRC == inBuffer[totalLen - 1])
     {
         GoodPktsCount++;

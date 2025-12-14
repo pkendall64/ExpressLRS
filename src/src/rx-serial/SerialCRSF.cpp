@@ -73,8 +73,8 @@ uint32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
         CRSF_FRAMETYPE_RC_CHANNELS_PACKED
     };
 
-    uint8_t crc = crsfRouter.crsf_crc.calc(outBuffer[2]);
-    crc = crsfRouter.crsf_crc.calc((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut), crc);
+    uint8_t crc = CRSF::CRC.calc(outBuffer[2]);
+    crc = CRSF::CRC.calc((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut), crc);
 
     _outputPort->write(outBuffer, sizeof(outBuffer));
     _outputPort->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));

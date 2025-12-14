@@ -1,6 +1,7 @@
 #include "RXEndpoint.h"
 
 #if !defined(UNIT_TEST)
+#include "CRSFRouter.h"
 #include "config.h"
 #include "devMSPVTX.h"
 #include "devVTXSPI.h"
@@ -11,7 +12,7 @@
 extern void reset_into_bootloader();
 
 RXEndpoint::RXEndpoint()
-    : CRSFEndpoint(CRSF_ADDRESS_CRSF_RECEIVER)
+    : CRSFEndpoint(crsfRouter, CRSF_ADDRESS_CRSF_RECEIVER)
 {
 }
 

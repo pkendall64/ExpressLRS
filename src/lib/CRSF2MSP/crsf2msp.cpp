@@ -108,7 +108,7 @@ uint8_t CROSSFIRE2MSP::getChecksum(const uint8_t *data, const uint32_t packetLen
     }
     if (mspVersion == MSP_FRAME_V2)
     {
-        return crsfRouter.crsf_crc.calc(data, packetLen);
+        return CRSF::CRC.calc(data, packetLen);
     }
     return 0;
 }

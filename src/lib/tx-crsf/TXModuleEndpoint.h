@@ -1,6 +1,7 @@
 #ifndef TX_MODULE_ENDPOINT_H
 #define TX_MODULE_ENDPOINT_H
 #include "CRSFEndpoint.h"
+#include "CRSFRouter.h"
 
 enum warningFlags
 {
@@ -19,7 +20,7 @@ enum warningFlags
 
 class TXModuleEndpoint final : public CRSFEndpoint {
 public:
-    TXModuleEndpoint() : CRSFEndpoint(CRSF_ADDRESS_CRSF_TRANSMITTER) {}
+    TXModuleEndpoint() : CRSFEndpoint(crsfRouter, CRSF_ADDRESS_CRSF_TRANSMITTER) {}
     ~TXModuleEndpoint() override = default;
 
     void begin();

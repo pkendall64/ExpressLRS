@@ -3,6 +3,7 @@
 #include "msptypes.h"
 
 elrsLinkStatistics_t linkStats {};
+const GENERIC_CRC8 CRSF::CRC = GENERIC_CRC8(CRSF_CRC_POLY);
 
 void CRSFRouter::addConnector(CRSFConnector *connector)
 {
@@ -19,7 +20,7 @@ void CRSFRouter::addEndpoint(CRSFEndpoint *endpoint)
     endpoints.insert(endpoint);
 }
 
-void CRSFRouter::processMessage(CRSFConnector *connector, const crsf_header_t *message) const
+void CRSFRouter::processMessage(CRSFConnector *connector, const crsf_header_t *message)
 {
     if (message->type == CRSF_FRAMETYPE_HEARTBEAT)
     {
@@ -36,6 +37,7 @@ void CRSFRouter::processMessage(CRSFConnector *connector, const crsf_header_t *m
     if (connector && packetType >= CRSF_FRAMETYPE_DEVICE_PING)
     {
         connector->addDevice(extMessage->orig_addr);
+        message = (crsf_header_t *)connector->natMessage(extMessage);
     }
 
     for (const auto endpoint : endpoints)
@@ -59,7 +61,7 @@ void CRSFRouter::processMessage(CRSFConnector *connector, const crsf_header_t *m
     deliverMessage(connector, message);
 }
 
-void CRSFRouter::deliverMessage(const CRSFConnector *connector, const crsf_header_t *message) const
+void CRSFRouter::deliverMessage(const CRSFConnector *connector, const crsf_header_t *message)
 {
     const crsf_frame_type_e packetType = message->type;
     const auto extMessage = (crsf_ext_header_t *)message;
@@ -71,6 +73,11 @@ void CRSFRouter::deliverMessage(const CRSFConnector *connector, const crsf_heade
         {
             if (other != connector && other->forwardsTo(extMessage->dest_addr))
             {
+                // de-NAT the `dest_addr`
+                if (extMessage->dest_addr >= CRSF_ADDRESS_NAT_START && extMessage->dest_addr <= CRSF_ADDRESS_NAT_END)
+                {
+                    message = (crsf_header_t *)other->deNatMessage(extMessage);
+                }
                 other->forwardMessage(message);
                 return;
             }
@@ -99,17 +106,17 @@ void CRSFRouter::deliverMessageTo(const crsf_addr_e destination, const crsf_head
     }
 }
 
-void CRSFRouter::SetHeaderAndCrc(crsf_header_t *frame, const crsf_frame_type_e frameType, const uint8_t frameSize)
+void CRSFRouter::SetHeaderAndCrc(crsf_header_t *frame, const crsf_frame_type_e frameType, const uint8_t frameSize) const
 {
     frame->sync_byte = CRSF_SYNC_BYTE;
     frame->frame_size = frameSize;
     frame->type = frameType;
 
-    const uint8_t crc = crsf_crc.calc((uint8_t *)frame + CRSF_FRAME_NOT_COUNTED_BYTES, frameSize - 1, 0);
-    ((uint8_t*)frame)[frameSize + CRSF_FRAME_NOT_COUNTED_BYTES - 1] = crc;
+    const uint8_t crc = CRSF::CRC.calc((uint8_t *)frame + CRSF_FRAME_NOT_COUNTED_BYTES, frameSize - CRSF_TELEMETRY_CRC_LENGTH, 0);
+    ((uint8_t*)frame)[frameSize + CRSF_FRAME_NOT_COUNTED_BYTES - CRSF_TELEMETRY_CRC_LENGTH] = crc;
 }
 
-void CRSFRouter::SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, const crsf_frame_type_e frameType, const uint8_t frameSize, const crsf_addr_e destAddr, const crsf_addr_e origAddr)
+void CRSFRouter::SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, const crsf_frame_type_e frameType, const uint8_t frameSize, const crsf_addr_e destAddr, const crsf_addr_e origAddr) const
 {
     frame->dest_addr = destAddr;
     frame->orig_addr = origAddr;
@@ -125,7 +132,7 @@ void CRSFRouter::makeLinkStatisticsPacket(uint8_t *buffer)
     buffer[1] = CRSF_FRAME_SIZE(payloadLen);
     buffer[2] = CRSF_FRAMETYPE_LINK_STATISTICS;
     memcpy(&buffer[3], &linkStats, payloadLen);
-    buffer[payloadLen + 3] = crsf_crc.calc(&buffer[2], payloadLen + 1);
+    buffer[payloadLen + 3] = CRSF::CRC.calc(&buffer[CRSF_FRAME_NOT_COUNTED_BYTES], payloadLen + CRSF_TELEMETRY_CRC_LENGTH);
 }
 
 void CRSFRouter::SetMspV2Request(uint8_t *frame, const uint16_t function, const uint8_t *payload, const uint8_t payloadLength)
@@ -173,7 +180,7 @@ void CRSFRouter::AddMspMessage(const mspPacket_t *packet, const crsf_addr_e dest
     outBuffer[totalBufferLen - 2] = CalcCRCMsp(&outBuffer[6], packet->payloadSize + 2);
 
     // CRSF frame crc
-    outBuffer[totalBufferLen - 1] = crsf_crc.calc(&outBuffer[2], packet->payloadSize + ENCAPSULATED_MSP_HEADER_CRC_LEN + CRSF_FRAME_LENGTH_EXT_TYPE_CRC - 1);
+    outBuffer[totalBufferLen - 1] = CRSF::CRC.calc(&outBuffer[2], packet->payloadSize + ENCAPSULATED_MSP_HEADER_CRC_LEN + CRSF_FRAME_LENGTH_EXT_TYPE_CRC - 1);
     deliverMessageTo(destination, (crsf_header_t *)outBuffer);
 }
 

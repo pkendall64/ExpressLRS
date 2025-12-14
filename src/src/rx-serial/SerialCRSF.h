@@ -1,13 +1,12 @@
 #pragma once
 #include "SerialIO.h"
 
-#include "CRSFParser.h"
 #include "CRSFRouter.h"
+#include "CRSFParser.h"
 
 class SerialCRSF final : public SerialIO, public CRSFConnector {
 public:
-    explicit SerialCRSF(Stream &out, Stream &in)
-        : SerialIO(&out, &in)
+    SerialCRSF(Stream &out, Stream &in) : SerialIO(&out, &in), crsfParser(crsfRouter)
     {
         crsfRouter.addConnector(this);
     }

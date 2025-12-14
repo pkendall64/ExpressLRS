@@ -242,7 +242,7 @@ uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const bool isElrs,
     // 2 bytes chunk header: FieldId, ChunksRemain
     // Ask the endpoint what the maximum size for the packet based on the origin;
     // this is for slow baud-rates to the handset
-    const uint8_t chunkMax = crsfRouter.getConnectorMaxPacketSize(origin) - 6 - 2;
+    const uint8_t chunkMax = crsf.getConnectorMaxPacketSize(origin) - 6 - 2;
     // How many chunks needed to send this field (rounded up)
     const uint8_t chunkCnt = (dataSize + chunkMax - 1) / chunkMax;
     // Data left to send is adjustedSize - chunks sent already
@@ -253,8 +253,8 @@ uint8_t CRSFEndpoint::sendParameter(const crsf_addr_e origin, const bool isElrs,
     chunkStart[0] = parameter->id;                 // FieldId
     chunkStart[1] = chunkCnt - (fieldChunk + 1); // ChunksRemain
     memcpy(paramInformation + sizeof(crsf_ext_header_t), chunkStart, chunkSize + 2);
-    crsfRouter.SetExtendedHeaderAndCrc((crsf_ext_header_t *)paramInformation, frameType, CRSF_EXT_FRAME_SIZE(chunkSize + 2), origin, device_id);
-    crsfRouter.deliverMessageTo(origin, (crsf_header_t *)paramInformation);
+    crsf.SetExtendedHeaderAndCrc((crsf_ext_header_t *)paramInformation, frameType, CRSF_EXT_FRAME_SIZE(chunkSize + 2), origin, device_id);
+    crsf.deliverMessageTo(origin, (crsf_header_t *)paramInformation);
     return chunkCnt - (fieldChunk + 1);
 }
 
@@ -397,7 +397,7 @@ uint32_t VersionStrToU32(const char *verStr)
     return retVal;
 }
 
-void CRSFEndpoint::sendDeviceInformationPacket()
+void CRSFEndpoint::sendDeviceInformationPacket() const
 {
     uint8_t deviceInformation[DEVICE_INFORMATION_LENGTH];
     const uint8_t size = strlen(device_name) + 1;
@@ -410,6 +410,6 @@ void CRSFEndpoint::sendDeviceInformationPacket()
     device->softwareVer = htobe32(VersionStrToU32(version)); // seen [ 0x00, 0x00, 0x05, 0x0f ] // "Firmware: V 5.15"
     device->fieldCnt = lastParameter;
     device->parameterVersion = 0;
-    crsfRouter.SetExtendedHeaderAndCrc((crsf_ext_header_t *)deviceInformation, CRSF_FRAMETYPE_DEVICE_INFO, DEVICE_INFORMATION_FRAME_SIZE, requestOrigin, device_id);
-    crsfRouter.deliverMessageTo(requestOrigin, (crsf_header_t *)deviceInformation);
+    crsf.SetExtendedHeaderAndCrc((crsf_ext_header_t *)deviceInformation, CRSF_FRAMETYPE_DEVICE_INFO, DEVICE_INFORMATION_FRAME_SIZE, requestOrigin, device_id);
+    crsf.deliverMessageTo(requestOrigin, (crsf_header_t *)deviceInformation);
 }

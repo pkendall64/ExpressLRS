@@ -1,14 +1,12 @@
 #ifndef CRSF_ROUTER_H
 #define CRSF_ROUTER_H
 
+#include "CRSF.h"
 #include "CRSFConnector.h"
 #include "CRSFEndpoint.h"
-#include "crc.h"
 #include "msp.h"
 
-#include <vector>
-
-class CRSFRouter final
+class CRSFRouter final : public CRSF
 {
 public:
     CRSFRouter() = default;
@@ -50,7 +48,7 @@ public:
      * @param connector Pointer to the CRSFConnector that received the message.
      * @param message Pointer to the CRSF message header structure containing the message data.
      */
-    void processMessage(CRSFConnector *connector, const crsf_header_t *message) const;
+    void processMessage(CRSFConnector *connector, const crsf_header_t *message);
 
     /**
      * Routes a CRSF message received by a connector to its appropriate destination.
@@ -63,7 +61,7 @@ public:
      * @param connector Pointer to the CRSFConnector that received the message.
      * @param message Pointer to the CRSF message header structure containing the message data.
      */
-    void deliverMessage(const CRSFConnector *connector, const crsf_header_t *message) const;
+    void deliverMessage(const CRSFConnector *connector, const crsf_header_t *message);
 
     /**
      * Routes a CRSF message to a connector that is known to deliver messages to the given device id.
@@ -74,7 +72,7 @@ public:
      * @param destination The device_id of the target for this message.
      * @param message Pointer to the CRSF message header structure containing the message data.
      */
-    void deliverMessageTo(crsf_addr_e destination, const crsf_header_t *message) const;
+    void deliverMessageTo(crsf_addr_e destination, const crsf_header_t *message) const override;
 
     /**
      * Sets the header fields and calculates the CRC for a CRSF frame.
@@ -86,7 +84,7 @@ public:
      * @param frameType The type of the CRSF frame to be set in the header.
      * @param frameSize The size of the CRSF frame, including payload and header fields (type and CRC).
      */
-    void SetHeaderAndCrc(crsf_header_t *frame, crsf_frame_type_e frameType, uint8_t frameSize);
+    void SetHeaderAndCrc(crsf_header_t *frame, crsf_frame_type_e frameType, uint8_t frameSize) const;
 
     /**
      * Sets the extended header fields and calculates the CRC for a CRSF frame.
@@ -101,7 +99,7 @@ public:
      * @param destAddr The destination address for the CRSF frame, as defined in the CRSF addressing scheme.
      * @param origAddr
      */
-    void SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, crsf_frame_type_e frameType, uint8_t frameSize, crsf_addr_e destAddr, crsf_addr_e origAddr);
+    void SetExtendedHeaderAndCrc(crsf_ext_header_t *frame, crsf_frame_type_e frameType, uint8_t frameSize, crsf_addr_e destAddr, crsf_addr_e origAddr) const override;
 
     /**
      * Constructs a CRSF link statistics packet and populates the provided buffer.
@@ -135,9 +133,7 @@ public:
      */
     void AddMspMessage(const mspPacket_t *packet, crsf_addr_e destination, crsf_addr_e origin);
 
-    uint8_t getConnectorMaxPacketSize(crsf_addr_e origin) const;
-
-    GENERIC_CRC8 crsf_crc = GENERIC_CRC8(CRSF_CRC_POLY);
+    uint8_t getConnectorMaxPacketSize(crsf_addr_e origin) const override;
 
 private:
     std::set<CRSFConnector *> connectors;
