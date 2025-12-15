@@ -16,17 +16,9 @@
 #include "options.h"
 
 #include "rx-serial/SerialIO.h"
-#include "rx-serial/SerialNOOP.h"
-#include "rx-serial/SerialCRSF.h"
-#include "rx-serial/SerialSBUS.h"
-#include "rx-serial/SerialSUMD.h"
 #include "rx-serial/SerialAirPort.h"
 #include "rx-serial/SerialHoTT_TLM.h"
 #include "rx-serial/SerialMavlink.h"
-#include "rx-serial/SerialTramp.h"
-#include "rx-serial/SerialSmartAudio.h"
-#include "rx-serial/SerialDisplayport.h"
-#include "rx-serial/SerialGPS.h"
 
 #include "devAnalogVbat.h"
 #include "devBaro.h"
@@ -49,22 +41,6 @@
 #include "devThermal.h"
 #include "esp_task_wdt.h"
 #endif
-
-//
-// Code encapsulated by the ARDUINO_CORE_INVERT_FIX #ifdef temporarily fixes EpressLRS issue #2609 which is caused
-// by the Arduino core (see https://github.com/espressif/arduino-esp32/issues/9896) and fixed
-// by Espressif with Arduino core release 3.0.3 (see https://github.com/espressif/arduino-esp32/pull/9950)
-//
-// With availability of Arduino core 3.0.3 and upgrading ExpressLRS to Arduino core 3.0.3 the temporary fix
-// should be deleted again
-//
-// ARDUINO_CORE_INVERT_FIX PT1
-#define ARDUINO_CORE_INVERT_FIX
-
-#if defined(PLATFORM_ESP32) && defined(ARDUINO_CORE_INVERT_FIX)
-#include "driver/uart.h"
-#endif
-// ARDUINO_CORE_INVERT_FIX PT1 end
 
 //// CONSTANTS ////
 #define SEND_LINK_STATS_TO_FC_INTERVAL 100
@@ -112,25 +88,6 @@ bool crsfBaroSensorDetected = false;
 unsigned long rebootTime = 0;
 extern bool webserverPreventAutoStart;
 bool pwmSerialDefined = false;
-uint32_t serialBaud;
-
-/* SERIAL_PROTOCOL_TX is used by CRSF output */
-#define SERIAL_PROTOCOL_TX Serial
-
-#if defined(PLATFORM_ESP32)
-    #define SERIAL1_PROTOCOL_TX Serial1
-
-    // SBUS driver needs to distinguish stream for SBUS/DJI protocol
-    const Stream *serial_protocol_tx = &(SERIAL_PROTOCOL_TX);
-    const Stream *serial1_protocol_tx = &(SERIAL1_PROTOCOL_TX);
-
-    SerialIO *serial1IO = nullptr;
-#endif
-
-SerialIO *serialIO = nullptr;
-
-#define SERIAL_PROTOCOL_RX Serial
-#define SERIAL1_PROTOCOL_RX Serial1
 
 StubbornSender DataDlSender;
 uint8_t DataDlBuffer[CRSF_MAX_PACKET_LEN];
@@ -208,7 +165,6 @@ static uint8_t debugRcvrLinkstatsFhssIdx;
 bool BindingModeRequest = false;
 
 extern void setWifiUpdateMode();
-void reconfigureSerial();
 
 uint8_t getLq()
 {
@@ -1036,7 +992,7 @@ static bool ICACHE_RAM_ATTR ProcessRfPacket_SYNC(uint32_t const now, OTA_Sync_s 
     if (config.IsModified())
     {
         deferExecutionMillis(100, [](){
-            reconfigureSerial();
+            reconfigureSerial0();
         });
     }
 
@@ -1243,261 +1199,6 @@ void DataUlReceiveComplete()
     }
 
     DataUlReceiver.Unlock();
-}
-
-static void setupSerial()
-{
-    bool sbusSerialOutput = false;
-	bool sumdSerialOutput = false;
-    bool mavlinkSerialOutput = false;
-    bool hottTlmSerial = false;
-
-    if (OPT_CRSF_RCVR_NO_SERIAL)
-    {
-        // For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
-        #if defined(DEBUG_LOG) || defined(DEBUG_RCVR_LINKSTATS)
-        #if defined(PLATFORM_ESP32_S3) && !defined(ESP32_S3_USB_JTAG_ENABLED)
-        // Requires pull-down on GPIO3.  If GPIO3 has a pull-up (for JTAG) this doesn't work.
-        USBSerial.begin(serialBaud);
-        BackpackOrLogStrm = &USBSerial;
-        #else
-        Serial.begin(serialBaud);
-        BackpackOrLogStrm = &Serial;
-        #endif
-        #else
-        BackpackOrLogStrm = new NullStream();
-        #endif
-        serialIO = new SerialNOOP();
-        return;
-    }
-    if (config.GetSerialProtocol() == PROTOCOL_CRSF || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || firmwareOptions.is_airport)
-    {
-        serialBaud = firmwareOptions.uart_baud;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
-    {
-        sbusSerialOutput = true;
-        serialBaud = 100000;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
-    {
-        sumdSerialOutput = true;
-        serialBaud = 115200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
-    {
-        mavlinkSerialOutput = true;
-        serialBaud = 460800;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
-    {
-        serialBaud = 115200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
-    {
-        hottTlmSerial = true;
-        serialBaud = 19200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_GPS)
-    {
-        serialBaud = 115200;
-    }
-    bool invert = config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO;
-
-#if defined(PLATFORM_ESP8266)
-    SerialConfig serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
-    {
-        serialConfig = SERIAL_8E2;
-    }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
-    SerialMode mode = (sbusSerialOutput || sumdSerialOutput)  ? SERIAL_TX_ONLY : SERIAL_FULL;
-    Serial.begin(serialBaud, serialConfig, mode, -1, invert);
-#elif defined(PLATFORM_ESP32)
-    uint32_t serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
-    {
-        serialConfig = SERIAL_8E2;
-    }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
-    // ARDUINO_CORE_INVERT_FIX PT2
-    #if defined(ARDUINO_CORE_INVERT_FIX)
-    if(invert == false)
-    {
-        uart_set_line_inverse(0, UART_SIGNAL_INV_DISABLE);
-    }
-    #endif
-    // ARDUINO_CORE_INVERT_FIX PT2 end
-
-    Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
-#endif
-
-    if (firmwareOptions.is_airport)
-    {
-        serialIO = new SerialAirPort(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (sbusSerialOutput)
-    {
-        serialIO = new SerialSBUS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (sumdSerialOutput)
-    {
-        serialIO = new SerialSUMD(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (mavlinkSerialOutput)
-    {
-        serialIO = new SerialMavlink(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
-    {
-        serialIO = new SerialDisplayport(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_GPS)
-    {
-        serialIO = new SerialGPS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else if (hottTlmSerial)
-    {
-        serialIO = new SerialHoTT_TLM(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-    else
-    {
-        serialIO = new SerialCRSF(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
-    }
-
-#if defined(DEBUG_ENABLED)
-#if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3)
-    USBSerial.begin(460800);
-    BackpackOrLogStrm = &USBSerial;
-#else
-    BackpackOrLogStrm = &Serial;
-#endif
-#else
-    BackpackOrLogStrm = new NullStream();
-#endif
-}
-
-#if defined(PLATFORM_ESP32)
-static void serial1Shutdown()
-{
-    if(serial1IO != nullptr)
-    {
-        Serial1.end();
-        delete serial1IO;
-        serial1IO = nullptr;
-    }
-}
-
-static void setupSerial1()
-{
-    //
-    // init secondary serial and protocol
-    //
-    int8_t serial1RXpin = GPIO_PIN_SERIAL1_RX;
-
-    if (serial1RXpin == UNDEF_PIN)
-    {
-        for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ch++)
-        {
-            if (config.GetPwmChannel(ch)->val.mode == somSerial1RX)
-                serial1RXpin = GPIO_PIN_PWM_OUTPUTS[ch];
-        }
-    }
-
-    int8_t serial1TXpin = GPIO_PIN_SERIAL1_TX;
-
-    if (serial1TXpin == UNDEF_PIN)
-    {
-        for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ch++)
-        {
-            if (config.GetPwmChannel(ch)->val.mode == somSerial1TX)
-                serial1TXpin = GPIO_PIN_PWM_OUTPUTS[ch];
-        }
-    }
-
-    switch(config.GetSerial1Protocol())
-    {
-        case PROTOCOL_SERIAL1_OFF:
-            break;
-        case PROTOCOL_SERIAL1_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-            serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_INVERTED_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
-            serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_SBUS:
-        case PROTOCOL_SERIAL1_DJI_RS_PRO:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
-            serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_INVERTED_SBUS:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_SUMD:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSUMD(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_HOTT_TLM:
-            Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
-            serial1IO = new SerialHoTT_TLM(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
-            break;
-        case PROTOCOL_SERIAL1_TRAMP:
-            Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialTramp(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
-            break;
-        case PROTOCOL_SERIAL1_SMARTAUDIO:
-            Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSmartAudio(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
-            break;
-        case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialDisplayport(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-        case PROTOCOL_SERIAL1_GPS:
-            Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-            serial1IO = new SerialGPS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
-            break;
-    }
-}
-
-void reconfigureSerial1()
-{
-    serial1Shutdown();
-    setupSerial1();
-}
-#else
-    void setupSerial1() {};
-    void reconfigureSerial1() {};
-#endif
-
-static void serialShutdown()
-{
-    BackpackOrLogStrm = new NullStream();
-    if(serialIO != nullptr)
-    {
-        Serial.end();
-        delete serialIO;
-        serialIO = nullptr;
-    }
-}
-
-void reconfigureSerial()
-{
-    serialShutdown();
-    setupSerial();
 }
 
 static void setupConfigAndPocCheck()
@@ -1977,46 +1678,14 @@ void setup()
     }
     else
     {
-#if defined(PLATFORM_ESP32)
-        // arduino-espressif32 HardwareSerial's constructor for UART0 saves and attaches to GPIO 1 and 3, which
-        // will reset any other use of them when begin() is actually called for UART0 by CRSFHandset/SerialIO.
-        // Calling end() here, will call _uartDetachPins() on the underlying UART implementation so they won't
-        // be saved later (fixed upstream, coming someday)
-        Serial.end();
-#endif
-
-        // default to CRSF protocol and the compiled baud rate
-        serialBaud = firmwareOptions.uart_baud;
-
-        // pre-initialise serial must be done before anything as some libs write
-        // to the serial port and they'll block if the buffer fills
-        #if defined(DEBUG_LOG)
-        Serial.begin(serialBaud);
-        BackpackOrLogStrm = &Serial;
-        #else
-        BackpackOrLogStrm = new NullStream();
-        #endif
+        serialPreConfigure();
 
         // Init EEPROM and load config, checking powerup count
         setupConfigAndPocCheck();
         setupTarget();
-        // If serial is not already defined, then see if there is serial pin configured in the PWM configuration
-        if (OPT_HAS_SERVO_OUTPUT && GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN)
-        {
-            for (int i = 0 ; i < GPIO_PIN_PWM_OUTPUTS_COUNT ; i++)
-            {
-                eServoOutputMode pinMode = (eServoOutputMode)config.GetPwmChannel(i)->val.mode;
-                if (pinMode == somSerial)
-                {
-                    pwmSerialDefined = true;
-                    break;
-                }
-            }
-        }
+
         crsfRouter.addEndpoint(&crsfReceiver);
         crsfRouter.addConnector(&otaConnector);
-        setupSerial();
-        setupSerial1();
 
         devicesRegister(ui_devices, ARRAY_SIZE(ui_devices));
         devicesInit();
@@ -2165,8 +1834,7 @@ struct bootloader {
 
 void reset_into_bootloader(void)
 {
-    SERIAL_PROTOCOL_TX.println((const char *)&target_name[4]);
-    SERIAL_PROTOCOL_TX.flush();
+    serialIO->println((const char *)&target_name[4]);
 #if defined(PLATFORM_ESP8266)
     delay(100);
     ESP.rebootIntoUartDownloadMode();
