@@ -74,7 +74,7 @@ public:
      * @param destination The device_id of the target for this message.
      * @param message Pointer to the CRSF message header structure containing the message data.
      */
-    void deliverMessageTo(const crsf_addr_e destination, const crsf_header_t *message) const;
+    void deliverMessageTo(crsf_addr_e destination, const crsf_header_t *message) const;
 
     /**
      * Sets the header fields and calculates the CRC for a CRSF frame.
