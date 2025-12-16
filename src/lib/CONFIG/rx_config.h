@@ -53,7 +53,8 @@ typedef struct __attribute__((packed)) {
     uint8_t     modelId;
     uint8_t     serialProtocol:4,
                 failsafeMode:2,
-                unused:2;
+                relayEnabled:1,
+                unused:1;
     rx_config_pwm_t pwmChannels[PWM_MAX_CHANNELS] __attribute__((aligned(4)));
     uint8_t     teamraceChannel:4,
                 teamracePosition:3,
@@ -73,6 +74,7 @@ public:
     // Getters
     bool     GetIsBound() const;
     const uint8_t* GetUID() const { return m_config.uid; }
+    bool GetRelayEnabled() const { return m_config.relayEnabled; }
 #if defined(PLATFORM_ESP8266)
     uint8_t  GetPowerOnCounter() const;
 #else
@@ -99,6 +101,7 @@ public:
 
     // Setters
     void SetUID(uint8_t* uid);
+    void SetRelayEnabled(bool relayEnabled);
     void SetPowerOnCounter(uint8_t powerOnCounter);
     void SetModelId(uint8_t modelId);
     void SetPower(uint8_t power);

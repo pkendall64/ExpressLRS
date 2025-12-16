@@ -364,6 +364,14 @@ RxConfig::SetUID(uint8_t* uid)
 }
 
 void
+RxConfig::SetRelayEnabled(bool relayEnabled) {
+    if (relayEnabled != m_config.relayEnabled) {
+        m_config.relayEnabled = relayEnabled;
+        m_modified = EVENT_CONFIG_MAIN_CHANGED;
+    }
+}
+
+void
 RxConfig::SetPowerOnCounter(uint8_t powerOnCounter)
 {
 #if defined(PLATFORM_ESP8266)

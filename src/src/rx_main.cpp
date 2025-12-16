@@ -908,7 +908,7 @@ static void ICACHE_RAM_ATTR ProcessRfPacket_RC(OTA_Packet_s const * const otaPkt
     }
 }
 
-void ICACHE_RAM_ATTR OnELRSBindMSP(uint8_t* newUid4)
+void ICACHE_RAM_ATTR OnELRSBindMSP(const uint8_t* newUid4, const bool isRelay)
 {
     // Binding over MSP only contains 4 bytes due to packet size limitations, clear out any leading bytes
     UID[0] = 0;
@@ -918,11 +918,12 @@ void ICACHE_RAM_ATTR OnELRSBindMSP(uint8_t* newUid4)
         UID[i + 2] = newUid4[i];
     }
 
-    DBGLN("New UID = %u, %u, %u, %u, %u, %u", UID[0], UID[1], UID[2], UID[3], UID[4], UID[5]);
+    DBGLN("New UID = %s %u, %u, %u, %u, %u, %u", isRelay ? "Relay: " : "", UID[0], UID[1], UID[2], UID[3], UID[4], UID[5]);
 
     // Set new UID in eeprom
     // EEPROM commit will happen on the main thread in ExitBindingMode()
     config.SetUID(UID);
+    config.SetRelayEnabled(isRelay);
 }
 
 static void ICACHE_RAM_ATTR ProcessRfPacket_DataUl(OTA_Packet_s const * const otaPktPtr)
@@ -959,9 +960,9 @@ static void ICACHE_RAM_ATTR ProcessRfPacket_DataUl(OTA_Packet_s const * const ot
 
     // Always examine DATA type packets for bind information if in bind mode
     // [1] is the package index, first packet of the MSP
-    if (InBindingMode && packageIndex == 1 && payload[0] == MSP_ELRS_BIND)
+    if (InBindingMode && packageIndex == 1 && (payload[0] == MSP_ELRS_BIND || payload[0] == MSP_ELRS_BIND_RELAY))
     {
-        OnELRSBindMSP((uint8_t *)&payload[1]);
+        OnELRSBindMSP((uint8_t *)&payload[1], payload[0] == MSP_ELRS_BIND_RELAY);
         return;
     }
 

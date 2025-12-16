@@ -1002,7 +1002,7 @@ void OnPowerSetCalibration(mspPacket_t *packet)
 
 void SendUIDOverMSP()
 {
-  MSPDataPackage[0] = MSP_ELRS_BIND;
+  MSPDataPackage[0] = config.GetRelayEnabled() ? MSP_ELRS_BIND_RELAY : MSP_ELRS_BIND;
   memcpy(&MSPDataPackage[1], &UID[2], 4);
   BindingSendCount = 0;
   DataUlSender.ResetState();
