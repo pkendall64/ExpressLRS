@@ -10,10 +10,13 @@
 
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 
+CRSFRouter crsfRouter;
+CRSFParser parser(crsfRouter);
+
 class MockEndpoint : public CRSFEndpoint
 {
 public:
-    MockEndpoint() : CRSFEndpoint((crsf_addr_e)1) {}
+    MockEndpoint() : CRSFEndpoint(crsfRouter, (crsf_addr_e)1) {}
     void handleMessage(const crsf_header_t *message) override
     {
     }
@@ -65,9 +68,6 @@ public:
     }
     std::vector<uint8_t> data;
 } connector;
-
-CRSFParser parser;
-CRSFRouter crsfRouter;
 
 int sendData(uint8_t *data, int length)
 {

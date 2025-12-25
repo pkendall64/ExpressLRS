@@ -5,6 +5,9 @@
 #include "CRSFRouter.h"
 #include "crsf_protocol.h" // For CRSF types and constants
 
+// --- Test Globals ---
+static CRSFRouter *router;
+
 // --- Mock CRSFConnector ---
 class MockConnector final : public CRSFConnector
 {
@@ -49,7 +52,7 @@ public:
 
     // Call base constructor
     explicit MockEndpoint(crsf_addr_e device_id = CRSF_ADDRESS_FLIGHT_CONTROLLER)
-        : CRSFEndpoint(device_id) {}
+        : CRSFEndpoint(*router, device_id) {}
 
     // Implement the pure virtual function
     void handleMessage(const crsf_header_t *message) override
@@ -72,8 +75,6 @@ public:
     }
 };
 
-// --- Test Globals ---
-static CRSFRouter *router;
 static MockEndpoint *testEndpoint = nullptr;
 static MockConnector *connector1 = nullptr;
 static MockConnector *connector2 = nullptr;

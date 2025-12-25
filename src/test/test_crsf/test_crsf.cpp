@@ -13,10 +13,12 @@ uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF
 
 GENERIC_CRC8 test_crc(CRSF_CRC_POLY);
 
+CRSFRouter crsfRouter;
+
 class MockEndpoint : public CRSFEndpoint
 {
 public:
-    MockEndpoint() : CRSFEndpoint(CRSF_ADDRESS_CRSF_RECEIVER) {}
+    MockEndpoint() : CRSFEndpoint(crsfRouter, CRSF_ADDRESS_CRSF_RECEIVER) {}
     void handleMessage(const crsf_header_t *message) override {}
 
     // mock class helper methods
@@ -37,8 +39,6 @@ public:
     }
     std::vector<uint8_t> data;
 } connector;
-
-CRSFRouter crsfRouter;
 
 void test_ver_to_u32(void)
 {

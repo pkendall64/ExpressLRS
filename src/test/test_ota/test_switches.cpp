@@ -8,11 +8,10 @@
  */
 
 
-#include <cstdint>
 #include <iostream>
 #include <unity.h>
 
-#include "CRSFEndpoint.h"
+#include "CRSFRouter.h"
 #include "POWERMGNT.h"
 #include "common.h"
 #include "crsf_sysmocks.h"
@@ -20,17 +19,18 @@
 
 #include <OTA.h>
 
+CRSFRouter crsfRouter;
+
 class MockEndpoint : public CRSFEndpoint
 {
 public:
-    MockEndpoint() : CRSFEndpoint((crsf_addr_e)1) {}
+    MockEndpoint() : CRSFEndpoint(crsfRouter, (crsf_addr_e)1) {}
     void handleMessage(const crsf_header_t *message) override {}
 };
 CRSFEndpoint *crsfEndpoint = new MockEndpoint();
 
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 uint8_t UID[6] = {1,2,3,4,5,6};
-elrsLinkStatistics_t linkStats;
 
 void test_crsf_endpoints()
 {

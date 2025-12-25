@@ -10,16 +10,15 @@ using namespace std;
 
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 
-GENERIC_CRC8 test_crc(CRSF_CRC_POLY);
+CRSFRouter crsfRouter;
 
 class MockEndpoint : public CRSFEndpoint
 {
 public:
-    MockEndpoint() : CRSFEndpoint(CRSF_ADDRESS_CRSF_RECEIVER) {}
+    MockEndpoint() : CRSFEndpoint(crsfRouter, CRSF_ADDRESS_CRSF_RECEIVER) {}
     void handleMessage(const crsf_header_t *message) override {}
 };
 CRSFEndpoint *crsfEndpoint = new MockEndpoint();
-CRSFRouter crsfRouter;
 
 void test_msp_simple_request(void)
 {
@@ -45,7 +44,7 @@ void test_msp_simple_request(void)
 
     TEST_ASSERT_EQUAL_INT8_ARRAY(compare, data, sizeof(compare));
 
-    TEST_ASSERT_EQUAL(test_crc.calc(&vtxConfig[2], MSP_REQUEST_LENGTH(0) - 3), vtxConfig[MSP_REQUEST_LENGTH(0) - 1]);
+    TEST_ASSERT_EQUAL(CRSF::CRC.calc(&vtxConfig[2], MSP_REQUEST_LENGTH(0) - 3), vtxConfig[MSP_REQUEST_LENGTH(0) - 1]);
 }
 
 void test_msp_clear_vtx_table_request(void)
@@ -74,7 +73,7 @@ void test_msp_clear_vtx_table_request(void)
 
     TEST_ASSERT_EQUAL_INT8_ARRAY(compare, data, sizeof(compare));
 
-    TEST_ASSERT_EQUAL(test_crc.calc(&vtxConfig[2], MSP_REQUEST_LENGTH(payloadLength) - 3), vtxConfig[MSP_REQUEST_LENGTH(payloadLength) - 1]);
+    TEST_ASSERT_EQUAL(CRSF::CRC.calc(&vtxConfig[2], MSP_REQUEST_LENGTH(payloadLength) - 3), vtxConfig[MSP_REQUEST_LENGTH(payloadLength) - 1]);
 }
 
 // Unity setup/teardown
