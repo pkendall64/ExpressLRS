@@ -96,3 +96,8 @@ void SerialCRSF::processBytes(uint8_t *bytes, const uint16_t size)
         }
     });
 }
+
+bool SerialCRSF::shouldNatDevice(crsf_addr_e device_id)
+{
+    return device_id == CRSF_ADDRESS_CRSF_RECEIVER || device_id == CRSF_ADDRESS_CRSF_TRANSMITTER;
+}

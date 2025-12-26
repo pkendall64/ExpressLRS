@@ -130,6 +130,11 @@ void CRSFHandset::forwardMessage(const crsf_header_t *message)
     }
 }
 
+bool CRSFHandset::shouldNatDevice(crsf_addr_e device_id)
+{
+    return device_id == CRSF_ADDRESS_RADIO_TRANSMITTER || device_id == CRSF_ADDRESS_CRSF_TRANSMITTER;
+}
+
 void ICACHE_RAM_ATTR CRSFHandset::setPacketInterval(int32_t PacketInterval)
 {
     RequestedRCpacketInterval = PacketInterval;

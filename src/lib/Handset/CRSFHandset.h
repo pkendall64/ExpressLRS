@@ -29,6 +29,7 @@ public:
     void End() override;
 
     void forwardMessage(const crsf_header_t *message) override;
+    bool shouldNatDevice(crsf_addr_e device_id) override;
 
     void handleInput() override;
     void handleOutput(uint32_t receivedBytes);

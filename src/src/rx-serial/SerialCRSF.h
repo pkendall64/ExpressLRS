@@ -16,6 +16,7 @@ public:
     }
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
+    bool shouldNatDevice(crsf_addr_e device_id) override;
     void forwardMessage(const crsf_header_t *message) override;
 
     bool sendImmediateRC() override { return true; }
