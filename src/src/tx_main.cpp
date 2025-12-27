@@ -1416,6 +1416,8 @@ void setup()
     devicesInit();
     DBGLN("Initialised devices");
 
+    config.Load(); // Load the stored values from eeprom
+
     setupBindingFromConfig();
     FHSSrandomiseFHSSsequence(uidMacSeedGet());
 
@@ -1429,8 +1431,6 @@ void setup()
     // When a CRSF handset is detected, it will add itself to the router
 
     handset->registerCallbacks(UARTconnected, firmwareOptions.is_airport ? nullptr : UARTdisconnected);
-
-    config.Load(); // Load the stored values from eeprom
 
     Radio.currFreq = FHSSgetInitialFreq(); //set frequency first or an error will occur!!!
     #if defined(RADIO_SX127X)
