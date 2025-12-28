@@ -43,6 +43,11 @@ bool RXEndpoint::handleRaw(const crsf_header_t *message)
             return true;
         }
     }
+    else if (message->type == CRSF_FRAMETYPE_LINK_STATISTICS || message->type == CRSF_FRAMETYPE_HANDSET)
+    {
+        return true;
+    }
+
     return false;
 }
 
