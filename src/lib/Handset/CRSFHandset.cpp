@@ -26,8 +26,6 @@ static constexpr int HANDSET_TELEMETRY_FIFO_SIZE = 128; // this is the smallest 
 static constexpr auto CRSF_SERIAL_OUT_FIFO_SIZE = 256U;
 static FIFO<CRSF_SERIAL_OUT_FIFO_SIZE> SerialOutFIFO;
 
-Stream *CRSFHandset::PortSecondary;
-
 /// UART Handling ///
 uint32_t CRSFHandset::GoodPktsCountResult = 0;
 uint32_t CRSFHandset::BadPktsCountResult = 0;
@@ -354,10 +352,6 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
 
             // write the packet out, if it's a large package the offset holds the starting position
             Port.write(CRSFoutBuffer + sendingOffset, writeLength);
-            if (PortSecondary)
-            {
-                PortSecondary->write(CRSFoutBuffer + sendingOffset, writeLength);
-            }
 
             sendingOffset += writeLength;
             packageLengthRemaining -= writeLength;

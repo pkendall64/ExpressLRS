@@ -62,8 +62,6 @@ private:
     static uint8_t UARTcurrentBaudIdx;
     static uint32_t UARTrequestedBaud;
 
-    static Stream *PortSecondary; // A second UART used to mirror telemetry out on the TX, not read from
-
 #if defined(PLATFORM_ESP32)
     bool UARTinverted = false;
 #endif
