@@ -348,14 +348,16 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
             }
 
             // if the package is long we need to split it, so it fits in the sending interval
-            uint8_t writeLength = std::min(packageLengthRemaining, periodBytesRemaining);
+            const uint8_t writeLength = std::min(packageLengthRemaining, periodBytesRemaining);
 
             // write the packet out, if it's a large package the offset holds the starting position
-            Port.write(CRSFoutBuffer + sendingOffset, writeLength);
+            const size_t wrote = Port.write(CRSFoutBuffer + sendingOffset, writeLength);
+            sendingOffset += wrote;
+            packageLengthRemaining -= wrote;
+            periodBytesRemaining -= wrote;
 
-            sendingOffset += writeLength;
-            packageLengthRemaining -= writeLength;
-            periodBytesRemaining -= writeLength;
+            // If we've filled the output FIFO break out till next time
+            if (wrote != writeLength) break;
         } while(periodBytesRemaining != 0 && SerialOutFIFO.size() != 0);
     }
 }
