@@ -42,6 +42,7 @@ static constexpr int32_t OpenTXsyncOffsetSafeMargin = 1000; // 100us
 static const int32_t TxToHandsetBauds[] = {400000, 115200, 5250000, 3750000, 1870000, 921600, 2250000};
 uint8_t CRSFHandset::UARTcurrentBaudIdx = 6;   // only used for baud-cycling, initialized to the end so the next one we try is the first in the list
 uint32_t CRSFHandset::UARTrequestedBaud = 5250000;
+static uint8_t packageLengthRemaining = 0;
 
 // for the UART wdt, every 1000ms we change bauds when connect is lost
 static constexpr int UARTwdtInterval = 1000;
@@ -260,7 +261,7 @@ void CRSFHandset::handleInput()
     }
 
     // Add new data, and then discard bytes until we start with header byte
-    auto toRead = std::min(Port.available(), CRSF_MAX_PACKET_LEN - SerialInPacketPtr);
+    const auto toRead = std::min(Port.available(), CRSF_MAX_PACKET_LEN - SerialInPacketPtr);
     SerialInPacketPtr += Port.readBytes(&inBuffer[SerialInPacketPtr], toRead);
     alignBufferToSync(0);
 
@@ -277,16 +278,28 @@ void CRSFHandset::handleInput()
         return;
     }
 
-    // Only proceed one there are enough bytes in the buffer for the entire packet
+    // Only proceed if there are enough bytes in the buffer for the entire packet
     if (SerialInPacketPtr < totalLen)
         return;
 
-    uint8_t CalculatedCRC = crsfRouter.crsf_crc.calc(&inBuffer[2], totalLen - 3);
+    if (controllerConnected)
+    {
+        sendSyncPacketToTX();
+        if (packageLengthRemaining || SerialOutFIFO.size() > 0)
+        {
+            if (halfDuplex)
+            {
+                duplex_set_TX();
+                transmitting = true;
+            }
+        }
+    }
+
+    const uint8_t CalculatedCRC = crsfRouter.crsf_crc.calc(&inBuffer[2], totalLen - 3);
     if (CalculatedCRC == inBuffer[totalLen - 1])
     {
         GoodPktsCount++;
         ProcessPacket();
-        handleOutput(totalLen);
     }
     else
     {
@@ -296,13 +309,13 @@ void CRSFHandset::handleInput()
 
     SerialInPacketPtr -= totalLen;
     memmove(inBuffer, &inBuffer[totalLen], SerialInPacketPtr);
+
+    handleOutput(totalLen);
 }
 
 void CRSFHandset::handleOutput(const uint32_t receivedBytes)
 {
-    static uint8_t CRSFoutBuffer[CRSF_MAX_PACKET_LEN] = {0};
-    // both static to split up larger packages
-    static uint8_t packageLengthRemaining = 0;
+    static uint8_t CRSFoutBuffer[CRSF_MAX_PACKET_LEN] = {};
     static uint8_t sendingOffset = 0;
 
     if (!controllerConnected)
@@ -313,10 +326,7 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
         return;
     }
 
-    if (packageLengthRemaining == 0 && SerialOutFIFO.size() == 0)
-    {
-        sendSyncPacketToTX(); // calculate mixer sync packet if needed
-    }
+    if (halfDuplex && !transmitting) return;
 
     // if partial package remaining, or data in the output FIFO that needs to be written
     if (packageLengthRemaining > 0 || SerialOutFIFO.size() > 0) {
@@ -325,11 +335,6 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
         {
             periodBytesRemaining = std::min(maxPeriodBytes - receivedBytes % maxPeriodBytes, (uint32_t)maxPacketBytes);
             periodBytesRemaining = std::max(periodBytesRemaining, (uint8_t)10);
-            if (!transmitting)
-            {
-                transmitting = true;
-                duplex_set_TX();
-            }
         }
 
         do
