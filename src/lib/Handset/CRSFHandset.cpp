@@ -337,15 +337,15 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
 
         do
         {
-            SerialOutFIFO.lock();
             // no package is in transit so get new data from the fifo
             if (packageLengthRemaining == 0)
             {
+                SerialOutFIFO.lock();
                 packageLengthRemaining = SerialOutFIFO.pop();
                 SerialOutFIFO.popBytes(CRSFoutBuffer, packageLengthRemaining);
+                SerialOutFIFO.unlock();
                 sendingOffset = 0;
             }
-            SerialOutFIFO.unlock();
 
             // if the package is long we need to split it, so it fits in the sending interval
             uint8_t writeLength = std::min(packageLengthRemaining, periodBytesRemaining);
