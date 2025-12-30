@@ -220,8 +220,11 @@ void CRSFHandset::alignBufferToSync(uint8_t startIdx)
         // If we find a header byte then move that and trailing bytes to the head of the buffer and let's go!
         if (inBuffer[i] == CRSF_ADDRESS_CRSF_TRANSMITTER || inBuffer[i] == CRSF_SYNC_BYTE)
         {
-            SerialInPacketPtr -= i;
-            memmove(inBuffer, &inBuffer[i], SerialInPacketPtr);
+            if (i != 0)
+            {
+                SerialInPacketPtr -= i;
+                memmove(inBuffer, &inBuffer[i], SerialInPacketPtr);
+            }
             return;
         }
     }
@@ -230,13 +233,8 @@ void CRSFHandset::alignBufferToSync(uint8_t startIdx)
     SerialInPacketPtr = 0;
 }
 
-void CRSFHandset::handleInput()
+bool CRSFHandset::readyToReceive()
 {
-    if (UARTwdt())
-    {
-        return;
-    }
-
     if (transmitting)
     {
         // if currently transmitting in half-duplex mode then check if the TX buffers are empty.
@@ -244,18 +242,26 @@ void CRSFHandset::handleInput()
 #if defined(PLATFORM_ESP32)
         if (!uart_ll_is_tx_idle(UART_LL_GET_HW(0)))
         {
-            return;
+            return false;
         }
 #elif defined(PLATFORM_ESP8266)
         if (((USS(0) >> USTXC) & 0xff) > 0)
         {
-            return;
+            return false;
         }
 #endif
         // All done transmitting; go back to receive mode
         transmitting = false;
         duplex_set_RX();
-        flush_port_input();
+    }
+    return true;
+}
+
+void CRSFHandset::handleInput()
+{
+    if (!readyToReceive() || UARTwdt())
+    {
+        return;
     }
 
     // Add new data, and then discard bytes until we start with header byte
@@ -309,6 +315,7 @@ void CRSFHandset::handleInput()
     memmove(inBuffer, &inBuffer[totalLen], SerialInPacketPtr);
 
     handleOutput(totalLen);
+    (void)readyToReceive();
 }
 
 void CRSFHandset::handleOutput(const uint32_t receivedBytes)
@@ -365,19 +372,9 @@ void CRSFHandset::handleOutput(const uint32_t receivedBytes)
 void CRSFHandset::duplex_set_RX() const
 {
 #if defined(PLATFORM_ESP32)
-    ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, GPIO_MODE_INPUT));
-    if (UARTinverted)
-    {
-        gpio_matrix_in((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, U0RXD_IN_IDX, true);
-        gpio_pulldown_en((gpio_num_t)GPIO_PIN_RCSIGNAL_RX);
-        gpio_pullup_dis((gpio_num_t)GPIO_PIN_RCSIGNAL_RX);
-    }
-    else
-    {
-        gpio_matrix_in((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, U0RXD_IN_IDX, false);
-        gpio_pullup_en((gpio_num_t)GPIO_PIN_RCSIGNAL_RX);
-        gpio_pulldown_dis((gpio_num_t)GPIO_PIN_RCSIGNAL_RX);
-    }
+    gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, GPIO_MODE_INPUT);
+    gpio_set_pull_mode((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, UARTinverted ? GPIO_PULLDOWN_ONLY : GPIO_PULLUP_ONLY);
+    gpio_matrix_in(GPIO_PIN_RCSIGNAL_RX, U0RXD_IN_IDX, UARTinverted);
 #elif defined(PLATFORM_ESP8266)
     // Enable loopback on UART0 to connect the RX pin to the TX pin (not done, connection is full duplex uninverted)
     //USC0(UART0) |= BIT(UCLBE);
@@ -387,23 +384,20 @@ void CRSFHandset::duplex_set_RX() const
 void CRSFHandset::duplex_set_TX() const
 {
 #if defined(PLATFORM_ESP32)
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_FLOATING));
-    ESP_ERROR_CHECK(gpio_set_pull_mode((gpio_num_t)GPIO_PIN_RCSIGNAL_RX, GPIO_FLOATING));
+    gpio_set_pull_mode((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_FLOATING);
     if (UARTinverted)
     {
-        ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, 0));
-        ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_MODE_OUTPUT));
-        constexpr uint8_t MATRIX_DETACH_IN_LOW = 0x30; // routes 0 to matrix slot
-        gpio_matrix_in(MATRIX_DETACH_IN_LOW, U0RXD_IN_IDX, false); // Disconnect RX from all pads
-        gpio_matrix_out((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, U0TXD_OUT_IDX, true, false);
+        gpio_set_level((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, 0);
+        gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_MODE_OUTPUT);
+        gpio_matrix_in(GPIO_FUNC_IN_LOW, U0RXD_IN_IDX, false); // Disconnect RX from all pads
+        gpio_matrix_out(GPIO_PIN_RCSIGNAL_TX, U0TXD_OUT_IDX, true, false);
     }
     else
     {
-        ESP_ERROR_CHECK(gpio_set_level((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, 1));
-        ESP_ERROR_CHECK(gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_MODE_OUTPUT));
-        constexpr uint8_t MATRIX_DETACH_IN_HIGH = 0x38; // routes 1 to matrix slot
-        gpio_matrix_in(MATRIX_DETACH_IN_HIGH, U0RXD_IN_IDX, false); // Disconnect RX from all pads
-        gpio_matrix_out((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, U0TXD_OUT_IDX, false, false);
+        gpio_set_level((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, 1);
+        gpio_set_direction((gpio_num_t)GPIO_PIN_RCSIGNAL_TX, GPIO_MODE_OUTPUT);
+        gpio_matrix_in(GPIO_FUNC_IN_HIGH, U0RXD_IN_IDX, false); // Disconnect RX from all pads
+        gpio_matrix_out(GPIO_PIN_RCSIGNAL_TX, U0TXD_OUT_IDX, false, false);
     }
 #elif defined(PLATFORM_ESP8266)
     // Disable loopback to disconnect the RX pin from the TX pin (not done, connection is full duplex uninverted)

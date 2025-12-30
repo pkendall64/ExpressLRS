@@ -75,6 +75,7 @@ private:
     bool UARTwdt();
     uint32_t autobaud();
     void flush_port_input();
+    bool readyToReceive();
 };
 
 #endif
