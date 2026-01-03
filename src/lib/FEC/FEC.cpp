@@ -69,36 +69,48 @@ void FECEncode(uint8_t *incomingData, uint8_t *FECBuffer)
     }
 }
 
-void FECDecode(uint8_t *incomingFECBuffer, uint8_t *outgoingData)
-{
-    uint64_t streamA = 0;
-    uint64_t streamB = 0;
+/**
+ * Optimization: Unpacked Hamming Decode LUT
+ * This table maps a 7-bit codeword directly to its 4-bit data nibble.
+ * This removes the division/modulo and bit-shifting logic from the decoder loop.
+ */
+static const uint8_t hammingDecodeTable[128] = {
+    0x0, 0x0, 0x0, 0x3, 0x0, 0x5, 0xE, 0x7, 0x0, 0x9, 0xE, 0xB, 0xE, 0xD, 0xE, 0xE,
+    0x0, 0x3, 0x3, 0x3, 0x4, 0xD, 0x6, 0x3, 0x8, 0xD, 0xA, 0x3, 0xD, 0xD, 0xE, 0xD,
+    0x0, 0x5, 0x2, 0xB, 0x5, 0x5, 0x6, 0x5, 0x8, 0xB, 0xB, 0xB, 0xC, 0x5, 0xE, 0xB,
+    0x8, 0x1, 0x6, 0x3, 0x6, 0x5, 0x6, 0x6, 0x8, 0x8, 0x8, 0xB, 0x8, 0xD, 0x6, 0xF,
+    0x0, 0x9, 0x2, 0x7, 0x4, 0x7, 0x7, 0x7, 0x9, 0x9, 0xA, 0x9, 0xC, 0x9, 0xE, 0x7,
+    0x4, 0x1, 0xA, 0x3, 0x4, 0x4, 0x4, 0x7, 0xA, 0x9, 0xA, 0xA, 0x4, 0xD, 0xA, 0xF,
+    0x2, 0x1, 0x2, 0x2, 0xC, 0x5, 0x2, 0x7, 0xC, 0x9, 0x2, 0xB, 0xC, 0xC, 0xC, 0xF,
+    0x1, 0x1, 0x2, 0x1, 0x4, 0x1, 0x6, 0xF, 0x8, 0x1, 0xA, 0xF, 0xC, 0xF, 0xF, 0xF
+};
 
-    uint8_t *pA = (uint8_t*)&streamA;
-    uint8_t *pB = (uint8_t*)&streamB;
+void FECDecode(uint8_t *incomingFECBuffer, uint8_t *outgoingData) {
+    uint64_t streamA = 0, streamB = 0;
+    uint8_t *pA = (uint8_t*)&streamA, *pB = (uint8_t*)&streamB;
 
-    // Gather bytes back into 64-bit blocks
+    // Load interleaved data into 64-bit blocks
     for (int i = 0; i < 7; i++) {
         pA[i] = incomingFECBuffer[i * 2 + 0];
         pB[i] = incomingFECBuffer[i * 2 + 1];
     }
 
-    // Transpose bit-matrix to recover the original Hamming codewords
+    // De-interleave bits
     streamA = transpose64(streamA);
     streamB = transpose64(streamB);
 
-    // Decode Hamming(7,4) from each byte of the transposed streams
+    // Fast Decode using Unpacked LUT
     pA = (uint8_t*)&streamA;
-    for (int i = 0; i < 4; i++) {
-        uint8_t lsb = HammingTableDecode(pA[i * 2 + 0]); // Byte 0, 2, 4, 6
-        uint8_t msb = HammingTableDecode(pA[i * 2 + 1]); // Byte 1, 3, 5, 7
-        outgoingData[i] = (msb << 4) | lsb;
-    }
-
     pB = (uint8_t*)&streamB;
     for (int i = 0; i < 4; i++) {
-        uint8_t lsb = HammingTableDecode(pB[i * 2 + 0]); // Byte 0, 2, 4, 6
-        uint8_t msb = HammingTableDecode(pB[i * 2 + 1]); // Byte 1, 3, 5, 7
-        outgoingData[i + 4] = (msb << 4) | lsb;
+        // streamA -> outgoingData[0-3]
+        uint8_t lsbA = hammingDecodeTable[pA[i * 2 + 0] & 0x7F];
+        uint8_t msbA = hammingDecodeTable[pA[i * 2 + 1] & 0x7F];
+        outgoingData[i] = (msbA << 4) | lsbA;
+
+        // streamB -> outgoingData[4-7]
+        uint8_t lsbB = hammingDecodeTable[pB[i * 2 + 0] & 0x7F];
+        uint8_t msbB = hammingDecodeTable[pB[i * 2 + 1] & 0x7F];
+        outgoingData[i + 4] = (msbB << 4) | lsbB;
     }
 }
