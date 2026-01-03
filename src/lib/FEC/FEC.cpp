@@ -1,43 +1,104 @@
 #include "FEC.h"
+#include <cstring>
+
+/**
+ * Optimization: LUT for Simultaneous Encode + Interleave (Spread)
+ * This table maps a 4-bit nibble (0-15) to a 64-bit 'spread' word.
+ * * Logic: Bit j of the Hamming Code is mapped to Byte j of the uint64_t.
+ * This allows the transpose operation to correctly reconstruct the
+ * codewords in the decoder.
+ * * Generated from your hammingCodes table:
+ */
+static const uint64_t hammingEncodeSpread[16] = {
+    0x0000000000000000ULL, // nibble 0x0 (code 0x00)
+    0x0001010100000001ULL, // nibble 0x1 (code 0x71)
+    0x0001010000000100ULL, // nibble 0x2 (code 0x62)
+    0x0000000100000101ULL, // nibble 0x3 (code 0x13)
+    0x0001000100010000ULL, // nibble 0x4 (code 0x54)
+    0x0000010000010001ULL, // nibble 0x5 (code 0x25)
+    0x0000010100010100ULL, // nibble 0x6 (code 0x36)
+    0x0001000000010101ULL, // nibble 0x7 (code 0x47)
+    0x0000010101000000ULL, // nibble 0x8 (code 0x38)
+    0x0001000001000001ULL, // nibble 0x9 (code 0x49)
+    0x0001000101000100ULL, // nibble 0xA (code 0x5A)
+    0x0000010001000101ULL, // nibble 0xB (code 0x2B)
+    0x0001010001010000ULL, // nibble 0xC (code 0x6C)
+    0x0000000101010001ULL, // nibble 0xD (code 0x1D)
+    0x0000000001010100ULL, // nibble 0xE (code 0x0E)
+    0x0001010101010101ULL  // nibble 0xF (code 0x7F)
+};
+
+// Helper: Transpose 8x8 bit matrix stored in uint64_t
+static inline uint64_t transpose64(uint64_t x) {
+    uint64_t t;
+    t = (x ^ (x >> 7))  & 0x00AA00AA00AA00AAULL; x = x ^ t ^ (t << 7);
+    t = (x ^ (x >> 14)) & 0x0000CCCC0000CCCCULL; x = x ^ t ^ (t << 14);
+    t = (x ^ (x >> 28)) & 0x00000000F0F0F0F0ULL; x = x ^ t ^ (t << 28);
+    return x;
+}
 
 void FECEncode(uint8_t *incomingData, uint8_t *FECBuffer)
 {
-    // Encode Hamming(7,4) 
-    uint8_t encodedBuffer[8 * 2] = {0};
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        encodedBuffer[i * 2 + 0] = HammingTableEncode(incomingData[i] & 0x0F);  // LSB nibble
-        encodedBuffer[i * 2 + 1] = HammingTableEncode(incomingData[i] >> 4);    // MSB nibble
+    // We process input as two parallel streams of 8 nibbles each
+    // Stream A: Nibbles 0-7 (from Input Bytes 0-3) -> Even output bytes
+    // Stream B: Nibbles 8-15 (from Input Bytes 4-7) -> Odd output bytes
+    uint64_t streamA = 0;
+    uint64_t streamB = 0;
+
+    for (int i = 0; i < 4; i++) {
+        // Handle Stream A (Input 0-3)
+        uint8_t bA = incomingData[i];
+        streamA |= (hammingEncodeSpread[bA & 0x0F] << (i * 2));     // LSB -> Column 0, 2, 4, 6
+        streamA |= (hammingEncodeSpread[bA >> 4]   << (i * 2 + 1)); // MSB -> Column 1, 3, 5, 7
+
+        // Handle Stream B (Input 4-7)
+        uint8_t bB = incomingData[i + 4];
+        streamB |= (hammingEncodeSpread[bB & 0x0F] << (i * 2));     // LSB -> Column 0, 2, 4, 6
+        streamB |= (hammingEncodeSpread[bB >> 4]   << (i * 2 + 1)); // MSB -> Column 1, 3, 5, 7
     }
 
-    // Interleaving
-    for (uint8_t i = 0; i < (14 / 2); i++)
-    {
-        for (uint8_t j = 0; j < 8; j++)
-        {
-            FECBuffer[i * 2 + 0] |= ((encodedBuffer[j + 0] >> i) & 0x01) << j; 
-            FECBuffer[i * 2 + 1] |= ((encodedBuffer[j + 8] >> i) & 0x01) << j; 
-        }
+    // Map streams to interleaved FECBuffer
+    // Byte 0-6 of streamA go to FECBuffer[0, 2, 4, 6, 8, 10, 12]
+    // Byte 0-6 of streamB go to FECBuffer[1, 3, 5, 7, 9, 11, 13]
+    uint8_t *pA = (uint8_t*)&streamA;
+    uint8_t *pB = (uint8_t*)&streamB;
+
+    for (int i = 0; i < 7; i++) {
+        FECBuffer[i * 2 + 0] = pA[i];
+        FECBuffer[i * 2 + 1] = pB[i];
     }
 }
 
 void FECDecode(uint8_t *incomingFECBuffer, uint8_t *outgoingData)
 {
-    // Interleaving
-    uint8_t encodedBuffer[16] = {0};
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        for (uint8_t j = 0; j < 7; j++)
-        {
-            encodedBuffer[i + 0] |= ((incomingFECBuffer[j * 2 + 0] >> i) & 0x01) << j; 
-            encodedBuffer[i + 8] |= ((incomingFECBuffer[j * 2 + 1] >> i) & 0x01) << j; 
-        }
+    uint64_t streamA = 0;
+    uint64_t streamB = 0;
+
+    uint8_t *pA = (uint8_t*)&streamA;
+    uint8_t *pB = (uint8_t*)&streamB;
+
+    // Gather bytes back into 64-bit blocks
+    for (int i = 0; i < 7; i++) {
+        pA[i] = incomingFECBuffer[i * 2 + 0];
+        pB[i] = incomingFECBuffer[i * 2 + 1];
     }
 
-    // Decode Hamming(7,4) 
-    for (uint8_t i = 0; i < 8; i++)
-    {
-        outgoingData[i] =  HammingTableDecode(encodedBuffer[i * 2 + 0]);         // LSB nibble
-        outgoingData[i] |= HammingTableDecode(encodedBuffer[i * 2 + 1]) << 4;    // MSB nibble
+    // Transpose bit-matrix to recover the original Hamming codewords
+    streamA = transpose64(streamA);
+    streamB = transpose64(streamB);
+
+    // Decode Hamming(7,4) from each byte of the transposed streams
+    pA = (uint8_t*)&streamA;
+    for (int i = 0; i < 4; i++) {
+        uint8_t lsb = HammingTableDecode(pA[i * 2 + 0]); // Byte 0, 2, 4, 6
+        uint8_t msb = HammingTableDecode(pA[i * 2 + 1]); // Byte 1, 3, 5, 7
+        outgoingData[i] = (msb << 4) | lsb;
+    }
+
+    pB = (uint8_t*)&streamB;
+    for (int i = 0; i < 4; i++) {
+        uint8_t lsb = HammingTableDecode(pB[i * 2 + 0]); // Byte 0, 2, 4, 6
+        uint8_t msb = HammingTableDecode(pB[i * 2 + 1]); // Byte 1, 3, 5, 7
+        outgoingData[i + 4] = (msb << 4) | lsb;
     }
 }
