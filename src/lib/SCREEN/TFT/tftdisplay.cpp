@@ -385,62 +385,56 @@ void TFTDisplay::displaySending()
 
 void TFTDisplay::displayLinkstats()
 {
-    constexpr int16_t LINKSTATS_COL_FIRST   = 0;
-    constexpr int16_t LINKSTATS_COL_SECOND  = 30;
-    constexpr int16_t LINKSTATS_COL_THIRD   = 100;
+#define FONT_LABEL u8g2_font_profont10_tr  // Small, sharp for headers
+#define FONT_DATA  u8g2_font_7x14B_tr     // Bold, clear for numbers
+    gfx->fillScreen(BLACK);
+    gfx->drawFastHLine(0, 15, 160, WHITE);   // Horizontal Divider
+    gfx->drawFastVLine(80, 15, 65, DARKGREY); // Vertical Divider
 
-    constexpr int16_t LINKSTATS_ROW_FIRST   = 10;
-    constexpr int16_t LINKSTATS_ROW_SECOND  = 25;
-    constexpr int16_t LINKSTATS_ROW_THIRD   = 40;
-    constexpr int16_t LINKSTATS_ROW_FOURTH  = 55;
-    constexpr int16_t LINKSTATS_ROW_FIFTH   = 70;
+    // Header Row - Distributed across 160px
+    gfx->setFont(u8g2_font_profont10_tr);
 
-    gfx->fillScreen(WHITE);
-    gfx->setFont(&SCREEN_SMALL_FONT);
-    gfx->setTextColor(BLACK, WHITE);
+    gfx->setTextColor(CYAN);
+    gfx->setCursor(2, 12); gfx->print("UPLINK"); // Left
 
-    gfx->setCursor(LINKSTATS_COL_FIRST, LINKSTATS_ROW_SECOND);
-    gfx->print("LQ");
-    gfx->setCursor(LINKSTATS_COL_FIRST, LINKSTATS_ROW_THIRD);
-    gfx->print("RSSI");
-    gfx->setCursor(LINKSTATS_COL_FIRST, LINKSTATS_ROW_FOURTH);
-    gfx->print("SNR");
-    gfx->setCursor(LINKSTATS_COL_FIRST, LINKSTATS_ROW_FIFTH);
-    gfx->print("Ant");
+    gfx->setTextColor(YELLOW);
+    gfx->setCursor(68, 12); gfx->print("ANT:"); gfx->print(linkStats.active_antenna); // Center
 
-    // Uplink Linkstats
-    gfx->setCursor(LINKSTATS_COL_SECOND, LINKSTATS_ROW_FIRST);
-    gfx->print("Uplink");
-    gfx->setCursor(LINKSTATS_COL_SECOND, LINKSTATS_ROW_SECOND);
-    gfx->print(linkStats.uplink_Link_quality);
-    gfx->setCursor(LINKSTATS_COL_SECOND, LINKSTATS_ROW_THIRD);
-    gfx->print((int8_t)linkStats.uplink_RSSI_1);
+    gfx->setTextColor(ORANGE);
+    gfx->setCursor(108, 12); gfx->print("DOWNLINK"); // Right
+
+    gfx->setFont(u8g2_font_7x14B_tr);
+    gfx->setTextColor(WHITE);
+
+    // --- UPLINK COLUMN (Left: 0-80) ---
+    // Row 1: RSSI
+    gfx->fillRect(22, 20, 55, 15, BLACK);
+    gfx->setCursor(2, 32); gfx->print("R:"); gfx->setCursor(22, 32); gfx->print(linkStats.uplink_RSSI_1);
     if (linkStats.uplink_RSSI_2 != 0)
     {
-        gfx->print('/');
-        gfx->print((int8_t)linkStats.uplink_RSSI_2);
+        gfx->print('/'); gfx->print(linkStats.uplink_RSSI_2);
     }
+    // Row 2: LQ
+    gfx->fillRect(22, 40, 55, 15, BLACK);
+    gfx->setCursor(2, 52); gfx->print("L:"); gfx->setCursor(22, 52); gfx->print(linkStats.uplink_Link_quality);
+    // Row 3: SNR
+    gfx->fillRect(22, 60, 55, 15, BLACK);
+    gfx->setCursor(2, 72); gfx->print("S:"); gfx->setCursor(22, 72); gfx->print(linkStats.uplink_SNR);
 
-    gfx->setCursor(LINKSTATS_COL_SECOND, LINKSTATS_ROW_FOURTH);
-    gfx->print(linkStats.uplink_SNR);
-    gfx->setCursor(LINKSTATS_COL_SECOND, LINKSTATS_ROW_FIFTH);
-    gfx->print(linkStats.active_antenna);
-
-    // Downlink Linkstats
-    gfx->setCursor(LINKSTATS_COL_THIRD, LINKSTATS_ROW_FIRST);
-    gfx->print("Downlink");
-    gfx->setCursor(LINKSTATS_COL_THIRD, LINKSTATS_ROW_SECOND);
-    gfx->print(linkStats.downlink_Link_quality);
-    gfx->setCursor(LINKSTATS_COL_THIRD, LINKSTATS_ROW_THIRD);
-    gfx->print((int8_t)linkStats.downlink_RSSI_1);
+    // --- DOWNLINK COLUMN (Right: 80-160) ---
+    // Row 1: RSSI
+    gfx->fillRect(102, 20, 55, 15, BLACK);
+    gfx->setCursor(82, 32); gfx->print("R:"); gfx->setCursor(102, 32); gfx->print(linkStats.downlink_RSSI_1);
     if (isDualRadio())
     {
-        gfx->print('/');
-        gfx->print((int8_t)linkStats.downlink_RSSI_2);
+        gfx->print('/'); gfx->print(linkStats.downlink_RSSI_2);
     }
-
-    gfx->setCursor(LINKSTATS_COL_THIRD, LINKSTATS_ROW_FOURTH);
-    gfx->print(linkStats.downlink_SNR);
+    // Row 2: LQ
+    gfx->fillRect(102, 40, 55, 15, BLACK);
+    gfx->setCursor(82, 52); gfx->print("L:"); gfx->setCursor(102, 52); gfx->print(linkStats.downlink_Link_quality);
+    // Row 3: SNR
+    gfx->fillRect(102, 60, 55, 15, BLACK);
+    gfx->setCursor(82, 72); gfx->print("S:"); gfx->setCursor(102, 72); gfx->print(linkStats.downlink_SNR);
 }
 
 #endif
