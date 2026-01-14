@@ -2,6 +2,7 @@
 #include "FEC.h"
 #include <cstring>
 
+#if defined(PLATFORM_ESP32)
 /*
  * Optimization: LUT for Simultaneous Encode + Interleave (Spread)
  * This table maps a 4-bit nibble (0-15) to a 64-bit 'spread' word.
@@ -106,3 +107,4 @@ void ICACHE_RAM_ATTR FECDecode(const uint8_t *incomingFECBuffer, uint8_t *outgoi
         outgoingData[i + 4] = hammingDecodeTable[pB[i * 2 + 0] & 0x7F] | (hammingDecodeTable[pB[i * 2 + 1] & 0x7F] << 4);
     }
 }
+#endif
