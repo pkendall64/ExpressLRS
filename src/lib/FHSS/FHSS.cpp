@@ -17,14 +17,15 @@
 #endif
 
 const fhss_config_t domains[] = {
-    {"AU915",  FREQ_HZ_TO_REG_VAL(915500000), FREQ_HZ_TO_REG_VAL(926900000), 20, 921000000},
-    {"FCC915", FREQ_HZ_TO_REG_VAL(903500000), FREQ_HZ_TO_REG_VAL(926900000), 40, 915000000},
-    {"EU868",  FREQ_HZ_TO_REG_VAL(863275000), FREQ_HZ_TO_REG_VAL(869575000), 13, 868000000},
-    {"IN866",  FREQ_HZ_TO_REG_VAL(865375000), FREQ_HZ_TO_REG_VAL(866950000), 4, 866000000},
-    {"AU433",  FREQ_HZ_TO_REG_VAL(433420000), FREQ_HZ_TO_REG_VAL(434420000), 3, 434000000},
-    {"EU433",  FREQ_HZ_TO_REG_VAL(433100000), FREQ_HZ_TO_REG_VAL(434450000), 3, 434000000},
-    {"US433",  FREQ_HZ_TO_REG_VAL(433250000), FREQ_HZ_TO_REG_VAL(438000000), 8, 434000000},
-    {"US433W",  FREQ_HZ_TO_REG_VAL(423500000), FREQ_HZ_TO_REG_VAL(438000000), 20, 434000000},
+    {"AU915",  FREQ_HZ_TO_REG_VAL(915500000), FREQ_HZ_TO_REG_VAL(926900000), 20, 921000000, 0},
+    {"FCC915", FREQ_HZ_TO_REG_VAL(903500000), FREQ_HZ_TO_REG_VAL(926900000), 40, 915000000, 0},
+    {"EU868",  FREQ_HZ_TO_REG_VAL(863275000), FREQ_HZ_TO_REG_VAL(869575000), 13, 868000000, 0},
+    {"IN866",  FREQ_HZ_TO_REG_VAL(865375000), FREQ_HZ_TO_REG_VAL(866950000), 4, 866000000, 0},
+    {"AU433",  FREQ_HZ_TO_REG_VAL(433420000), FREQ_HZ_TO_REG_VAL(434420000), 3, 434000000, 0},
+    {"EU433",  FREQ_HZ_TO_REG_VAL(433100000), FREQ_HZ_TO_REG_VAL(434450000), 3, 434000000, 0},
+    {"US433",  FREQ_HZ_TO_REG_VAL(433250000), FREQ_HZ_TO_REG_VAL(438000000), 8, 434000000, 0},
+    {"US433W", FREQ_HZ_TO_REG_VAL(423500000), FREQ_HZ_TO_REG_VAL(438000000), 20, 434000000, 0},
+    {"BR915",  FREQ_HZ_TO_REG_VAL(902400000), FREQ_HZ_TO_REG_VAL(927600000), 42, 915000000, 1, {{9, 21}}},
 };
 
 #if defined(RADIO_LR1121)
@@ -35,7 +36,7 @@ const fhss_config_t domainsDualBand[] = {
     #else
         "ISM2G4",
     #endif
-    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000}
+    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000, 0}
 };
 #endif
 
@@ -49,7 +50,7 @@ const fhss_config_t domains[] = {
     #elif defined(Regulatory_Domain_ISM_2400)
         "ISM2G4",
     #endif
-    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000}
+    FREQ_HZ_TO_REG_VAL(2400400000), FREQ_HZ_TO_REG_VAL(2479400000), 80, 2440000000, 0}
 };
 #endif
 
@@ -87,27 +88,64 @@ constexpr uint8_t VERSION_DOMAIN_MAXLEN = 26 + 1;   // max. number of characters
                                                     // on color LCD radios w/o being overwritten by the commit info
 char version_domain[VERSION_DOMAIN_MAXLEN] {};
 
+static bool isChannelExcluded(uint8_t channel, const fhss_config_t *config)
+{
+    for (uint8_t i = 0; i < config->excluded_count; i++)
+    {
+        if (channel >= config->excluded_ranges[i].start && channel <= config->excluded_ranges[i].end)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static uint32_t getUsableChannelCount(const fhss_config_t *config)
+{
+    uint32_t excluded = 0;
+    for (uint8_t i = 0; i < config->excluded_count; i++)
+    {
+        excluded += (config->excluded_ranges[i].end - config->excluded_ranges[i].start + 1);
+    }
+    return config->freq_count - excluded;
+}
 
 void FHSSrandomiseFHSSsequence(const uint32_t seed)
 {
     FHSSconfig = &domains[firmwareOptions.domain];
-    sync_channel = FHSSconfig->freq_count / 2;
     freq_spread = (FHSSconfig->freq_stop - FHSSconfig->freq_start) * FREQ_SPREAD_SCALE / (FHSSconfig->freq_count - 1);
-    primaryBandCount = (FHSS_SEQUENCE_LEN / FHSSconfig->freq_count) * FHSSconfig->freq_count;
 
-    DBGLN("Primary Domain %s, %u channels, sync=%u",
-        FHSSconfig->domain, FHSSconfig->freq_count, sync_channel);
+    // Find a sync channel that's not in an excluded range
+    sync_channel = FHSSconfig->freq_count / 2;
+    while (isChannelExcluded(sync_channel, FHSSconfig))
+    {
+        sync_channel = (sync_channel + 1) % FHSSconfig->freq_count;
+    }
+
+    const uint32_t usableChannels = getUsableChannelCount(FHSSconfig);
+    primaryBandCount = (FHSS_SEQUENCE_LEN / usableChannels) * usableChannels;
+
+    DBGLN("Primary Domain %s, %u/%u channels, sync=%u",
+        FHSSconfig->domain, usableChannels, FHSSconfig->freq_count, sync_channel);
 
     FHSSrandomiseFHSSsequenceBuild(seed, FHSSconfig->freq_count, sync_channel, FHSSsequence);
 
 #if defined(RADIO_LR1121)
     FHSSconfigDualBand = &domainsDualBand[0];
-    sync_channel_DualBand = FHSSconfigDualBand->freq_count / 2;
     freq_spread_DualBand = (FHSSconfigDualBand->freq_stop - FHSSconfigDualBand->freq_start) * FREQ_SPREAD_SCALE / (FHSSconfigDualBand->freq_count - 1);
-    secondaryBandCount = (FHSS_SEQUENCE_LEN / FHSSconfigDualBand->freq_count) * FHSSconfigDualBand->freq_count;
 
-    DBGLN("Dual Domain %s, %u channels, sync=%u",
-        FHSSconfigDualBand->domain, FHSSconfigDualBand->freq_count, sync_channel_DualBand);
+    // Find a sync channel that's not in an excluded range
+    sync_channel_DualBand = FHSSconfigDualBand->freq_count / 2;
+    while (isChannelExcluded(sync_channel_DualBand, FHSSconfigDualBand))
+    {
+        sync_channel_DualBand = (sync_channel_DualBand + 1) % FHSSconfigDualBand->freq_count;
+    }
+
+    const uint32_t usableChannelsDual = getUsableChannelCount(FHSSconfigDualBand);
+    secondaryBandCount = (FHSS_SEQUENCE_LEN / usableChannelsDual) * usableChannelsDual;
+
+    DBGLN("Dual Domain %s, %u/%u channels, sync=%u",
+        FHSSconfigDualBand->domain, usableChannelsDual, FHSSconfigDualBand->freq_count, sync_channel_DualBand);
 
     FHSSusePrimaryFreqBand = false;
     FHSSrandomiseFHSSsequenceBuild(seed, FHSSconfigDualBand->freq_count, sync_channel_DualBand, FHSSsequence_DualBand);
@@ -137,25 +175,44 @@ void FHSSrandomiseFHSSsequenceBuild(const uint32_t seed, uint32_t freqCount, uin
     FHSSptr = 0;
     rngSeed(seed);
 
-    // initialize the sequence array
-    for (uint16_t i = 0; i < FHSSgetSequenceCount(); i++)
+    const fhss_config_t *config = FHSSusePrimaryFreqBand ? FHSSconfig : FHSSconfigDualBand;
+
+    // Build list of valid (non-excluded) channels
+    uint8_t validChannels[256];
+    uint8_t validCount = 0;
+    for (uint8_t ch = 0; ch < freqCount; ch++)
     {
-        if (i % freqCount == 0) {
-            inSequence[i] = syncChannel;
-        } else if (i % freqCount == syncChannel) {
-            inSequence[i] = 0;
-        } else {
-            inSequence[i] = i % freqCount;
+        if (!isChannelExcluded(ch, config))
+        {
+            validChannels[validCount++] = ch;
         }
     }
 
+    // initialize the sequence array with valid channels only
     for (uint16_t i = 0; i < FHSSgetSequenceCount(); i++)
     {
-        // if it's not the sync channel
-        if (i % freqCount != 0)
+        if (i % validCount == 0) {
+            inSequence[i] = syncChannel;
+        } else {
+            // Use valid channels in rotation
+            uint8_t validIdx = i % validCount;
+            if (validChannels[validIdx] == syncChannel) {
+                // Swap with first non-sync channel
+                inSequence[i] = validChannels[0] == syncChannel ? validChannels[1] : validChannels[0];
+            } else {
+                inSequence[i] = validChannels[validIdx];
+            }
+        }
+    }
+
+    // Randomize the sequence (excluding sync positions)
+    for (uint16_t i = 0; i < FHSSgetSequenceCount(); i++)
+    {
+        // if it's not the sync channel position
+        if (i % validCount != 0)
         {
-            uint8_t offset = (i / freqCount) * freqCount;   // offset to start of current block
-            uint8_t rand = rngN(freqCount - 1) + 1;         // random number between 1 and FHSS_FREQ_CNT
+            uint8_t offset = (i / validCount) * validCount;   // offset to start of current block
+            uint8_t rand = rngN(validCount - 1) + 1;          // random number between 1 and validCount
 
             // switch this entry and another random entry in the same block
             uint8_t temp = inSequence[i];

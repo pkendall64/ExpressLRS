@@ -21,6 +21,12 @@
 #endif
 
 #define FHSS_SEQUENCE_LEN 256
+#define FHSS_MAX_EXCLUDED_RANGES 4
+
+typedef struct {
+    uint8_t start;  // First excluded channel index
+    uint8_t end;    // Last excluded channel index (inclusive)
+} fhss_excluded_range_t;
 
 typedef struct {
     const char  *domain;
@@ -28,6 +34,8 @@ typedef struct {
     uint32_t    freq_stop;
     uint32_t    freq_count;
     uint32_t    freq_center;
+    uint8_t     excluded_count;  // Number of excluded channel ranges
+    fhss_excluded_range_t excluded_ranges[FHSS_MAX_EXCLUDED_RANGES];
 } fhss_config_t;
 
 extern volatile uint8_t FHSSptr;
