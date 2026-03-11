@@ -18,12 +18,15 @@ static uint32_t lastVBatSentMs = 0; // last time VBat was sent
 static int32_t lastVBatValue = 0;   // last measured VBat value
 
 typedef uint16_t vbatAnalogStorage_t;
-static MedianAvgFilter<vbatAnalogStorage_t, VBAT_SMOOTH_CNT>vbatSmooth;
+static MedianAvgFilter<vbatAnalogStorage_t, VBAT_SMOOTH_CNT> vbatSmooth;
 static uint8_t vbatUpdateScale;
 
 #if defined(PLATFORM_ESP32)
-#include "esp_adc_cal.h"
-static esp_adc_cal_characteristics_t *vbatAdcUnitCharacterics;
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+
+static adc_cali_handle_t vbat_cali_handle = nullptr;
+static bool vbatAdcUnitCharacteristics = false;
 #endif
 
 /**
@@ -49,17 +52,31 @@ static int start()
     if (atten != -1)
     {
         // if the configured value is higher than the max item (11dB, it indicates to use cal_characterize)
-        bool useCal = atten > ADC_11db;
+        const bool useCal = atten > ADC_ATTEN_DB_12;
+        analogSetPinAttenuation(GPIO_ANALOG_VBAT, (adc_attenuation_t)atten);
         if (useCal)
         {
-            atten -= (ADC_11db + 1);
+            atten -= (ADC_ATTEN_DB_12 + 1);
 
-            vbatAdcUnitCharacterics = new esp_adc_cal_characteristics_t();
             int8_t channel = digitalPinToAnalogChannel(GPIO_ANALOG_VBAT);
             adc_unit_t unit = (channel > (SOC_ADC_MAX_CHANNEL_NUM - 1)) ? ADC_UNIT_2 : ADC_UNIT_1;
-            esp_adc_cal_characterize(unit, (adc_atten_t)atten, ADC_WIDTH_BIT_12, 3300, vbatAdcUnitCharacterics);
+#if CONFIG_IDF_TARGET_ESP32
+            adc_cali_line_fitting_config_t cali_config = {
+                .unit_id = unit,
+                .atten = (adc_atten_t)atten,
+                .bitwidth = ADC_BITWIDTH_12,
+            };
+            vbatAdcUnitCharacteristics = adc_cali_create_scheme_line_fitting(&cali_config, &vbat_cali_handle) == ESP_OK;
+#elif CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S2
+            const adc_cali_curve_fitting_config_t cali_config = {
+                .unit_id = unit,
+                .chan = (adc_channel_t)channel, // Required for curve fitting
+                .atten = (adc_atten_t)atten,
+                .bitwidth = ADC_BITWIDTH_12,
+            };
+            vbatAdcUnitCharacteristics = adc_cali_create_scheme_curve_fitting(&cali_config, &vbat_cali_handle) == ESP_OK;
+#endif
         }
-        analogSetPinAttenuation(GPIO_ANALOG_VBAT, (adc_attenuation_t)atten);
     }
 #endif
 
@@ -68,22 +85,27 @@ static int start()
 
 static void reportVbat()
 {
-    uint32_t adc = vbatSmooth.calc();
+    int32_t adc = vbatSmooth.calc();
+
 #if defined(PLATFORM_ESP32) && !defined(DEBUG_VBAT_ADC)
-    if (vbatAdcUnitCharacterics)
-        adc = esp_adc_cal_raw_to_voltage(adc, vbatAdcUnitCharacterics);
+    if (vbatAdcUnitCharacteristics)
+    {
+        int temp;
+        adc_cali_raw_to_voltage(vbat_cali_handle, adc, &temp);
+        adc = temp;
+    }
 #endif
 
     int32_t vbat_mV;
     // For negative offsets, anything between abs(OFFSET) and 0 is considered 0
     if (ANALOG_VBAT_OFFSET < 0 && adc <= -ANALOG_VBAT_OFFSET)
-	{
+    {
         vbat_mV = 0;
-	}
+    }
     else
-	{
-        vbat_mV = (((int32_t)adc - ANALOG_VBAT_OFFSET) * 10000) / ANALOG_VBAT_SCALE;
-	}
+    {
+        vbat_mV = ((adc - ANALOG_VBAT_OFFSET) * 10000) / ANALOG_VBAT_SCALE;
+    }
 
     uint32_t now = millis();
 
@@ -94,7 +116,7 @@ static void reportVbat()
         if (!crsfBatterySensorDetected)
         {
             // CRSF_FRAMETYPE_BATTERY (0x08)
-            CRSF_MK_FRAME_T(crsf_sensor_battery_t) crsfbatt = { 0 };
+            CRSF_MK_FRAME_T(crsf_sensor_battery_t) crsfbatt{};
             crsfbatt.p.voltage = htobe16((uint16_t)vbat_mV / 100);  // VBat, 100mV resolution, BigEndian
                                                                     // No values for current, capacity, or remaining available
             crsfRouter.SetHeaderAndCrc(&crsfbatt.h, CRSF_FRAMETYPE_BATTERY_SENSOR, CRSF_FRAME_SIZE(sizeof(crsf_sensor_battery_t)));
@@ -102,7 +124,7 @@ static void reportVbat()
         }
 
         // CRSF_FRAMETYPE_CELLS (0x0E)
-        CRSF_MK_FRAME_T(crsf_sensor_cells_t) crsfcells = { 0 };
+        CRSF_MK_FRAME_T(crsf_sensor_cells_t) crsfcells{};
         crsfcells.p.source_id = 128 + 0;                        // Volt sensor ID 0
         crsfcells.p.cell[0] = htobe16((uint16_t)(vbat_mV));     // VBat, 1mV resolution, BigEndian
         constexpr size_t payloadLen = sizeof(crsfcells.p.source_id) + sizeof(crsfcells.p.cell[0]);
@@ -118,11 +140,16 @@ static void reportVbat()
 static int timeout()
 {
     uint32_t adc = analogRead(GPIO_ANALOG_VBAT);
+
 #if defined(PLATFORM_ESP32) && defined(DEBUG_VBAT_ADC)
     // When doing DEBUG_VBAT_ADC, every value is adjusted (for logging)
     // in normal mode only the final value is adjusted to save CPU cycles
-    if (vbatAdcUnitCharacterics)
-        adc = esp_adc_cal_raw_to_voltage(adc, vbatAdcUnitCharacterics);
+    if (vbatAdcUnitCharacteristics)
+    {
+        int temp = adc;
+        adc_cali_raw_to_voltage(vbat_cali_handle, adc, &temp);
+        adc = temp;
+    }
     DBGLN("$ADC,%u", adc);
 #endif
 
