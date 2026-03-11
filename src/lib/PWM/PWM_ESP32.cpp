@@ -2,7 +2,7 @@
 
 #if defined(PLATFORM_ESP32)
 #include <driver/ledc.h>
-#include <driver/mcpwm.h>
+#include <driver/mcpwm_prelude.h>
 
 #include "logging.h"
 
@@ -199,7 +199,7 @@ void PWMController::release(pwm_channel_t channel)
     if (IS_LEDC_CHANNEL(channel))
     {
         auto ch = LEDC_CHANNEL(channel);
-        ledcDetachPin(ledc_config[ch].pin);
+        ledcDetach(ledc_config[ch].pin);
         ledc_config[ch].pin = -1;
         ledc_config[ch].resolution_bits = 0;
         ledc_config[ch].interval = 0;

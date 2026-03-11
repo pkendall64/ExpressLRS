@@ -950,7 +950,7 @@ static size_t getFirmwareChunk(uint8_t *data, size_t len, size_t pos)
   {
     // Otherwise just make sure len is a multiple of 4 and smaller than a sector
     dst = data;
-    len = constrain((len / 4) * 4, 4, SPI_FLASH_SEC_SIZE);
+    len = constrain((len / 4) * 4, 4, 4096);//SPI_FLASH_SEC_SIZE);
   }
 
   ESP.flashRead(firmwareOffset + pos, (uint32_t *)dst, len);

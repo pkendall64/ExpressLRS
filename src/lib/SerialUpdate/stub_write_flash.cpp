@@ -9,7 +9,7 @@
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 
 #include "stub_write_flash.h"
-#include "rom/miniz.h"
+#include "miniz.h"
 #include "slip.h"
 #include "soc_support.h"
 #include "stub_flasher.h"
