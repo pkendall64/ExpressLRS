@@ -59,12 +59,8 @@ elif platform in ['espressif32']:
         env.Replace(UPLOAD_PROTOCOL="custom")
         env.Replace(UPLOADCMD=upload_via_esp8266_backpack.on_upload)
     elif "_UART" in target_name:
-        env.Replace(
-            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
-            UPLOAD_SPEED=460800
-        )
+        env.Replace(UPLOAD_SPEED=460800)
     if "_ETX" in target_name:
-        env.Replace(UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py")
         env.AddPreAction("upload", ETXinitPassthrough.init_passthrough)
     elif "_BETAFLIGHTPASSTHROUGH" in target_name:
         if "ESP32S3" in target_name:

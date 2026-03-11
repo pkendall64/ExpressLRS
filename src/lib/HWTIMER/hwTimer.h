@@ -65,13 +65,13 @@ public:
     /**
      * @brief Increment the frequency offset by one microsecond
      */
-    static ICACHE_RAM_ATTR void inline incFreqOffset() { FreqOffset++; }
+    static ICACHE_RAM_ATTR void inline incFreqOffset() { FreqOffset = FreqOffset + 1; }
 
 
     /**
      * @brief Decrement the frequency offset by one microsecond
      */
-    static ICACHE_RAM_ATTR void inline decFreqOffset() { FreqOffset--; }
+    static ICACHE_RAM_ATTR void inline decFreqOffset() { FreqOffset = FreqOffset - 1; }
 
     /**
      * @brief Get the frequency offset

@@ -16,6 +16,7 @@
 #include "devButton.h"
 #include "devVTX.h"
 #if defined(PLATFORM_ESP32)
+#include "esp_mac.h"
 #include "devScreen.h"
 #include "devBLE.h"
 #include "devGsensor.h"
@@ -385,11 +386,11 @@ void ICACHE_RAM_ATTR GenerateSyncPacketData(OTA_Sync_s * const syncPtr)
   const uint8_t Index = (syncSpamCounter) ? config.GetRate() : ExpressLRS_currAirRate_Modparams->index;
 
   if (syncSpamCounter)
-    --syncSpamCounter;
+    syncSpamCounter = syncSpamCounter - 1;
 
   if (syncSpamCounterAfterRateChange && Index == ExpressLRS_currAirRate_Modparams->index)
   {
-    --syncSpamCounterAfterRateChange;
+    syncSpamCounterAfterRateChange = syncSpamCounterAfterRateChange - 1;
     if (connectionState == connected) // We are connected again after a rate change.  No need to keep spaming sync.
       syncSpamCounterAfterRateChange = 0;
   }
@@ -644,10 +645,10 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
 
 void ICACHE_RAM_ATTR nonceAdvance()
 {
-  OtaNonce++;
+  OtaNonce = OtaNonce + 1;
   if ((OtaNonce + 1) % ExpressLRS_currAirRate_Modparams->FHSShopInterval == 0)
   {
-    ++FHSSptr;
+    FHSSptr = FHSSptr + 1;
   }
 }
 
@@ -683,7 +684,7 @@ void ICACHE_RAM_ATTR timerCallback()
 
   // Nonce advances on every timer tick
   if (!InBindingMode)
-    OtaNonce++;
+    OtaNonce = OtaNonce + 1;
 
   // If HandleTLM has started Receive mode, TLM packet reception should begin shortly
   // Skip transmitting on this slot

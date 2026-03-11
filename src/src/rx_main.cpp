@@ -50,22 +50,6 @@
 #include "esp_task_wdt.h"
 #endif
 
-//
-// Code encapsulated by the ARDUINO_CORE_INVERT_FIX #ifdef temporarily fixes EpressLRS issue #2609 which is caused
-// by the Arduino core (see https://github.com/espressif/arduino-esp32/issues/9896) and fixed
-// by Espressif with Arduino core release 3.0.3 (see https://github.com/espressif/arduino-esp32/pull/9950)
-//
-// With availability of Arduino core 3.0.3 and upgrading ExpressLRS to Arduino core 3.0.3 the temporary fix
-// should be deleted again
-//
-// ARDUINO_CORE_INVERT_FIX PT1
-#define ARDUINO_CORE_INVERT_FIX
-
-#if defined(PLATFORM_ESP32) && defined(ARDUINO_CORE_INVERT_FIX)
-#include "driver/uart.h"
-#endif
-// ARDUINO_CORE_INVERT_FIX PT1 end
-
 //// CONSTANTS ////
 #define SEND_LINK_STATS_TO_FC_INTERVAL 100
 #define DIVERSITY_ANTENNA_INTERVAL 5
@@ -112,6 +96,12 @@ bool crsfBaroSensorDetected = false;
 extern bool webserverPreventAutoStart;
 bool pwmSerialDefined = false;
 uint32_t serialBaud;
+
+#if SOC_USB_OTG_SUPPORTED
+USBCDC USBSerial;
+#elif SOC_USB_SERIAL_JTAG_SUPPORTED
+HWCDC HWCDCSerial;
+#endif
 
 /* SERIAL_PROTOCOL_TX is used by CRSF output */
 #define SERIAL_PROTOCOL_TX Serial
@@ -774,7 +764,7 @@ void ICACHE_RAM_ATTR HWtimerCallbackTock()
     // For any serial drivers that need to send on a regular cadence (i.e. CRSF to betaflight)
     sendImmediateRC();
 
-    OtaNonce++;
+    OtaNonce = OtaNonce + 1;
     HandleFHSS();
     updateDiversity();
     bool tlmSent = HandleSendDataDl();
@@ -1379,9 +1369,12 @@ static void setupSerial()
     }
 
 #if defined(DEBUG_ENABLED)
-#if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3)
+#if SOC_USB_OTG_SUPPORTED
     USBSerial.begin(460800);
     BackpackOrLogStrm = &USBSerial;
+#elif SOC_USB_SERIAL_JTAG_SUPPORTED
+    HWCDCSerial.begin(460800);
+    BackpackOrLogStrm = &HWCDCSerial;
 #else
     BackpackOrLogStrm = &Serial;
 #endif
@@ -2133,7 +2126,7 @@ void loop()
 }
 
 #if defined(PLATFORM_ESP32_C3)
-[[noreturn]] void loop()
+void loop()
 {
     // We have to do this dodgy hack because on the C3 the Arduino main loop calls
     // a yield function (vTaskDelay) every 2 seconds, which causes us to lose connection!

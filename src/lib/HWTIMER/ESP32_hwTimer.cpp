@@ -13,7 +13,7 @@ volatile int32_t hwTimer::PhaseShift = 0;
 volatile int32_t hwTimer::FreqOffset = 0;
 
 // Internal implementation specific variables
-static hw_timer_t *timer = NULL;
+static hw_timer_t *timer = nullptr;
 static portMUX_TYPE isrMutex = portMUX_INITIALIZER_UNLOCKED;
 
 #if defined(TARGET_RX)
@@ -24,13 +24,13 @@ static portMUX_TYPE isrMutex = portMUX_INITIALIZER_UNLOCKED;
 
 void ICACHE_RAM_ATTR hwTimer::init(void (*callbackTick)(), void (*callbackTock)())
 {
-
     if (!timer)
     {
         hwTimer::callbackTick = callbackTick;
         hwTimer::callbackTock = callbackTock;
-        timer = timerBegin(0, (APB_CLK_FREQ / 1000000 / HWTIMER_TICKS_PER_US), true);
-        timerAttachInterrupt(timer, hwTimer::callback, true);
+        timer = timerBegin(APB_CLK_FREQ / 1000000 / HWTIMER_TICKS_PER_US);
+        timerStop(timer);
+        timerAttachInterrupt(timer, hwTimer::callback);
         DBGLN("hwTimer Init");
     }
 }
@@ -40,7 +40,7 @@ void ICACHE_RAM_ATTR hwTimer::stop()
     if (timer && running)
     {
         running = false;
-        timerAlarmDisable(timer);
+        timerStop(timer);
         DBGLN("hwTimer stop");
     }
 }
@@ -49,10 +49,10 @@ void ICACHE_RAM_ATTR hwTimer::resume()
 {
     if (timer && !running)
     {
-        // The timer must be restarted so that the new timerAlarmWrite() period is set.
+        // The timer must be restarted so that the new timerAlarm() period is set.
         timerRestart(timer);
 #if defined(TARGET_TX)
-        timerAlarmWrite(timer, HWtimerInterval, true);
+        timerAlarm(timer, HWtimerInterval, false, 0);
 #else
         // We want the timer to fire tock() ASAP after enabling
         // tock() should always be the first event to maintain consistency
@@ -61,10 +61,9 @@ void ICACHE_RAM_ATTR hwTimer::resume()
         // is fired immediately
         // Unlike the 8266 timer, the ESP32 timer can be started without delay.
         // It does not interrupt the currently running IsrCallback(), but triggers immediately once it has completed.
-        timerAlarmWrite(timer, 0 * HWTIMER_TICKS_PER_US, true);
+        timerAlarm(timer, 0 * HWTIMER_TICKS_PER_US, false, 0);
 #endif
         running = true;
-        timerAlarmEnable(timer);
         DBGLN("hwTimer resume");
     }
 }
@@ -76,7 +75,7 @@ void ICACHE_RAM_ATTR hwTimer::updateInterval(uint32_t time)
     if (timer)
     {
         DBGLN("hwTimer interval: %d", time);
-        timerAlarmWrite(timer, HWtimerInterval, true);
+        timerWrite(timer, HWtimerInterval);
     }
 }
 
@@ -100,13 +99,13 @@ void ICACHE_RAM_ATTR hwTimer::callback(void)
         uint32_t NextInterval = (HWtimerInterval >> 1) + FreqOffset;
         if (hwTimer::isTick)
         {
-            timerAlarmWrite(timer, NextInterval, true);
+            timerAlarm(timer, NextInterval, false, 0);
             hwTimer::callbackTick();
         }
         else
         {
             NextInterval += PhaseShift;
-            timerAlarmWrite(timer, NextInterval, true);
+            timerAlarm(timer, NextInterval, false, 0);
             PhaseShift = 0;
             hwTimer::callbackTock();
         }

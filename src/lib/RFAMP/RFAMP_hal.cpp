@@ -2,6 +2,9 @@
 
 #include "RFAMP_hal.h"
 #include "logging.h"
+#if defined(PLATFORM_ESP32)
+#include "soc/gpio_struct.h"
+#endif
 
 RFAMP_hal *RFAMP_hal::instance = nullptr;
 
@@ -112,7 +115,7 @@ void ICACHE_RAM_ATTR RFAMP_hal::TXenable(SX12XX_Radio_Number_t radioNumber)
 #elif defined(PLATFORM_ESP32)
     if (radioNumber == SX12XX_Radio_All)
     {
-        GPIO.out_w1ts = (uint32_t)tx_all_enable_set_bits;
+        GPIO.out_w1ts = tx_all_enable_set_bits;
         GPIO.out_w1tc = tx_all_enable_clr_bits;
 
         GPIO.out1_w1ts.data = tx_all_enable_set_bits >> 32;
