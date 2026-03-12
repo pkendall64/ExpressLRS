@@ -24,6 +24,8 @@
 #define OPT_HAS_VTX_SPI false
 #define GPIO_PIN_SPI_VTX_NSS UNDEF_PIN
 
+#define FORCE_INLINE_ATTR
+
 typedef uint8_t byte;
 
 #define HEX 16

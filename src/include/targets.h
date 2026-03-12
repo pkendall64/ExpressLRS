@@ -20,6 +20,10 @@
 #undef ICACHE_RAM_ATTR //fix to allow both esp32 and esp8266 to use ICACHE_RAM_ATTR for mapping to IRAM
 #define ICACHE_RAM_ATTR IRAM_ATTR
 
+#if defined(PLATFORM_ESP8266)
+#define FORCE_INLINE_ATTR static inline
+#endif
+
 #if defined(TARGET_NATIVE)
 #define IRAM_ATTR
 #include "native.h"

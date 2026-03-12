@@ -11,9 +11,9 @@ public:
     RFAMP_hal();
 
     void init();
-    void ICACHE_RAM_ATTR TXenable(SX12XX_Radio_Number_t radioNumber);
-    void ICACHE_RAM_ATTR RXenable();
-    void ICACHE_RAM_ATTR TXRXdisable();
+    void TXenable(SX12XX_Radio_Number_t radioNumber);
+    void RXenable();
+    void TXRXdisable();
 
 private:
 #if defined(PLATFORM_ESP32)

@@ -45,15 +45,6 @@
 template <uint32_t FIFO_SIZE>
 class FIFO
 {
-private:
-    uint8_t buffer[FIFO_SIZE] = {0};
-    uint32_t head = 0;
-    uint32_t tail = 0;
-    uint32_t numElements = 0;
-#if defined(PLATFORM_ESP32)
-    portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-#endif
-
 public:
     /**
      * @brief lock the FIFO so no other code should interact with the FIFO.
@@ -65,7 +56,6 @@ public:
         portENTER_CRITICAL(&mux);
     #elif defined(PLATFORM_ESP8266)
         noInterrupts();
-    #else
     #endif
     }
 
@@ -78,7 +68,6 @@ public:
         portEXIT_CRITICAL(&mux);
     #elif defined(PLATFORM_ESP8266)
         interrupts();
-    #else
     #endif
     }
 
@@ -87,20 +76,17 @@ public:
      *
      * @param data
      */
-    ICACHE_RAM_ATTR void push(const uint8_t data)
+    void push(const uint8_t data)
     {
         if (numElements == FIFO_SIZE)
         {
-            ERRLN("Buffer full, will flush");
+            // ERRLN("Buffer full, will flush");
             flush();
             return;
         }
-        else
-        {
-            numElements++;
-            buffer[tail] = data;
-            tail = (tail + 1) % FIFO_SIZE;
-        }
+        numElements++;
+        buffer[tail] = data;
+        tail = (tail + 1) % FIFO_SIZE;
     }
 
     /**
@@ -109,11 +95,11 @@ public:
      * @param data pointer to the bytes to be pushed onto the FIFO
      * @param len number of bytes in `data` to push
      */
-    ICACHE_RAM_ATTR void pushBytes(const uint8_t *data, const uint16_t len)
+    void pushBytes(const uint8_t *data, const uint16_t len)
     {
         if (numElements + len > FIFO_SIZE)
         {
-            ERRLN("Buffer full, will flush");
+            // ERRLN("Buffer full, will flush");
             flush();
             return;
         }
@@ -132,7 +118,7 @@ public:
      * @param data pointer to the bytes to be pushed onto the FIFO
      * @param len number of bytes in `data` to push
      */
-    ICACHE_RAM_ATTR void atomicPushBytes(const uint8_t *data, const uint16_t len)
+    void atomicPushBytes(const uint8_t *data, const uint16_t len)
     {
         lock();
         pushBytes(data, len);
@@ -143,7 +129,7 @@ public:
      * @brief Pop a single byte (returns 0 if no bytes left)
      * @return the byte on the head of FIFO
      */
-    ICACHE_RAM_ATTR uint8_t pop()
+    uint8_t pop()
     {
         if (numElements == 0)
         {
@@ -163,7 +149,7 @@ public:
      * @param data pointer to a buffer where the bytes are popped into
      * @param len number of bytes to pop from the FIFO
      */
-    ICACHE_RAM_ATTR void popBytes(uint8_t *data, const uint16_t len)
+    void popBytes(uint8_t *data, const uint16_t len)
     {
         if (numElements < len)
         {
@@ -185,7 +171,7 @@ public:
      *
      * @return uint8_t the fist byte in the FIFO
      */
-    ICACHE_RAM_ATTR uint8_t peek() const
+    uint8_t peek() const
     {
         if (numElements == 0)
         {
@@ -202,7 +188,7 @@ public:
      *
      * @return number of bytes in the FIFO
      */
-    ICACHE_RAM_ATTR uint16_t size() const
+    uint16_t size() const
     {
         return numElements;
     }
@@ -213,7 +199,7 @@ public:
      *
      * @return number of bytes free in the FIFO
      */
-    ICACHE_RAM_ATTR uint16_t free() const
+    uint16_t free() const
     {
         return FIFO_SIZE - numElements;
     }
@@ -223,7 +209,7 @@ public:
      *
      * @param size the size prefix to be pushed to the FIFO
      */
-    ICACHE_RAM_ATTR void pushSize(const uint16_t size)
+    void pushSize(const uint16_t size)
     {
         push(size & 0xFF);
         push((size >> 8) & 0xFF);
@@ -234,7 +220,7 @@ public:
      *
      * @return the size prefix from the head of the FIFO
      */
-    ICACHE_RAM_ATTR uint16_t peekSize() const
+    uint16_t peekSize() const
     {
         if (size() > 1)
         {
@@ -248,7 +234,7 @@ public:
      *
      * @return the size prefix from the head of the FIFO
      */
-    ICACHE_RAM_ATTR uint16_t popSize()
+    uint16_t popSize()
     {
         if (size() > 1)
         {
@@ -260,7 +246,7 @@ public:
     /**
      * @brief reset the FIFO back to empty
      */
-    ICACHE_RAM_ATTR void flush()
+    void flush()
     {
         head = 0;
         tail = 0;
@@ -272,7 +258,7 @@ public:
      *
      * @return true if the FIFO can accept the number of bytes requested
      */
-    ICACHE_RAM_ATTR bool available(const uint16_t requiredSize) const
+    bool available(const uint16_t requiredSize) const
     {
         return (numElements + requiredSize) < FIFO_SIZE;
     }
@@ -286,7 +272,7 @@ public:
      * @param requiredSize the number of bytes required to be available
      * @return true if the required amount of bytes will fit in the FIFO
      */
-    ICACHE_RAM_ATTR bool ensure(const uint16_t requiredSize)
+    bool ensure(const uint16_t requiredSize)
     {
         if(requiredSize > FIFO_SIZE)
         {
@@ -308,7 +294,7 @@ public:
      * @param index The zero-based index of the element to access within the FIFO.
      * @return The value of the element at the specified index in the FIFO.
      */
-    ICACHE_RAM_ATTR uint8_t operator [](const uint16_t index) const
+    uint8_t operator [](const uint16_t index) const
     {
         return buffer[(head + index) % FIFO_SIZE];
     }
@@ -320,7 +306,7 @@ public:
      * @param index The zero-based index of the element to access within the FIFO.
      * @param value The value to be stored in the FIFO buffer at the specified index.
      */
-    ICACHE_RAM_ATTR void set(const uint16_t index, const uint8_t value)
+    void set(const uint16_t index, const uint8_t value)
     {
         buffer[(head + index) % FIFO_SIZE] = value;
     }
@@ -333,10 +319,19 @@ public:
      * @param len The number of elements to skip. The actual number skipped will not exceed
      * the current number of elements in the FIFO.
      */
-    ICACHE_RAM_ATTR void skip(const uint16_t len)
+    void skip(const uint16_t len)
     {
-        uint32_t skipCount = std::min((uint32_t)len, numElements);
+        const uint32_t skipCount = std::min((uint32_t)len, numElements);
         numElements -= skipCount;
         head = (head + skipCount) % FIFO_SIZE;
     }
+
+private:
+    uint8_t buffer[FIFO_SIZE] = {0};
+    uint32_t head = 0;
+    uint32_t tail = 0;
+    uint32_t numElements = 0;
+#if defined(PLATFORM_ESP32)
+    portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+#endif
 };

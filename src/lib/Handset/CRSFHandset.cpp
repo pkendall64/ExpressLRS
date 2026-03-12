@@ -131,7 +131,7 @@ void CRSFHandset::forwardMessage(const crsf_header_t *message)
     }
 }
 
-void ICACHE_RAM_ATTR CRSFHandset::setPacketInterval(int32_t PacketInterval)
+void CRSFHandset::setPacketInterval(int32_t PacketInterval)
 {
     RequestedRCpacketInterval = PacketInterval;
     OpenTXsyncOffset = 0;
@@ -428,7 +428,7 @@ int CRSFHandset::getMinPacketInterval() const
     return 1;   // 1-million Hz!
 }
 
-void ICACHE_RAM_ATTR CRSFHandset::adjustMaxPacketSize()
+void CRSFHandset::adjustMaxPacketSize()
 {
     const int LUA_CHUNK_QUERY_SIZE = 26;
     // The number of bytes that fit into a CRSF window : baud / 10bits-per-byte / rate(Hz) * 87% (for some leeway)
