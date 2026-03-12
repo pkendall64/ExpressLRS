@@ -63,8 +63,8 @@ public:
         RXdoneCallback(nullCallbackRx),
         TXdoneCallback(nullCallbackTx) {}
 
-    static bool ICACHE_RAM_ATTR nullCallbackRx(rx_status) {return false;}
-    static void ICACHE_RAM_ATTR nullCallbackTx() {}
+    static bool nullCallbackRx(rx_status) { return false; }
+    static void nullCallbackTx() {}
 
     ///////Callback Function Pointers/////
     bool (*RXdoneCallback)(rx_status crcFail); //function pointer for callback
