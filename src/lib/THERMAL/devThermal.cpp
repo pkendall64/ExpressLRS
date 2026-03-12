@@ -17,8 +17,9 @@ bool is_smart_fan_working = false;
 #endif
 
 #include "POWERMGNT.h"
+#include "PWM.h"
 
-constexpr uint8_t fanChannel = 0;
+static pwm_channel_t fanPwmChannel = -1;
 
 #define FAN_MIN_CHANGETIME 10U  // intervals (seconds)
 
@@ -79,6 +80,9 @@ static void timeoutThermal()
 #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
 static void setFanSpeed()
 {
+    if (fanPwmChannel < 0) {
+        return;
+    }
     const uint8_t defaultFanSpeeds[] = {
         31,  // 10mW
         47,  // 25mW
@@ -91,8 +95,8 @@ static void setFanSpeed()
     };
 
     uint32_t speed = GPIO_PIN_FAN_SPEEDS == nullptr ? defaultFanSpeeds[POWERMGNT::currPower()] : GPIO_PIN_FAN_SPEEDS[POWERMGNT::currPower()-POWERMGNT::getMinPower()];
-    ledcWrite(fanChannel, speed);
-    DBGLN("Fan speed: %d (power) -> %u (pwm)", POWERMGNT::currPower(), speed);
+    PWM.setDuty(fanPwmChannel, (uint32_t)speed * 1000 / 255);  // duty 0–1000 (tenths of percent)
+    DBGLN("Fan speed: %d (power) -> %u (pwm)", POWERMGNT::currPower(), (unsigned)speed);
 }
 #endif
 
@@ -150,9 +154,9 @@ static void timeoutFan()
             {
                 digitalWrite(GPIO_PIN_FAN_EN, LOW);
             }
-            else if (GPIO_PIN_FAN_PWM != UNDEF_PIN)
+            else if (GPIO_PIN_FAN_PWM != UNDEF_PIN && fanPwmChannel >= 0)
             {
-                ledcWrite(fanChannel, 0);
+                PWM.setDuty(fanPwmChannel, 0);
             }
             fanStateDuration = 0;
             fanIsOn = false;
@@ -173,11 +177,11 @@ static void timeoutFan()
                 digitalWrite(GPIO_PIN_FAN_EN, HIGH);
                 fanStateDuration = 0;
             }
-            else if (GPIO_PIN_FAN_PWM != UNDEF_PIN)
+            else if (GPIO_PIN_FAN_PWM != UNDEF_PIN && fanPwmChannel >= 0)
             {
                 // bump the fan to full power for one cycle in case
                 // the PWM level is not sufficient to get it moving
-                ledcWrite(fanChannel, 192);
+                PWM.setDuty(fanPwmChannel, 192 * 1000 / 255);
                 fanStateDuration = FAN_MIN_CHANGETIME;
             }
             fanIsOn = true;
@@ -205,9 +209,11 @@ static int start()
 {
     if (GPIO_PIN_FAN_PWM != UNDEF_PIN)
     {
-        ledcSetup(fanChannel, 25000, 8);
-        ledcAttachPin(GPIO_PIN_FAN_PWM, fanChannel);
-        ledcWrite(fanChannel, 0);
+        fanPwmChannel = PWM.allocate(GPIO_PIN_FAN_PWM, 25000);  // 25 kHz fan PWM
+        if (fanPwmChannel >= 0)
+        {
+            PWM.setDuty(fanPwmChannel, 0);
+        }
     }
 #if !defined(PLATFORM_ESP32_C3)
     if (GPIO_PIN_FAN_TACHO != UNDEF_PIN)
