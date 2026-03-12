@@ -86,12 +86,11 @@ static void servoWriteDshot(eServoOutputMode chMode, uint8_t ch, uint16_t us)
                 dshotVal = fmap(us, 1499, 1000, 48, 1047);
             }
         }
-        dshotInstances[ch]->send_dshot_value(dshotVal);
+        (void)dshotInstances[ch]->sendThrottle(dshotVal);
     }
     else
     {
-        // getting an actual zero microsecond command means the failsafe mode is no-pulse
-        dshotInstances[ch]->set_looping(false);
+        (void)dshotInstances[ch]->sendCommand(DSHOT_CMD_MOTOR_STOP);
     }
 #endif /* PLATFORM_ESP32 */
 }
@@ -247,11 +246,10 @@ static bool initialize()
             if (rmtCH < RMT_MAX_CHANNELS)
             {
                 auto gpio = (gpio_num_t)pin;
-                auto rmtChannel = (rmt_channel_t)rmtCH;
-                DBGLN("Initializing DShot: gpio: %u, ch: %d, rmtChannel: %u", gpio, ch, rmtChannel);
+                DBGLN("Initializing DShot: gpio: %u, ch: %d, rmtChannel: %u", gpio, ch, rmtCH);
                 pinMode(pin, OUTPUT);
                 digitalWrite(pin, LOW);
-                dshotInstances[ch] = new DShotRMT(gpio, rmtChannel); // Initialize the DShotRMT instance
+                dshotInstances[ch] = new DShotRMT(gpio, DSHOT300, false); // rmtCH no longer required
                 rmtCH++;
             }
             pin = UNDEF_PIN;
@@ -319,7 +317,8 @@ static int event()
 #if defined(PLATFORM_ESP32)
             else if ((eServoOutputMode)chConfig->val.mode == somDShot || (eServoOutputMode)chConfig->val.mode == somDShot3D)
             {
-                dshotInstances[ch]->begin(DSHOT300, false); // Set DShot protocol and bidirectional dshot bool
+                // Upstream API: begin() has no args and returns a result.
+                (void)dshotInstances[ch]->begin();
             }
 #endif
         }
