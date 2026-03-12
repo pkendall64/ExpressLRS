@@ -3,29 +3,14 @@
 #if defined(PLATFORM_ESP32)
 
 #include <cstring>
-#include "freertos/task.h"
-#include "driver/i2s.h"
 #include "esp32rgb.h"
 
-constexpr auto I2S_NUM = I2S_NUM_0;
-
-#if defined(CONFIG_IDF_TARGET_ESP32S2)
 constexpr uint32_t SAMPLE_RATE = 375000;
-constexpr int MCLK = 48000000;
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
-constexpr auto SAMPLE_RATE = 800000U;
-constexpr auto MCLK = 160000000;
-#elif defined(CONFIG_IDF_TARGET_ESP32C3)
-constexpr auto SAMPLE_RATE = 800000U;
-constexpr auto MCLK = 160000000;
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-constexpr auto SAMPLE_RATE = 375000U;
-constexpr auto MCLK = 48000000;
-#endif
+constexpr i2s_mclk_multiple_t MCLK_MULTIPLE = I2S_MCLK_MULTIPLE_128;
 
 constexpr auto DMA_BUF_LEN = 1024;
 constexpr auto DMA_BUF_COUNT = 2;
-constexpr auto I2S_BITS_PER_RGB_BIT = I2S_BITS_PER_SAMPLE_16BIT;
+constexpr auto I2S_BITS_PER_RGB_BIT = I2S_DATA_BIT_WIDTH_16BIT;
 constexpr auto BYTES_PER_LED = 24 * (I2S_BITS_PER_RGB_BIT / 8);
 constexpr auto MAX_LEDS = (DMA_BUF_LEN * DMA_BUF_COUNT - 4) / BYTES_PER_LED;
 
@@ -39,48 +24,52 @@ ESP32LedDriver::ESP32LedDriver(const int count, const int pin) : num_leds(count)
 
 ESP32LedDriver::~ESP32LedDriver()
 {
+    if (tx_handle) {
+        i2s_channel_disable(tx_handle);
+        i2s_del_channel(tx_handle);
+        tx_handle = nullptr;
+    }
     heap_caps_free(out_buffer);
 }
 
 void ESP32LedDriver::Begin() const
 {
-    constexpr i2s_config_t i2s_config = {
-        .mode = static_cast<i2s_mode_t>(I2S_MODE_MASTER | I2S_MODE_TX),
-        .sample_rate = SAMPLE_RATE,
-        .bits_per_sample = I2S_BITS_PER_RGB_BIT,
-        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-        .communication_format = I2S_COMM_FORMAT_STAND_I2S,
-        .intr_alloc_flags = 0,
-        .dma_buf_count = DMA_BUF_COUNT,
-        .dma_buf_len = DMA_BUF_LEN,
-        .use_apll = true,
-        .tx_desc_auto_clear = true,
-        .fixed_mclk = MCLK,
-    };
+    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
+    chan_cfg.dma_frame_num = DMA_BUF_LEN;
+    chan_cfg.auto_clear = true;
+    if (i2s_new_channel(&chan_cfg, &tx_handle, nullptr) != ESP_OK) {
+        return;
+    }
 
-    const i2s_pin_config_t pin_config = {
-        .mck_io_num = I2S_PIN_NO_CHANGE,
-        .bck_io_num = I2S_PIN_NO_CHANGE,
-        .ws_io_num = I2S_PIN_NO_CHANGE,
-        .data_out_num = gpio_pin,
-        .data_in_num = I2S_PIN_NO_CHANGE,
-    };
+    i2s_std_config_t std_cfg = {};
+    std_cfg.clk_cfg.sample_rate_hz = SAMPLE_RATE;
+    std_cfg.clk_cfg.clk_src = I2S_CLK_SRC_DEFAULT;
+    std_cfg.clk_cfg.mclk_multiple = MCLK_MULTIPLE;
+    std_cfg.slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO);
+    std_cfg.gpio_cfg.mclk = I2S_GPIO_UNUSED;
+    std_cfg.gpio_cfg.bclk = I2S_GPIO_UNUSED;
+    std_cfg.gpio_cfg.ws = I2S_GPIO_UNUSED;
+    std_cfg.gpio_cfg.dout = static_cast<gpio_num_t>(gpio_pin);
+    std_cfg.gpio_cfg.din = I2S_GPIO_UNUSED;
 
-    i2s_driver_install(I2S_NUM, &i2s_config, 0, nullptr);
-    delay(1); // without this it fails to boot and gets stuck!
-    i2s_set_pin(I2S_NUM, &pin_config);
-    i2s_zero_dma_buffer(I2S_NUM);
-    i2s_stop(I2S_NUM);
+    if (i2s_channel_init_std_mode(tx_handle, &std_cfg) != ESP_OK) {
+        i2s_del_channel(tx_handle);
+        tx_handle = nullptr;
+        return;
+    }
+    i2s_channel_enable(tx_handle);
+    delay(1);
 }
 
 void ESP32LedDriver::Show() const
 {
-    size_t bytes_written = 0;
-    i2s_stop(I2S_NUM);
-    if (i2s_write(I2S_NUM, out_buffer, out_buffer_size, &bytes_written, 0) == ESP_OK)
-    {
-        i2s_start(I2S_NUM);
+    if (!tx_handle) {
+        return;
     }
+    size_t bytes_written = 0;
+    i2s_channel_disable(tx_handle);
+    i2s_channel_enable(tx_handle);
+    i2s_channel_write(tx_handle, out_buffer, out_buffer_size, &bytes_written, 1000);
 }
 
 void ESP32LedDriver::ClearTo(const RgbColor color, const int first, const int last)
@@ -91,16 +80,7 @@ void ESP32LedDriver::ClearTo(const RgbColor color, const int first, const int la
     }
 }
 
-
-#if defined(CONFIG_IDF_TARGET_ESP32S2)
-static const int bit_order[] = {0x40, 0x80, 0x10, 0x20, 0x04, 0x08, 0x01, 0x02};
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
 static const int bit_order[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
-#elif defined(CONFIG_IDF_TARGET_ESP32C3)
-static const int bit_order[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
-#elif defined(CONFIG_IDF_TARGET_ESP32)
-static const int bit_order[] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
-#endif
 
 void ESP32LedDriverGRB::SetPixelColor(const int indexPixel, const RgbColor color)
 {

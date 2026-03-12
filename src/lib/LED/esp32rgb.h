@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "driver/i2s_std.h"
 
 class RgbColor
 {
@@ -28,6 +29,7 @@ private:
     size_t out_buffer_size;
     int num_leds;
     int gpio_pin;
+    mutable i2s_chan_handle_t tx_handle = nullptr;
 
     friend class ESP32LedDriverGRB;
     friend class ESP32LedDriverRGB;
