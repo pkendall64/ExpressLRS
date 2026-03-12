@@ -1,6 +1,8 @@
 #if defined(PLATFORM_ESP32)
+
 #include "hwTimer.h"
 #include "logging.h"
+#include "driver/gptimer.h"
 
 void (*hwTimer::callbackTick)() = nullptr;
 void (*hwTimer::callbackTock)() = nullptr;
@@ -12,107 +14,134 @@ volatile uint32_t hwTimer::HWtimerInterval = TimerIntervalUSDefault;
 volatile int32_t hwTimer::PhaseShift = 0;
 volatile int32_t hwTimer::FreqOffset = 0;
 
-// Internal implementation specific variables
-static hw_timer_t *timer = nullptr;
+static gptimer_handle_t timer = nullptr;
 static portMUX_TYPE isrMutex = portMUX_INITIALIZER_UNLOCKED;
 
-#if defined(TARGET_RX)
-#define HWTIMER_TICKS_PER_US 5
-#else
-#define HWTIMER_TICKS_PER_US 1
-#endif
-
-void ICACHE_RAM_ATTR hwTimer::init(void (*callbackTick)(), void (*callbackTock)())
+void hwTimer::init(void (*tick)(), void (*tock)())
 {
-    if (!timer)
-    {
-        hwTimer::callbackTick = callbackTick;
-        hwTimer::callbackTock = callbackTock;
-        timer = timerBegin(APB_CLK_FREQ / 1000000 / HWTIMER_TICKS_PER_US);
-        timerStop(timer);
-        timerAttachInterrupt(timer, hwTimer::callback);
-        DBGLN("hwTimer Init");
-    }
+    if (timer)
+        return;
+
+    callbackTick = tick;
+    callbackTock = tock;
+
+    constexpr gptimer_config_t config = {
+        .clk_src = GPTIMER_CLK_SRC_APB,
+        .direction = GPTIMER_COUNT_UP,
+        .resolution_hz = 1000000,
+    };
+
+    gptimer_new_timer(&config, &timer);
+
+    constexpr gptimer_event_callbacks_t cbs = {
+        .on_alarm = callback,
+    };
+
+    gptimer_register_event_callbacks(timer, &cbs, nullptr);
+    gptimer_enable(timer);
+
+    DBGLN("hwTimer Init");
 }
 
-void ICACHE_RAM_ATTR hwTimer::stop()
+void hwTimer::stop()
 {
     if (timer && running)
     {
         running = false;
-        timerStop(timer);
+        gptimer_stop(timer);
         DBGLN("hwTimer stop");
     }
 }
 
-void ICACHE_RAM_ATTR hwTimer::resume()
+void hwTimer::resume()
 {
-    if (timer && !running)
-    {
-        // The timer must be restarted so that the new timerAlarm() period is set.
-        timerRestart(timer);
+    if (!timer || running)
+        return;
+
 #if defined(TARGET_TX)
-        timerAlarm(timer, HWtimerInterval, false, 0);
+    const uint32_t interval = HWtimerInterval;
+    constexpr bool reload = true;
 #else
-        // We want the timer to fire tock() ASAP after enabling
-        // tock() should always be the first event to maintain consistency
-        isTick = false;
-        // When using EDGE triggered timer, enabling the timer causes an edge so the interrupt
-        // is fired immediately
-        // Unlike the 8266 timer, the ESP32 timer can be started without delay.
-        // It does not interrupt the currently running IsrCallback(), but triggers immediately once it has completed.
-        timerAlarm(timer, 0 * HWTIMER_TICKS_PER_US, false, 0);
+    constexpr uint32_t interval = 1;   // trigger ASAP
+    constexpr bool reload = false;
+    isTick = false;
 #endif
-        running = true;
-        DBGLN("hwTimer resume");
-    }
+
+    gptimer_alarm_config_t alarm = {
+        .alarm_count = interval,
+        .reload_count = 0,
+        .flags = {
+            .auto_reload_on_alarm = reload
+        }
+    };
+
+    gptimer_set_alarm_action(timer, &alarm);
+    gptimer_start(timer);
+    running = true;
+    DBGLN("hwTimer resume");
 }
 
-void ICACHE_RAM_ATTR hwTimer::updateInterval(uint32_t time)
+void hwTimer::updateInterval(const uint32_t time)
 {
-    // timer should not be running when updateInterval() is called
-    HWtimerInterval = time * HWTIMER_TICKS_PER_US;
-    if (timer)
-    {
-        DBGLN("hwTimer interval: %d", time);
-        timerWrite(timer, HWtimerInterval);
-    }
+    HWtimerInterval = time;
+    const gptimer_alarm_config_t alarm = {
+        .alarm_count = HWtimerInterval,
+        .reload_count = 0,
+        .flags = {
+            .auto_reload_on_alarm = true,
+        }
+    };
+    gptimer_set_alarm_action(timer, &alarm);
+    DBGLN("hwTimer interval: %d", time);
 }
 
-void ICACHE_RAM_ATTR hwTimer::phaseShift(int32_t newPhaseShift)
+void hwTimer::phaseShift(const int32_t newPhaseShift)
 {
-    int32_t minVal = -(HWtimerInterval >> 2);
-    int32_t maxVal = (HWtimerInterval >> 2);
-
-    // phase shift is in microseconds
-    PhaseShift = constrain(newPhaseShift, minVal, maxVal) * HWTIMER_TICKS_PER_US;
+    const int32_t minVal = -(HWtimerInterval >> 2);
+    const int32_t maxVal = (HWtimerInterval >> 2);
+    PhaseShift = constrain(newPhaseShift, minVal, maxVal);
 }
 
-void ICACHE_RAM_ATTR hwTimer::callback(void)
+bool IRAM_ATTR hwTimer::callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *)
 {
-    if (running)
-    {
-        portENTER_CRITICAL_ISR(&isrMutex);
+    if (!running)
+        return false;
+
+    portENTER_CRITICAL_ISR(&isrMutex);
+
 #if defined(TARGET_TX)
+    callbackTock();
+#else
+    uint32_t NextInterval = (HWtimerInterval >> 1) + FreqOffset;
+
+    if (!isTick)
+    {
+        NextInterval += PhaseShift;
+        PhaseShift = 0;
+    }
+
+    const gptimer_alarm_config_t alarm = {
+        .alarm_count = edata->count_value + NextInterval,
+        .reload_count = 0,
+        .flags = {
+            .auto_reload_on_alarm = false,
+        }
+    };
+    gptimer_set_alarm_action(timer, &alarm);
+
+    if (isTick)
+    {
+        callbackTick();
+    }
+    else
+    {
         callbackTock();
-#else
-        uint32_t NextInterval = (HWtimerInterval >> 1) + FreqOffset;
-        if (hwTimer::isTick)
-        {
-            timerAlarm(timer, NextInterval, false, 0);
-            hwTimer::callbackTick();
-        }
-        else
-        {
-            NextInterval += PhaseShift;
-            timerAlarm(timer, NextInterval, false, 0);
-            PhaseShift = 0;
-            hwTimer::callbackTock();
-        }
-        hwTimer::isTick = !hwTimer::isTick;
-#endif
-        portEXIT_CRITICAL_ISR(&isrMutex);
     }
+    isTick = !isTick;
+#endif
+
+    portEXIT_CRITICAL_ISR(&isrMutex);
+    return true;
 }
 
 #endif
