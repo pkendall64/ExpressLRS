@@ -8,6 +8,7 @@
 #include "logging.h"
 
 #if defined(PLATFORM_ESP32)
+#include <rom/gpio.h>
 #include <hal/uart_ll.h>
 #include <soc/soc.h>
 #include <soc/uart_reg.h>
