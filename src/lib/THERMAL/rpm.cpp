@@ -1,61 +1,70 @@
 #include "targets.h"
 
 #if defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
+
 #include "logging.h"
-#include <driver/pcnt.h>
-#include <soc/pcnt_struct.h>
+#include "driver/pulse_cnt.h"
 
 #define TACHO_PULSES_PER_REV 4
+#define PCNT_HIGH_LIMIT 30000
 
-static volatile int overflow = 0;
+static pcnt_unit_handle_t pcnt_unit = nullptr;
+static pcnt_channel_handle_t pcnt_chan = nullptr;
 static uint32_t lastTime = 0;
 
-static void IRAM_ATTR pcnt_overflow(void *arg)
+void init_rpm_counter(const int pin)
 {
-    overflow++;
-    PCNT.int_clr.val = BIT(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-}
+    pcnt_unit_config_t unit_config = {};
+    unit_config.low_limit = -1;
+    unit_config.high_limit = PCNT_HIGH_LIMIT;
+    unit_config.flags.accum_count = true;
 
-void init_rpm_counter(int pin)
-{
-    pcnt_config_t pcnt_config = {};
-    pcnt_config.pulse_gpio_num = pin;
-    pcnt_config.ctrl_gpio_num = PCNT_PIN_NOT_USED;
-    // What to do on the positive / negative edge of pulse input?
-    pcnt_config.pos_mode = PCNT_COUNT_INC;   // Count up on the positive edge
-    pcnt_config.neg_mode = PCNT_COUNT_DIS;   // Keep the counter value on the negative edge
-    // Set the maximum and minimum limit values to watch
-    pcnt_config.counter_h_lim = 30000;
-    pcnt_config.counter_l_lim = -1;
-    pcnt_config.unit = PCNT_UNIT_0;
-    pcnt_config.channel = PCNT_CHANNEL_0;
+    if (pcnt_new_unit(&unit_config, &pcnt_unit) != ESP_OK) {
+        return;
+    }
 
-    /* Initialize PCNT unit */
-    pcnt_unit_config(&pcnt_config);
-    /* Configure and enable the input filter */
-    pcnt_set_filter_value(PCNT_UNIT_0, 100);
-    pcnt_filter_enable(PCNT_UNIT_0);
-    /* Enable interrupt on overflow */
-    pcnt_event_enable(PCNT_UNIT_0, PCNT_EVT_H_LIM);
-    pcnt_isr_register(pcnt_overflow, NULL, 0, NULL);
-    pcnt_intr_enable(PCNT_UNIT_0);
-    /* Initialize PCNT's counter */
-    pcnt_counter_pause(PCNT_UNIT_0);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    /* Everything is set up, now go to counting */
-    pcnt_counter_resume(PCNT_UNIT_0);
+    pcnt_chan_config_t chan_config = {};
+    chan_config.edge_gpio_num = pin;
+    chan_config.level_gpio_num = -1;  // not used
+
+    if (pcnt_new_channel(pcnt_unit, &chan_config, &pcnt_chan) != ESP_OK) {
+        pcnt_del_unit(pcnt_unit);
+        pcnt_unit = nullptr;
+        return;
+    }
+
+    // Count up on rising edge, hold on falling edge
+    pcnt_channel_set_edge_action(pcnt_chan, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_HOLD);
+
+    // Watch point at high limit so accumulator counts overflows
+    pcnt_unit_add_watch_point(pcnt_unit, PCNT_HIGH_LIMIT);
+
+    // Glitch filter
+    pcnt_glitch_filter_config_t filter_config = {};
+    filter_config.max_glitch_ns = 1250;
+    pcnt_unit_set_glitch_filter(pcnt_unit, &filter_config);
+
+    pcnt_unit_enable(pcnt_unit);
+    pcnt_unit_clear_count(pcnt_unit);
+    pcnt_unit_start(pcnt_unit);
 }
 
 uint32_t get_rpm()
 {
-    int16_t counter;
-    pcnt_get_counter_value(PCNT_UNIT_0, &counter);
-    pcnt_counter_clear(PCNT_UNIT_0);
-    uint32_t now = millis();
-    uint32_t rpm = ((overflow * 30000) + counter) * 60000 / TACHO_PULSES_PER_REV / (now - lastTime);
-    overflow = 0;
+    if (pcnt_unit == nullptr) {
+        return 0;
+    }
+    int count = 0;
+    pcnt_unit_get_count(pcnt_unit, &count);
+    pcnt_unit_clear_count(pcnt_unit);
+    const uint32_t now = millis();
+    const uint32_t elapsed = now - lastTime;
     lastTime = now;
-    return rpm;
+    if (elapsed == 0) {
+        return 0;
+    }
+    const auto total_pulses = abs(count);
+    return total_pulses * 60000U / TACHO_PULSES_PER_REV / elapsed;
 }
+
 #endif
