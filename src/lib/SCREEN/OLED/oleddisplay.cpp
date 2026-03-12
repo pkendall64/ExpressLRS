@@ -10,6 +10,8 @@
 #include "logging.h"
 #include "options.h"
 
+#include "esp_flash.h"
+
 #include "WiFi.h"
 extern WiFiMode_t wifiMode;
 
@@ -69,7 +71,7 @@ void OLEDDisplay::displaySplashScreen()
     u8g2->clearBuffer();
     auto constexpr sz = 128 * 64 / 8;
     uint8_t image[sz];
-    if (spi_flash_read(logo_image, image, sz) == ESP_OK)
+    if (esp_flash_read(nullptr, image, logo_image, sz) == ESP_OK)
     {
         u8g2->drawXBM(0, 0, 128, 64, image);
     }
