@@ -83,7 +83,7 @@ public:
      * align the phase of two timers.
      *
      * The phase shift is a delay that is added to the timer after the
-     * next tock callback, delaying the tick after by phaseShift microseonds.
+     * next tock callback, delaying the tick after by 'phaseShift' microseconds.
      *
      * The maximum phase shift is 1/4 of the update interval.
      *
@@ -95,7 +95,11 @@ public:
     static volatile bool isTick;
 
 private:
+#if defined(PLATFORM_ESP32)
+    static bool callback(gptimer_handle_t timer, const gptimer_alarm_event_data_t *edata, void *);
+#else
     static void callback();
+#endif
 
     static void (*callbackTick)();
     static void (*callbackTock)();
