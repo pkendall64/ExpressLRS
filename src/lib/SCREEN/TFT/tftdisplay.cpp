@@ -13,6 +13,8 @@
 #include "logos.h"
 #include "options.h"
 
+#include "esp_flash.h"
+
 #include "WiFi.h"
 extern WiFiMode_t wifiMode;
 
@@ -169,23 +171,23 @@ static void displayFontCenter(uint32_t font_start_x, uint32_t font_end_x, uint32
 
 void TFTDisplay::displaySplashScreen()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
-    size_t sz = INIT_PAGE_LOGO_X * INIT_PAGE_LOGO_Y;
+    constexpr auto sz = INIT_PAGE_LOGO_X * INIT_PAGE_LOGO_Y;
     uint16_t image[sz];
-    if (spi_flash_read(logo_image, image, sz * 2) == ESP_OK)
+    if (esp_flash_read(nullptr, image, logo_image, sz * 2) == ESP_OK)
     {
         gfx->draw16bitRGBBitmap(0, 0, image, INIT_PAGE_LOGO_X, INIT_PAGE_LOGO_Y);
     }
 
     gfx->fillRect(SCREEN_FONT_GAP, INIT_PAGE_FONT_START_Y - INIT_PAGE_FONT_PADDING,
-                    SCREEN_X - SCREEN_FONT_GAP*2, SCREEN_NORMAL_FONT_SIZE + INIT_PAGE_FONT_PADDING*2, BLACK);
+                    SCREEN_X - SCREEN_FONT_GAP*2, SCREEN_NORMAL_FONT_SIZE + INIT_PAGE_FONT_PADDING*2, RGB565_BLACK);
 
     char buffer[50];
     snprintf(buffer, sizeof(buffer), "ELRS-%.6s", version);
     displayFontCenter(INIT_PAGE_FONT_START_X, SCREEN_X - INIT_PAGE_FONT_START_X, INIT_PAGE_FONT_START_Y,
                         SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        String(buffer), WHITE, BLACK);
+                        String(buffer), RGB565_WHITE, RGB565_BLACK);
 }
 
 void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t power_index, uint8_t ratio_index, uint8_t motion_index, uint8_t fan_index, bool dynamic, uint8_t running_power_index, uint8_t temperature, message_index_t message_index)
@@ -193,7 +195,7 @@ void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t 
     if (changed == CHANGED_ALL)
     {
         // Everything has changed! So clear the right side
-        gfx->fillRect(SCREEN_X/2, 0, SCREEN_X/2, SCREEN_Y, WHITE);
+        gfx->fillRect(SCREEN_X/2, 0, SCREEN_X/2, SCREEN_Y, RGB565_WHITE);
     }
 
     if (changed & CHANGED_TEMP)
@@ -201,7 +203,7 @@ void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t 
         // Left side logo, version, and temp
         gfx->fillRect(0, 0, SCREEN_X/2, SCREEN_Y, elrs_banner_bgColor[message_index]);
         gfx->drawBitmap(IDLE_PAGE_START_X, IDLE_PAGE_START_Y, elrs_banner_bmp, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE,
-                        WHITE);
+                        RGB565_WHITE);
 
         // Update the temperature
         char buffer[20];
@@ -209,32 +211,32 @@ void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t 
         snprintf(buffer, sizeof(buffer), "%.6s %02d\367C", version, temperature);
         displayFontCenter(0, SCREEN_X/2, SCREEN_LARGE_ICON_SIZE + (SCREEN_Y - SCREEN_LARGE_ICON_SIZE - SCREEN_SMALL_FONT_SIZE)/2,
                             SCREEN_SMALL_FONT_SIZE, SCREEN_SMALL_FONT,
-                            String(buffer), WHITE, elrs_banner_bgColor[message_index]);
+                            String(buffer), RGB565_WHITE, elrs_banner_bgColor[message_index]);
     }
 
     // The Radio Params right half of the screen
-    uint16_t text_color = (message_index == MSG_ARMED) ? DARKGREY : BLACK;
+    uint16_t text_color = (message_index == MSG_ARMED) ? RGB565_DARKGREY : RGB565_BLACK;
 
     if (connectionState == radioFailed)
     {
         displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-            "BAD", BLACK, WHITE);
+            "BAD", RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-            "RADIO", BLACK, WHITE);
+            "RADIO", RGB565_BLACK, RGB565_WHITE);
     }
     else if (connectionState == noCrossfire)
     {
         displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-            "NO", BLACK, WHITE);
+            "NO", RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-            "HANDSET", BLACK, WHITE);
+            "HANDSET", RGB565_BLACK, RGB565_WHITE);
     }
     else
     {
         if (changed & CHANGED_RATE)
         {
             displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, IDLE_PAGE_RATE_START_Y,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                                getValue(STATE_PACKET, rate_index), text_color, WHITE);
+                                getValue(STATE_PACKET, rate_index), text_color, RGB565_WHITE);
         }
 
         if (changed & CHANGED_POWER)
@@ -245,13 +247,13 @@ void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t 
                 power += " *";
             }
             displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, IDLE_PAGE_POWER_START_Y, SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                                power, text_color, WHITE);
+                                power, text_color, RGB565_WHITE);
         }
 
         if (changed & CHANGED_TELEMETRY)
         {
             displayFontCenter(IDLE_PAGE_STAT_START_X, SCREEN_X, IDLE_PAGE_RATIO_START_Y,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                                getValue(STATE_TELEMETRY_CURR, ratio_index), text_color, WHITE);
+                                getValue(STATE_TELEMETRY_CURR, ratio_index), text_color, RGB565_WHITE);
         }
     }
 
@@ -259,128 +261,128 @@ void TFTDisplay::displayIdleScreen(uint8_t changed, uint8_t rate_index, uint8_t 
 
 void TFTDisplay::displayMainMenu(menu_item_t menu)
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(MAIN_PAGE_ICON_START_X, MAIN_PAGE_ICON_START_Y, main_menu_icons[menu], SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     displayFontCenter(MAIN_PAGE_WORD_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-        main_menu_strings[menu][0], BLACK, WHITE);
+        main_menu_strings[menu][0], RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(MAIN_PAGE_WORD_START_X, SCREEN_X, MAIN_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-        main_menu_strings[menu][1], BLACK, WHITE);
+        main_menu_strings[menu][1], RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayValue(menu_item_t menu, uint8_t value_index)
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     String val = String(getValue(menu, value_index));
     val.replace("!+", "\xA0");
     val.replace("!-", "\xA1");
 
     displayFontCenter(SUB_PAGE_VALUE_START_X, SCREEN_X, SUB_PAGE_VALUE_START_Y,  SCREEN_LARGE_FONT_SIZE, SCREEN_LARGE_FONT,
-                        val.c_str(), BLACK, WHITE);
+                        val.c_str(), RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_TIPS_START_X, SCREEN_X, SUB_PAGE_TIPS_START_Y,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "PRESS TO CONFIRM", BLACK, WHITE);
+                        "PRESS TO CONFIRM", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayBLEConfirm()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(SUB_PAGE_ICON_START_X, SUB_PAGE_ICON_START_Y, elrs_joystick, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "PRESS TO", BLACK, WHITE);
+                        "PRESS TO", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "START BLE", BLACK, WHITE);
+                        "START BLE", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "GAMEPAD", BLACK, WHITE);
+                        "GAMEPAD", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayBLEStatus()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(SUB_PAGE_ICON_START_X, SUB_PAGE_ICON_START_Y, elrs_joystick, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "BLE", BLACK, WHITE);
+                        "BLE", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "GAMEPAD", BLACK, WHITE);
+                        "GAMEPAD", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "RUNNING", BLACK, WHITE);
+                        "RUNNING", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayWiFiConfirm()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(SUB_PAGE_ICON_START_X, SUB_PAGE_ICON_START_Y, elrs_wifimode, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "PRESS TO", BLACK, WHITE);
+                        "PRESS TO", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "ENTER WIFI", BLACK, WHITE);
+                        "ENTER WIFI", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "UPDATE MODE", BLACK, WHITE);
+                        "UPDATE MODE", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayWiFiStatus()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(SUB_PAGE_ICON_START_X, SUB_PAGE_ICON_START_Y, elrs_wifimode, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     if (wifiMode == WIFI_STA) {
         String host_msg = String(wifi_hostname) + ".local";
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            "open http://", BLACK, WHITE);
+                            "open http://", RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            host_msg, BLACK, WHITE);
+                            host_msg, RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            "by browser", BLACK, WHITE);
+                            "by browser", RGB565_BLACK, RGB565_WHITE);
     }
     else
     {
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            wifi_ap_ssid, BLACK, WHITE);
+                            wifi_ap_ssid, RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            wifi_ap_password, BLACK, WHITE);
+                            wifi_ap_password, RGB565_BLACK, RGB565_WHITE);
         displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                            wifi_ap_address, BLACK, WHITE);
+                            wifi_ap_address, RGB565_BLACK, RGB565_WHITE);
     }
 }
 
 void TFTDisplay::displayBindConfirm()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     gfx->draw16bitRGBBitmap(SUB_PAGE_ICON_START_X, SUB_PAGE_ICON_START_Y, elrs_bind, SCREEN_LARGE_ICON_SIZE, SCREEN_LARGE_ICON_SIZE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y1,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "PRESS TO", BLACK, WHITE);
+                        "PRESS TO", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y2,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "SEND BIND", BLACK, WHITE);
+                        "SEND BIND", RGB565_BLACK, RGB565_WHITE);
     displayFontCenter(SUB_PAGE_WORD_START_X, SCREEN_X, SUB_PAGE_WORD_START_Y3,  SCREEN_NORMAL_FONT_SIZE, SCREEN_NORMAL_FONT,
-                        "REQUEST", BLACK, WHITE);
+                        "REQUEST", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayBindStatus()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     displayFontCenter(SUB_PAGE_BINDING_WORD_START_X, SCREEN_X, SUB_PAGE_BINDING_WORD_START_Y,  SCREEN_LARGE_FONT_SIZE, SCREEN_LARGE_FONT,
-                        "BINDING...", BLACK, WHITE);
+                        "BINDING...", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayRunning()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     displayFontCenter(SUB_PAGE_BINDING_WORD_START_X, SCREEN_X, SUB_PAGE_BINDING_WORD_START_Y,  SCREEN_LARGE_FONT_SIZE, SCREEN_LARGE_FONT,
-                        "RUNNING...", BLACK, WHITE);
+                        "RUNNING...", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displaySending()
 {
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
 
     displayFontCenter(SUB_PAGE_BINDING_WORD_START_X, SCREEN_X, SUB_PAGE_BINDING_WORD_START_Y,  SCREEN_LARGE_FONT_SIZE, SCREEN_LARGE_FONT,
-                        "SENDING...", BLACK, WHITE);
+                        "SENDING...", RGB565_BLACK, RGB565_WHITE);
 }
 
 void TFTDisplay::displayLinkstats()
@@ -395,9 +397,9 @@ void TFTDisplay::displayLinkstats()
     constexpr int16_t LINKSTATS_ROW_FOURTH  = 55;
     constexpr int16_t LINKSTATS_ROW_FIFTH   = 70;
 
-    gfx->fillScreen(WHITE);
+    gfx->fillScreen(RGB565_WHITE);
     gfx->setFont(&SCREEN_SMALL_FONT);
-    gfx->setTextColor(BLACK, WHITE);
+    gfx->setTextColor(RGB565_BLACK, RGB565_WHITE);
 
     gfx->setCursor(LINKSTATS_COL_FIRST, LINKSTATS_ROW_SECOND);
     gfx->print("LQ");
