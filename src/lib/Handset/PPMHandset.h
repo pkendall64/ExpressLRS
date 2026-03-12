@@ -1,7 +1,7 @@
 #pragma once
 #include "handset.h"
 
-#include <driver/rmt.h>
+#include "driver/rmt_rx.h"
 
 class PPMHandset final : public Handset
 {
@@ -11,15 +11,14 @@ public:
     void handleInput() override;
 
 private:
+    static bool recvDoneCb(rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_ctx);
+
     uint32_t lastPPM = 0;
     size_t numChannels = 0;
-    RingbufHandle_t rb = nullptr;
+    rmt_channel_handle_t rx_channel = nullptr;
+    QueueHandle_t recv_queue = nullptr;
+    rmt_symbol_word_t *recv_buf = nullptr;
+    rmt_symbol_word_t *copy_buf = nullptr;
+    size_t copy_count = 0;
+    static constexpr size_t RECV_BUF_SYMBOLS = 128;
 };
-
-#if defined(PLATFORM_ESP32_S3)
-constexpr rmt_channel_t PPM_RMT_CHANNEL = RMT_CHANNEL_4;
-#elif defined(PLATFORM_ESP32_C3)
-constexpr rmt_channel_t PPM_RMT_CHANNEL = RMT_CHANNEL_2;
-#else
-constexpr rmt_channel_t PPM_RMT_CHANNEL = RMT_CHANNEL_0;
-#endif
