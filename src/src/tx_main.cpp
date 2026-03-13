@@ -41,6 +41,10 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 #include <user_interface.h>
 #endif
 
+#if defined(PLATFORM_ESP32_S3)
+USBCDC USBSerial;
+#endif
+
 /// define some libs to use ///
 MSP msp;
 ELRS_EEPROM eeprom;
