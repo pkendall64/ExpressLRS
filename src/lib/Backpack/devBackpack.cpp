@@ -35,6 +35,10 @@ static uint32_t lastPTRValidTimeMs;
 
 #include "hwTimer.h"
 
+#if defined(PLATFORM_ESP32_S3)
+extern USBCDC USBSerial;
+#endif
+
 [[noreturn]] static void startPassthrough(const bool useUSBSerial)
 {
     // stop everything
@@ -50,7 +54,6 @@ static uint32_t lastPTRValidTimeMs;
     if (useUSBSerial)
     {
         uplink = &USBSerial;
-        USBSerial.setTxBufferSize(1024);
         USBSerial.setRxBufferSize(16384);
     }
     else
