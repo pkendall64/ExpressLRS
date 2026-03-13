@@ -5,7 +5,8 @@
 #include "lm75a.h"
 LM75A lm75a;
 #if defined(PLATFORM_ESP32_S3)
-#include "driver/temp_sensor.h"
+#include "driver/temperature_sensor.h"
+static temperature_sensor_handle_t temp_handle;
 #endif
 
 static const uint8_t thermal_threshold_data[] = {
@@ -29,10 +30,9 @@ void Thermal::init()
 #if defined(PLATFORM_ESP32_S3)
     if (status == -1)
     {
-        temp_sensor_config_t temp_sensor = TSENS_CONFIG_DEFAULT();
-        temp_sensor.dac_offset = TSENS_DAC_L2;  //TSENS_DAC_L2 is default   L4(-40℃ ~ 20℃), L2(-10℃ ~ 80℃) L1(20℃ ~ 100℃) L0(50℃ ~ 125℃)
-        temp_sensor_set_config(temp_sensor);
-        temp_sensor_start();
+        temperature_sensor_config_t temp_sensor = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
+        temperature_sensor_install(&temp_sensor, &temp_handle);
+        temperature_sensor_enable(temp_handle);
     }
 #else
     if (status == -1)
@@ -66,7 +66,7 @@ uint8_t Thermal::read_temp()
 
 #if defined(PLATFORM_ESP32_S3)
     float result = 0;
-    temp_sensor_read_celsius(&result);
+    temperature_sensor_get_celsius(temp_handle, &result);
     return static_cast<int>(result);
 #else
     return 0;
