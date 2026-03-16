@@ -62,9 +62,10 @@ void CRSFHandset::Begin()
 #if defined(PLATFORM_ESP32)
     portDISABLE_INTERRUPTS();
     UARTinverted = halfDuplex; // on a full UART we will start uninverted checking first
-    Port.begin(UARTrequestedBaud, SERIAL_8N1,
-                     GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX,
-                     false, 0);
+    // Set the pins on the underlying UART driver as the Arduino 3.x framework does not like being configured with the same pin for TX and RX!
+    uart_set_pin(UART_NUM_0, GPIO_PIN_RCSIGNAL_TX, GPIO_PIN_RCSIGNAL_RX, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    // Finally set up the HardwareSerial, we don't pass the PINs as this causes a lockup, avoided by calling `uart_set_pin`
+    Port.begin(UARTrequestedBaud);
     // Arduino defaults every esp32 stream to a 1000ms timeout which is just baffling
     Port.setTimeout(0);
     if (halfDuplex)
