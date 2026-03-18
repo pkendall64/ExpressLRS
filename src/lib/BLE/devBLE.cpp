@@ -61,8 +61,12 @@ void BluetoothJoystickBegin()
     gamepadConfig.setHatSwitchCount(0);
 
     bleGamepad = new BleGamepad("ELRS Joystick", "ELRS", 100);
-    bleGamepad->setTXPowerLevel(9);
     bleGamepad->begin(&gamepadConfig);
+#if defined(PLATFORM_ESP32_S3) || defined(PLATFORM_ESP32_C3)
+    bleGamepad->setTXPowerLevel(20);
+#else
+    bleGamepad->setTXPowerLevel(9);
+#endif
 
     handset->setRCDataCallback(BluetoothJoystickUpdateValues);
 }
