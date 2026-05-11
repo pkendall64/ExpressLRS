@@ -29,10 +29,10 @@ void BindphraseConfigurable::SetBindPhrase(uint8_t *phrase, size_t phraseLen)
 #elif defined(PLATFORM_ESP32)
         mbedtls_md5_context md5;
         mbedtls_md5_init(&md5);
-        mbedtls_md5_update_ret(&md5, BIND_KEY, sizeof(BIND_KEY)-1);
-        mbedtls_md5_update_ret(&md5, phrase, phraseLen);
-        mbedtls_md5_update_ret(&md5, &BIND_KEY[sizeof(BIND_KEY)-2], 1);
-        mbedtls_md5_finish_ret(&md5, UID_md5);
+        mbedtls_md5_update(&md5, BIND_KEY, sizeof(BIND_KEY)-1);
+        mbedtls_md5_update(&md5, phrase, phraseLen);
+        mbedtls_md5_update(&md5, &BIND_KEY[sizeof(BIND_KEY)-2], 1);
+        mbedtls_md5_finish(&md5, UID_md5);
         mbedtls_md5_free(&md5);
 #endif
     }
