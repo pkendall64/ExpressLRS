@@ -40,6 +40,7 @@ public:
                 uint8_t fskSyncWord1, uint8_t fskSyncWord2, SX12XX_Radio_Number_t radioNumber = SX12XX_Radio_All);
     void SetFrequencyReg(uint32_t freq, SX12XX_Radio_Number_t radioNumber, bool doRx = false, uint32_t rxTime = 0);
     void SetOutputPower(int8_t power, bool isSubGHz = true);
+    static void SetRSSICalibration(bool isSubGHz, SX12XX_Radio_Number_t radioNumber);
     void startCWTest(uint32_t freq, SX12XX_Radio_Number_t radioNumber);
 
 

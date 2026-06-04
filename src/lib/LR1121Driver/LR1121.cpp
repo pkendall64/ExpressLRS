@@ -233,6 +233,8 @@ void LR1121Driver::Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t regfreq,
 
     SetFrequencyReg(regfreq, radioNumber, false);
 
+    SetRSSICalibration(isSubGHz, radioNumber);
+
     ClearIrqStatus(radioNumber);
 
     SetPaConfig(isSubGHz, radioNumber); // Must be called after changing rf modes between subG and 2.4G.  This sets the correct rf amps, and txen pins to be used.
@@ -338,6 +340,13 @@ void LR1121Driver::CorrectRegisterForSF6(uint8_t sf, SX12XX_Radio_Number_t radio
         wrbuf[11] = 0x00;
         hal.WriteCommand(LR11XX_REGMEM_WRITE_REGMEM32_MASK_OC, wrbuf, sizeof(wrbuf), radioNumber);
     }
+}
+
+void LR1121Driver::SetRSSICalibration(const bool isSubGHz, const SX12XX_Radio_Number_t radioNumber)
+{
+    static uint8_t calBuf900[] {0x22,0x32,0x43,0x45,0x64,0x55,0x66,0x76,0x06,0x00,0x00};
+    static uint8_t calBuf2G4[] {0x76,0x46,0x43,0xCE,0xCE,0xCC,0x8C,0x98,0x09,0x07,0xEE};
+    hal.WriteCommand(LR11XX_RADIO_SET_RSSI_CALIBRATION_OC, isSubGHz ? calBuf900 : calBuf2G4, sizeof(calBuf900), radioNumber);
 }
 
 /***
