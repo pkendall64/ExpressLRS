@@ -57,6 +57,7 @@ export default defineConfig(({ command, mode }) => {
       legalComments: 'none'
     },
     build: {
+      target: 'es2022',
       rolldownOptions: {
         input: {
           app: path.resolve(__dirname, 'index.html'),
