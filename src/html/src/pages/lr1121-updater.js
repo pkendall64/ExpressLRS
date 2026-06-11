@@ -118,8 +118,6 @@ export class LR1121Updater extends LitElement {
     }
 
     _reset(e) {
-        e.preventDefault()
-        e.stopPropagation()
         return postWithFeedback('LR1121 Reset', 'Reset failed', '/reset?lr1121', null)(e)
     }
 

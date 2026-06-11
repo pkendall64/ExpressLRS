@@ -319,7 +319,6 @@ class ConnectionsPanel extends LitElement {
     }
 
     _savePwmConfig(e) {
-        e.preventDefault()
         const data = this._getPwmFormData(true)
         saveConfig({'pwm': data}, () => this.requestUpdate())
     }

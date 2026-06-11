@@ -7,9 +7,8 @@ import {autocomplete} from "../utils/autocomplete.js"
 @customElement('wifi-panel')
 class WifiPanel extends LitElement {
 
+    @query('#network') accessor network
     @query('#sethome') accessor form
-    @query('[name="network"]') accessor network
-    @query('[name="password"]') accessor password
 
     @state() accessor selectedValue = '0'
     @state() accessor showLoader = true
@@ -93,18 +92,18 @@ class WifiPanel extends LitElement {
                     <div id="credentials" ?hidden="${this.selectedValue === '2' || this.selectedValue === '3'}">
                         <div class="autocomplete mui-textfield" style="position:relative;">
                             <div style="display: ${this.showLoader ? 'block' : 'none'};" class="loader"></div>
-                            <input id="ssid" name="network" type="text" placeholder="SSID" autocomplete="off"
+                            <input id="network" name="network" type="text" placeholder="SSID" autocomplete="off"
                                 .value="${this.wifiSsid}"
                                 @input="${(e) => this.wifiSsid = e.target.value}"
                             />
-                            <label for="ssid">WiFi SSID</label>
+                            <label for="network">WiFi SSID</label>
                         </div>
                         <div class="mui-textfield">
-                            <input id="pwd" size='64' name='password' type=${this.passwordVisible ? 'text' : 'password'}
+                            <input id="password" size='64' name='password' type=${this.passwordVisible ? 'text' : 'password'}
                                 .value="${this.wifiPassword}"
                                 @input="${(e) => this.wifiPassword = e.target.value}"
                             />
-                            <label for="pwd">WiFi password</label>
+                            <label for="password">WiFi password</label>
                             <span
                                 @click=${this._togglePasswordVisibility}
                                 style="position:absolute; right:1px; top:50%;">
@@ -140,7 +139,6 @@ class WifiPanel extends LitElement {
     }
 
     _setupNetwork(event) {
-        event.preventDefault()
         const self = this
         switch (this.selectedValue) {
             case '0':

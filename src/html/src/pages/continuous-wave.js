@@ -31,43 +31,41 @@ export class ContinuousWave extends LitElement {
                 measured value below. This will be used to calculate the accuracy of the crystal used in the device
                 and
                 how far it differs from the ideal frequency.
-                <form class="mui-form">
-                    ${this.data?.radios === 2 ? html`
-                        <div class="mui-radio">
-                            <input id="radio1"
-                                   type="radio"
-                                   name="optionsRadios"
-                                   value="1"
-                                   ?disabled=${this.started}
-                                   checked>
-                            <label for="radio1">Radio 1</label>
-                        </div>
-                        <div class="mui-radio">
-                            <input id="radio2"
-                                   type="radio"
-                                   name="optionsRadios"
-                                   value="2"
-                                   ?disabled=${this.started}>
-                            <label for="radio2">Radio 2</label>
-                        </div>
-                    ` : html``}
-                    <!-- FEATURE:HAS_LR1121 -->
-                    ${elrsState.settings.has_high_band && elrsState.settings.has_low_band && this.data ? html`
-                        <div class="mui-checkbox">
-                            <input type="checkbox"
-                                   name="setSubGHz"
-                                   id="optionsSetSubGHz"
-                                   ?disabled=${this.started}
-                                   @click="${this._updateFreq}">
-                            <label for="optionsSetSubGHz">Set continuous wave center frequency to ${(this.data.center / 1000000)} MHz</label>
-                        </div>
-                    ` : ''}
-                    <!-- /FEATURE:HAS_LR1121 -->
-                    <br>
-                    <button class="mui-btn mui-btn--primary" ?disabled=${this.started} @click="${this._startCW}">
-                        Start Continuous Wave
-                    </button>
-                </form>
+                ${this.data?.radios === 2 ? html`
+                    <div class="mui-radio">
+                        <input id="radio1"
+                               type="radio"
+                               name="optionsRadios"
+                               value="1"
+                               ?disabled=${this.started}
+                               checked>
+                        <label for="radio1">Radio 1</label>
+                    </div>
+                    <div class="mui-radio">
+                        <input id="radio2"
+                               type="radio"
+                               name="optionsRadios"
+                               value="2"
+                               ?disabled=${this.started}>
+                        <label for="radio2">Radio 2</label>
+                    </div>
+                ` : html``}
+                <!-- FEATURE:HAS_LR1121 -->
+                ${elrsState.settings.has_high_band && elrsState.settings.has_low_band && this.data ? html`
+                    <div class="mui-checkbox">
+                        <input type="checkbox"
+                               name="setSubGHz"
+                               id="optionsSetSubGHz"
+                               ?disabled=${this.started}
+                               @click="${this._updateFreq}">
+                        <label for="optionsSetSubGHz">Set continuous wave center frequency to ${(this.data.center / 1000000)} MHz</label>
+                    </div>
+                ` : ''}
+                <!-- /FEATURE:HAS_LR1121 -->
+                <br>
+                <button class="mui-btn mui-btn--primary" ?disabled=${this.started} @click="${this._startCW}">
+                    Start Continuous Wave
+                </button>
                 <br>
                 <div class="mui-textfield">
                     <input id="measured" type='number' required @input="${this._measured}"
@@ -147,8 +145,6 @@ export class ContinuousWave extends LitElement {
     }
 
     _startCW(e) {
-        e.stopPropagation()
-        e.preventDefault()
         this.started = true
         const formdata = new FormData()
         formdata.append('radio', this.radio2?.checked ? 2 : 1)

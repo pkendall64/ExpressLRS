@@ -9,10 +9,10 @@ class BindingPanel extends LitElement {
 
     @state() accessor uid = []
     @state() accessor bindType = 0
-    @state() accessor uidData = {}
-
+    @state() accessor uidType = ''
+    @state() accessor originalUID = []
+    @state() accessor originalBindType = 0
     originalUIDType = ''
-    originalUID = []
 
     constructor() {
         super()
@@ -21,6 +21,7 @@ class BindingPanel extends LitElement {
         this.uid = elrsState.config.uid
         this.bindType = elrsState.config.vbind
         this.originalUID = elrsState.config.uid
+        this.originalBindType = elrsState.config.vbind
         this.originalUIDType = (elrsState.settings && elrsState.settings.uidtype) ? elrsState.settings.uidtype : ''
         this._updateUIDType(this.originalUIDType)
     }
@@ -33,52 +34,50 @@ class BindingPanel extends LitElement {
         return html`
             <div class="mui-panel mui--text-title">Binding</div>
             <div class="mui-panel">
-                <form class="mui-form">
-                    <!-- FEATURE:NOT IS_TX -->
-                    <div class="mui-select">
-                        <select @change="${(e) => {this.bindType = parseInt(e.target.value)}}" .value="${this.bindType}" >
-                            <option value="0">Persistent (Default) - Bind information is stored across reboots
-                            </option>
-                            <option value="1">Volatile - Never store bind information across reboots</option>
-                            <option value="2">Returnable - Unbinding a receiver reverts to flashed binding phrase
-                            </option>
-                            <option value="3">Administered - Binding information can only be edited through web UI
-                            </option>
-                        </select>
-                        <label>Binding storage</label>
-                    </div>
-                    <!-- /FEATURE:NOT IS_TX -->
-                    ${this.bindType !== 1 ? html`
-                        <div>
-                            Enter a new binding phrase to replace the current binding information.
-                            This will persist across reboots, but <b>will be reset</b> if the firmware is flashed with a
-                            binding phrase.
-                            Note: The Binding phrase is not remembered; it is a temporary field used to generate the
-                            binding UID.
-                            You may also enter a binding UID directly (as six comma-separated numbers), which will be
-                            copied to the UID field and used as-is.
-                            <br/><br/>
-                            <div class="mui-textfield">
-                                <input type="text" id="phrase" placeholder="Binding Phrase"
-                                       @input="${this._updateBindingPhrase}"/>
-                                <label for="phrase">Binding Phrase</label>
-                            </div>
-                        </div>
+                <!-- FEATURE:NOT IS_TX -->
+                <div class="mui-select">
+                    <select @change="${(e) => {this.bindType = parseInt(e.target.value)}}" .value="${this.bindType}" >
+                        <option value="0">Persistent (Default) - Bind information is stored across reboots
+                        </option>
+                        <option value="1">Volatile - Never store bind information across reboots</option>
+                        <option value="2">Returnable - Unbinding a receiver reverts to flashed binding phrase
+                        </option>
+                        <option value="3">Administered - Binding information can only be edited through web UI
+                        </option>
+                    </select>
+                    <label>Binding storage</label>
+                </div>
+                <!-- /FEATURE:NOT IS_TX -->
+                ${this.bindType !== 1 ? html`
+                    <div>
+                        Enter a new binding phrase to replace the current binding information.
+                        This will persist across reboots, but <b>will be reset</b> if the firmware is flashed with a
+                        binding phrase.
+                        Note: The Binding phrase is not remembered; it is a temporary field used to generate the
+                        binding UID.
+                        You may also enter a binding UID directly (as six comma-separated numbers), which will be
+                        copied to the UID field and used as-is.
+                        <br/><br/>
                         <div class="mui-textfield">
-                            ${this.bindType !== 1 ? html`
-                                <span class="badge" id="uid-type"
-                                      style="background-color: ${this.uidData.bg}; color: ${this.uidData.fg}">${this.uidData.uidtype}</span>
-                            ` : ''}
-                            <input size='40' type='text' class='array' readonly
-                                   value="${this.uid}"/>
-                            <label>Binding UID</label>
+                            <input type="text" id="phrase" placeholder="Binding Phrase"
+                                   @input="${this._updateBindingPhrase}"/>
+                            <label for="phrase">Binding Phrase</label>
                         </div>
-                    ` : ''}
-                    <button class="mui-btn mui-btn--primary"
-                            ?disabled=${!this.checkChanged()}
-                            @click="${this._submitOptions}">Save
-                    </button>
-                </form>
+                    </div>
+                    <div class="mui-textfield">
+                        ${this.bindType !== 1 ? html`
+                            <span class="badge" id="uid-type"
+                                  style="background-color: ${this.uidData.bg}; color: ${this.uidData.fg}">${this.uidData.uidtype}</span>
+                        ` : ''}
+                        <input size='40' type='text' class='array' readonly
+                               value="${this.uid}"/>
+                        <label>Binding UID</label>
+                    </div>
+                ` : ''}
+                <button class="mui-btn mui-btn--primary"
+                        ?disabled=${!this.checkChanged()}
+                        @click="${this._submitOptions}">Save
+                </button>
             </div>
         `
     }
@@ -132,43 +131,43 @@ class BindingPanel extends LitElement {
         'RX_BOUND': { bg: '#1976D2', fg: 'white', uidtype: 'Bound', desc: 'This receiver is bound and will boot waiting for connection' }
     }
 
-    _updateUIDType(uidtype) {
+    get uidData() {
         let config
 
-        if (!uidtype || uidtype.startsWith('Not set')) {
+        if (!this.uidType || this.uidType.startsWith('Not set')) {
             config = this.#UID_CONFIG.DEFAULT_NOT_SET
         }
-        else if (this.#UID_CONFIG[uidtype]) {
-            config = this.#UID_CONFIG[uidtype]
+        else if (this.#UID_CONFIG[this.uidType]) {
+            config = this.#UID_CONFIG[this.uidType]
         }
         else {
             const configKey = this.uid.toString().endsWith('0,0,0,0') ? 'RX_NOT_BOUND' : 'RX_BOUND'
             config = this.#UID_CONFIG[configKey]
         }
 
-        this.uidData = {
-            uidtype: config.uidtype || uidtype,
+        return {
+            uidtype: config.uidtype || this.uidType,
             bg: config.bg,
             fg: config.fg,
             desc: config.desc
         }
     }
 
-    _submitOptions(e) {
-        e.stopPropagation()
-        e.preventDefault()
+    _updateUIDType(uidtype) {
+        this.uidType = uidtype
+    }
 
+    _submitOptions() {
         // FEATURE:IS_TX
         let tx_changes = {
             customised: true,
             uid: this.uid
         }
         saveOptions(tx_changes, () => {
-            this.originalUID = this.uid
+            this.originalUID = [...this.uid]
             this.originalUIDType = 'Overridden'
             this.phrase.value = ''
             this._updateUIDType(this.originalUIDType)
-            return this.requestUpdate()
         })
         // /FEATURE:IS_TX
         // FEATURE:NOT IS_TX
@@ -177,19 +176,21 @@ class BindingPanel extends LitElement {
             vbind: this.bindType
         }
         saveConfig(rx_changes, () => {
+            this.originalBindType = this.bindType
             if (this.bindType !== 1) {
-                this.originalUID = this.uid
+                this.originalUID = [...this.uid]
                 this.originalUIDType = 'Overridden'
                 this.phrase.value = ''
                 this._updateUIDType(this.originalUIDType)
             }
-            return this.requestUpdate()
         })
         // /FEATURE:NOT IS_TX
     }
 
     checkChanged() {
-        return this.bindType !== elrsState.config.vbind || this.uidData.uidtype === 'Modified'
+        const bindTypeChanged = this.bindType !== this.originalBindType
+        const uidChanged = this.uid.toString() !== this.originalUID.toString()
+        return bindTypeChanged || uidChanged
     }
 
 }

@@ -38,22 +38,20 @@ class ButtonsPanel extends LitElement {
                 <p>
                     Specify which actions to perform when clicking or long pressing module buttons.
                 </p>
-                <form class="mui-form">
-                    ${this.buttonActions.length ? html`
-                        <table class="mui-table">
-                            <tbody id="button-actions">
-                            ${this.buttonActions.map((button, b) =>
-                                    button.action.map((v, p) => this._appendButtonActionRow(b, p, v))
-                            )}
-                            </tbody>
-                        </table>
-                    ` : ``}
-                    ${this._renderColorInput(0, 'User button 1 color')}
-                    ${this._renderColorInput(1, 'User button 2 color')}
-                    <button class="mui-btn mui-btn--primary" @click="${this._submitButtonActions}"
-                            ?disabled=${this._isSaveDisabled()}>Save
-                    </button>
-                </form>
+                ${this.buttonActions.length ? html`
+                    <table class="mui-table">
+                        <tbody id="button-actions">
+                        ${this.buttonActions.map((button, b) =>
+                                button.action.map((v, p) => this._appendButtonActionRow(b, p, v))
+                        )}
+                        </tbody>
+                    </table>
+                ` : ``}
+                ${this._renderColorInput(0, 'User button 1 color')}
+                ${this._renderColorInput(1, 'User button 2 color')}
+                <button class="mui-btn mui-btn--primary" @click="${this._submitButtonActions}"
+                        ?disabled=${this._isSaveDisabled()}>Save
+                </button>
             </div>
         `
     }
@@ -115,7 +113,6 @@ class ButtonsPanel extends LitElement {
     }
 
     _submitButtonActions(e) {
-        e.preventDefault()
         saveConfig({'button-actions': this.buttonActions}, () => {
             this._refreshButtonActionsJson()
             this.loadedButtonActionsJson = this.currentButtonActionsJson
