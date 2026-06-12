@@ -1,3 +1,8 @@
+:root {
+    --drawer-width: 250px;
+    --footer-height: 36px;
+}
+
 /**
  * Body CSS
  */
@@ -27,11 +32,6 @@ button {
     left: 0;
     z-index: 2;
     transition: left 0.2s;
-}
-
-:root {
-    --drawer-width: 250px;
-    --footer-height: 36px;
 }
 
 #sidedrawer {
@@ -173,6 +173,7 @@ body.hide-sidedrawer #footer {
     padding: 8px 12px;
     color: inherit;
     text-decoration: none;
+    outline: none;
 }
 #sidedrawer a:hover {
     background-color: #F2F2F2;

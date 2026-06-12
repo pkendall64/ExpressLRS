@@ -1,5 +1,5 @@
 import {html, LitElement, nothing} from 'lit'
-import {customElement, state} from 'lit/decorators.js'
+import {customElement, query, state} from 'lit/decorators.js'
 import {loadJSON, postWithFeedback, saveJSONWithReboot} from '../utils/feedback.js'
 import '../components/filedrag.js'
 import HARDWARE_SCHEMA from '../utils/hardware-schema.js'
@@ -8,6 +8,7 @@ import {_arrayInput, _floatInput, _intInput, _uintInput} from "../utils/libs.js"
 @customElement('hardware-layout')
 export class HardwareLayout extends LitElement {
 
+    @query("#upload_hardware") accessor form;
     @state() accessor customised = false
     @state() accessor loadedHardwareJson = null
     @state() accessor currentHardwareJson = '{}'
@@ -139,8 +140,7 @@ export class HardwareLayout extends LitElement {
 
     _onFileDrop(e) {
         const files = e.detail.files
-        const form = this._field('upload_hardware')
-        if (form) form.reset()
+        if (this.form) this.form.reset()
         for (const file of files) {
             const reader = new FileReader()
             reader.onload = (ev) => {
@@ -155,12 +155,9 @@ export class HardwareLayout extends LitElement {
         for (const [key, value] of Object.entries(data)) {
             const el = this._field(key)
             if (el) {
-                if (el.type === 'checkbox') {
-                    el.checked = !!value
-                } else {
-                    if (Array.isArray(value)) el.value = value.toString()
-                    else el.value = value
-                }
+                if (el.type === 'checkbox') el.checked = !!value
+                else if (Array.isArray(value)) el.value = value.toString()
+                else el.value = value
             }
         }
         this.currentHardwareJson = this._serializeCurrentConfig()
@@ -171,6 +168,7 @@ export class HardwareLayout extends LitElement {
         // Use shared helper that prompts for reboot on success
         saveJSONWithReboot('Upload Succeeded', 'Upload Failed', '/hardware.json', {...JSON.parse(body), "customised": true}, () => {
             this.loadedHardwareJson = body
+            this.customised = true
         })
         return false
     }
@@ -180,9 +178,8 @@ export class HardwareLayout extends LitElement {
     }
 
     _serializeCurrentConfig() {
-        const form = this._field('upload_hardware')
-        if (!form) return '{}'
-        const formData = new FormData(form)
+        if (!this.form) return '{}'
+        const formData = new FormData(this.form)
         return JSON.stringify(Object.fromEntries(formData), (k, v) => {
             if (v === '') return undefined
             const el = this._field(k)
