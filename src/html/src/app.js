@@ -135,14 +135,13 @@ export class App extends LitElement {
 
     // UI utilities and drawer DOM helpers
     scrollMainToTop() {
-        const doScroll = (behavior = 'smooth') => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
             try {
-                window.scrollTo({top: 0, left: 0, behavior})
+                window.scrollTo({top: 0, left: 0, behavior: 'smooth'})
             } catch {
                 window.scrollTo(0, 0)
             }
-        }
-        requestAnimationFrame(() => requestAnimationFrame(() => doScroll('smooth')))
+        }))
     }
 
     getOverlayElement() {
@@ -156,28 +155,18 @@ export class App extends LitElement {
         this.sideDrawer?.classList.remove('active')
     }
 
-    setActiveMenu(route) {
-        if (this.sideDrawer) {
-            const links = this.sideDrawer.querySelectorAll('a[href^="#"]')
-            links.forEach(a => a.classList.remove('active'))
-        }
-        const id = 'menu-' +route
-        const el = id ? (this.querySelector(`#${id}`) || document.getElementById(id)) : null
-        if (el) el.classList.add('active')
-    }
+
 
     // Route content rendering and lazy-loading
     _generateMenu() {
-        return Object.entries(APP_MENU).map((item) => {
-            return html`
-                <li>
-                    <strong>${item[0]}</strong>
-                    <ul>
-                        ${this._generateSubMenu(item[1])}
-                    </ul>
-                </li>
-            `
-        })
+        return Object.entries(APP_MENU).map(([group, subMenu]) => html`
+            <li>
+                <strong>${group}</strong>
+                <ul>
+                    ${this._generateSubMenu(subMenu)}
+                </ul>
+            </li>
+        `)
     }
 
     _generateSubMenu(item) {
@@ -185,7 +174,7 @@ export class App extends LitElement {
             if (entry.when === undefined || entry.when()) {
                 return html`
                     <li>
-                        <a id="menu-${route}" href="#${route}"><span class="mui--align-middle menu-icon">${entry.icon}</span>${entry.label}</a>
+                        <a id="menu-${route}" href="#${route}" class="${route === this.currentRoute ? 'active' : ''}"><span class="mui--align-middle menu-icon">${entry.icon}</span>${entry.label}</a>
                     </li>
                 `
             }
@@ -281,7 +270,6 @@ export class App extends LitElement {
     renderRoute() {
         const route = (location.hash || '#info').replace('#', '')
         if (this.currentRoute && route === this.currentRoute) {
-            this.setActiveMenu(route)
             return Promise.resolve()
         }
 
@@ -299,24 +287,19 @@ export class App extends LitElement {
                 if (this.currentRoute && this.currentRoute !== route && hash !== location.hash) {
                     location.hash = hash
                 }
-                this.setActiveMenu(this.currentRoute || route)
                 return
             }
 
-            this.setActiveMenu(route)
             return this.closeSidedrawer().then(() => this.ensureLoadedForRoute(route)).then(() => {
-                let rendered = false
-                return this.runWithSettingsRetry('Loading panel data...', () => {
-                    return (rendered || !this.currentRoute
-                        ? Promise.resolve()
-                        : this.waitForElementTransition(this.mainEl, () => this.mainEl.classList.add('route-fade-out')))
-                        .then(() => rendered || (this.currentRoute = route) && this.updateComplete)
-                        .then(() => rendered || (rendered = true) && this.animateMainIn())
-                        .then(() => this.mainEl?.firstElementChild?.pageReady?.())
-                        .then(() => {
-                            this.scrollMainToTop()
-                            return true
-                        })
+                return this.runWithSettingsRetry('Loading panel data...', async () => {
+                    if (this.currentRoute) {
+                        await this.waitForElementTransition(this.mainEl, () => this.mainEl.classList.add('route-fade-out'))
+                    }
+                    this.currentRoute = route
+                    await this.updateComplete
+                    await this.animateMainIn()
+                    await this.mainEl?.firstElementChild?.pageReady?.()
+                    this.scrollMainToTop()
                 })
             })
         })

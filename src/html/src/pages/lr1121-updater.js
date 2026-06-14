@@ -1,17 +1,15 @@
 import {html, LitElement} from 'lit'
-import {customElement, query, state} from 'lit/decorators.js'
+import {customElement, state} from 'lit/decorators.js'
 import '../components/filedrag.js'
 import {loadJSON, post, postWithFeedback, showAlert} from "../utils/feedback.js"
 import {overlay} from '../utils/overlay.js'
 
 @customElement('lr1121-updater')
 export class LR1121Updater extends LitElement {
-    @query('#radio2') accessor radio2
-
     @state() accessor data = undefined
     @state() accessor status = ''
     @state() accessor progress = 0
-    @state() accessor manual = false
+    @state() accessor selectedRadio = '1'
     loadPromise = null
 
     createRenderRoot() {
@@ -25,7 +23,7 @@ export class LR1121Updater extends LitElement {
     render() {
         return html`
             <div class="mui-panel mui--text-title">LR1121 Firmware Flashing</div>
-            <div class="mui-panel" style="display: ${this.manual ? 'block' : 'none'}; background-color: #FFC107;">
+            <div class="mui-panel" style="display: ${this.data?.manual ? 'block' : 'none'}; background-color: #FFC107;">
                 LR1121 firmware has been manually flashed before, to revert to the ExpressLRS provided version you can
                 click the button below.<br>
                 <button class="mui-btn mui-btn--small" @click=${this._reset}>Reset and reboot</button>
@@ -46,14 +44,14 @@ export class LR1121Updater extends LitElement {
     }
 
     _renderRadios() {
-        if (!this.data?.radio2) return html``
+        if (!this.data?.radio2) return ''
         return html`
             <div class="mui-radio">
-                <input id="radio1" type="radio" name="optionsRadio" value="1" checked>
+                <input id="radio1" type="radio" name="optionsRadio" value="1" .checked=${this.selectedRadio === '1'} @change=${() => this.selectedRadio = '1'}>
                 <label for="radio1">Update Radio 1</label>
             </div>
             <div class="mui-radio">
-                <input id="radio2" type="radio" name="optionsRadio" value="2">
+                <input id="radio2" type="radio" name="optionsRadio" value="2" .checked=${this.selectedRadio === '2'} @change=${() => this.selectedRadio = '2'}>
                 <label for="radio2">Update Radio 2</label>
             </div>
         `
@@ -103,7 +101,6 @@ export class LR1121Updater extends LitElement {
             this.loadPromise = loadJSON('/lr1121.json', 'Failed to load LR1121 firmware status.')
                 .then((data) => {
                     this.data = data
-                    this.manual = !!data.manual
                 }, (error) => {
                     this.loadPromise = null
                     throw error
@@ -129,7 +126,7 @@ export class LR1121Updater extends LitElement {
     _uploadFile(file) {
         overlay('on', {keyboard: false, static: true})
         post('/lr1121', file, {
-            headers: {'X-Radio': document.querySelector('input[name=optionsRadio]:checked')?.value || '1'},
+            headers: {'X-Radio': this.selectedRadio},
             onprogress: this._progressHandler,
             onload: this._completeHandler,
             onerror: this._errorHandler,

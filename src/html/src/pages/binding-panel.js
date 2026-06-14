@@ -1,12 +1,11 @@
 import {html, LitElement} from "lit"
-import {customElement, query, state} from "lit/decorators.js"
+import {customElement, state} from "lit/decorators.js"
 import {elrsState, saveConfig, saveOptions} from "../utils/state.js"
 import {calcMD5} from "../utils/md5.js"
 
 @customElement('binding-panel')
 class BindingPanel extends LitElement {
-    @query('#phrase') accessor phrase
-
+    @state() accessor phrase = ''
     @state() accessor uid = []
     @state() accessor bindType = 0
     @state() accessor uidType = ''
@@ -60,6 +59,7 @@ class BindingPanel extends LitElement {
                         <br/><br/>
                         <div class="mui-textfield">
                             <input type="text" id="phrase" placeholder="Binding Phrase"
+                                   .value="${this.phrase}"
                                    @input="${this._updateBindingPhrase}"/>
                             <label for="phrase">Binding Phrase</label>
                         </div>
@@ -105,12 +105,12 @@ class BindingPanel extends LitElement {
     }
 
     _updateBindingPhrase(e) {
-        let text = e.target.value
-        if (text.length === 0) {
+        this.phrase = e.target.value
+        if (this.phrase.length === 0) {
             this.uid = this.originalUID
             this._updateUIDType(this.originalUIDType)
         } else {
-            this.uid = this._uidBytesFromText(text.trim())
+            this.uid = this._uidBytesFromText(this.phrase.trim())
             this._updateUIDType('Modified')
         }
     }
@@ -166,7 +166,7 @@ class BindingPanel extends LitElement {
         saveOptions(tx_changes, () => {
             this.originalUID = [...this.uid]
             this.originalUIDType = 'Overridden'
-            this.phrase.value = ''
+            this.phrase = ''
             this._updateUIDType(this.originalUIDType)
         })
         // /FEATURE:IS_TX
@@ -180,7 +180,7 @@ class BindingPanel extends LitElement {
             if (this.bindType !== 1) {
                 this.originalUID = [...this.uid]
                 this.originalUIDType = 'Overridden'
-                this.phrase.value = ''
+                this.phrase = ''
                 this._updateUIDType(this.originalUIDType)
             }
         })
