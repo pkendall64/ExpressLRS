@@ -1,5 +1,5 @@
 import {html, LitElement} from "lit"
-import {customElement, state} from "lit/decorators.js"
+import {customElement, property, state} from "lit/decorators.js"
 import {post, showAlert, saveJSONWithReboot} from "../utils/feedback.js"
 import {loadHardware, setHardwareState} from "../utils/state.js"
 
@@ -184,6 +184,7 @@ class SerializedSampleQueue {
 
 @customElement('voltage-calibration-panel')
 class VoltageCalibrationPanel extends LitElement {
+    @property() accessor icon
     @state() accessor sources = []
     @state() accessor selectedSource = null
     @state() accessor step = STEP_HIGH
@@ -270,7 +271,7 @@ class VoltageCalibrationPanel extends LitElement {
                 <div class="alert-frame wizard" @click=${(e) => e.stopPropagation()}>
                     <div class="alert-header">
                             <div class="alert-title-row">
-                                <span class="alert-title-icon icon--symbols icon--symbols--voltage" aria-hidden="true"></span>
+                                <span class="alert-title-icon menu-icon" aria-hidden="true">${this.icon}</span>
                                 <div class="wizard-title mui--text-title">${this.selectedSource?.label} Calibration</div>
                             </div>
                         <span class="alert-close" @click=${this._resetWizard}>X</span>

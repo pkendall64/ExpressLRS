@@ -5,10 +5,9 @@ import {initMuiSelect} from './utils/select.js'
 import {elrsState, formatBand} from './utils/state.js'
 import {overlay} from './utils/overlay.js'
 import './components/elrs-footer.js'
-
-import './pages/info-panel.js'
 import {hideLoadingOverlay, loadJSON, showConfirm, showLoadingOverlay} from "./utils/feedback.js"
 import {_} from "./utils/libs.js"
+import APP_MENU from "./menu.js";
 
 @customElement('elrs-app')
 export class App extends LitElement {
@@ -52,43 +51,7 @@ export class App extends LitElement {
                 </div>
                 <div class="mui-divider"></div>
                 <ul>
-                    <li>
-                        <strong>General</strong>
-                        <ul>
-                            <li><a id="menu-info" href="#info"><span class="mui--align-middle icon--symbols icon--symbols--info"></span>Information</a></li>
-                            <li><a id="menu-bind" href="#bind"><span class="mui--align-middle icon--symbols icon--symbols--bind"></span>Binding</a></li>
-                            <li><a id="menu-options" href="#options"><span class="mui--align-middle icon--symbols icon--symbols--options"></span>Options</a></li>
-                            <!-- FEATURE:IS_TX -->
-                            ${elrsState.config['button-actions'] && elrsState.config['button-actions'].length !== 0 ? html`
-                                <li><a id="menu-buttons" href="#buttons"><span class="mui--align-middle icon--symbols icon--symbols--buttons"></span>Buttons</a></li>
-                            ` : ''}
-                            <li><a id="menu-models" href="#models"><span class="mui--align-middle icon--symbols icon--symbols--models"></span>Import/Export</a></li>
-                            <!-- /FEATURE:IS_TX -->
-                            <!-- FEATURE:NOT IS_TX -->
-                            ${elrsState.config.pwm !== undefined ? html`
-                            <li><a id="menu-connections" href="#connections"><span class="mui--align-middle icon--symbols icon--symbols--connections"></span>Connections</a></li>
-                            ` : ''}
-                            <li><a id="menu-serial" href="#serial"><span class="mui--align-middle icon--symbols icon--symbols--serial"></span>Serial</a></li>
-                            <!-- /FEATURE:NOT IS_TX -->
-                            <li><a id="menu-wifi" href="#wifi"><span class="mui--align-middle icon--symbols icon--symbols--wifi"></span>WiFi</a></li>
-                            <li><a id="menu-update" href="#update"><span class="mui--align-middle icon--symbols icon--symbols--update"></span>Update</a></li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong>Advanced</strong>
-                        <ul>
-                            <li><a id="menu-hardware" href="#hardware"><span class="mui--align-middle icon--symbols icon--symbols--hardware"></span>Hardware Layout</a></li>
-                            <!-- FEATURE:NOT IS_TX -->
-                            ${elrsState.settings?.voltage_source_count > 0 ? html`
-                                <li><a id="menu-voltage" href="#voltage"><span class="mui--align-middle icon--symbols icon--symbols--voltage"></span>Voltage Calibration</a></li>
-                            ` : ''}
-                            <!-- /FEATURE:NOT IS_TX -->
-                            <li><a id="menu-wave" href="#wave"><span class="mui--align-middle icon--symbols icon--symbols--wave"></span>Continuous Wave</a></li>
-                            <!-- FEATURE:HAS_LR1121 -->
-                            <li><a id="menu-lr1121" href="#lr1121"><span class="mui--align-middle icon--symbols icon--symbols--lr1121"></span>LR1121 Firmware</a></li>
-                            <!-- /FEATURE:HAS_LR1121 -->
-                        </ul>
-                    </li>
+                    ${this._generateMenu()}
                 </ul>
             </div>
             <header id="header" class="mui-appbar elrs-header">
@@ -204,81 +167,59 @@ export class App extends LitElement {
     }
 
     // Route content rendering and lazy-loading
-    buildRouteContent(route) {
-        switch (route) {
-            case 'info':
-                return html`<info-panel></info-panel>`
-            case 'binding':
-                return html`<binding-panel></binding-panel>`
-            case 'options':
-            // FEATURE:IS_TX
-                return html`<tx-options-panel></tx-options-panel>`
-            // /FEATURE:IS_TX
-            // FEATURE:NOT IS_TX
-                return html`<rx-options-panel></rx-options-panel>`
-            // /FEATURE:NOT IS_TX
-            case 'wifi':
-                return html`<wifi-panel></wifi-panel>`
-            case 'update':
-                return html`<update-panel></update-panel>`
-            // FEATURE:NOT IS_TX
-            case 'connections':
-                return elrsState.config.pwm !== undefined ? html`<connections-panel></connections-panel>` : null
-            case 'serial':
-                return html`<serial-panel></serial-panel>`
-            case 'voltage':
-                return elrsState.settings?.voltage_source_count > 0 ? html`<voltage-calibration-panel></voltage-calibration-panel>` : null
-            // /FEATURE:NOT IS_TX
-            // FEATURE:IS_TX
-            case 'buttons':
-                return html`<buttons-panel></buttons-panel>`
-            // /FEATURE:IS_TX
-            case 'hardware':
-                return html`<hardware-layout></hardware-layout>`
-            case 'cw':
-                return html`<continuous-wave></continuous-wave>`
-            case 'models':
-                return html`<models-panel></models-panel>`
-            // FEATURE:HAS_LR1121
-            case 'lr1121':
-                return html`<lr1121-updater></lr1121-updater>`
-            // /FEATURE:HAS_LR1121
-            default:
-                return null
-        }
+    _generateMenu() {
+        return Object.entries(APP_MENU).map((item) => {
+            return html`
+                <li>
+                    <strong>${item[0]}</strong>
+                    <ul>
+                        ${this._generateSubMenu(item[1])}
+                    </ul>
+                </li>
+            `
+        })
     }
 
-    generalGroupLoaded = false
-    advancedGroupLoaded = false
+    _generateSubMenu(item) {
+        return Object.entries(item).map(([route, entry]) => {
+            if (entry.when === undefined || entry.when()) {
+                return html`
+                    <li>
+                        <a id="menu-${route}" href="#${route}"><span class="mui--align-middle menu-icon">${entry.icon}</span>${entry.label}</a>
+                    </li>
+                `
+            }
+        })
+    }
 
-    loadGeneralGroup() {
-        if (this.generalGroupLoaded) return Promise.resolve()
+    loadedGroups = []
+    _ensureLoaded(group) {
+        if (this.loadedGroups.includes(group)) return Promise.resolve()
         return showLoadingOverlay('Loading...')
-            .then(() => import('./page-groups/general-group.js'))
+            .then(() => import(`./page-groups/${group}-group.js`))
             .finally(() => {
                 hideLoadingOverlay()
-                this.generalGroupLoaded = true
+                this.loadedGroups.push(group)
             })
     }
 
-    loadAdvancedGroup() {
-        if (this.advancedGroupLoaded) return Promise.resolve()
-        return showLoadingOverlay('Loading...')
-            .then(() => import('./page-groups/advanced-group.js'))
-            .finally(() => {
-                hideLoadingOverlay()
-                this.advancedGroupLoaded = true
-            })
+    _findMap(target, zero, f) {
+        for(const [group, subMenu] of Object.entries(APP_MENU)) {
+            for (const [route, entry] of Object.entries(subMenu)) {
+                if (route === target) {
+                    return f(group, entry)
+                }
+            }
+        }
+        return zero
     }
 
-    ensureLoadedForRoute(route) {
-        if (['binding', 'options', 'wifi', 'update', 'connections', 'serial', 'buttons', 'models'].includes(route)) {
-            return this.loadGeneralGroup()
-        }
-        if (['hardware', 'voltage', 'cw', 'lr1121'].includes(route)) {
-            return this.loadAdvancedGroup()
-        }
-        return Promise.resolve()
+    ensureLoadedForRoute(target) {
+        return this._findMap(target, Promise.resolve(), (group, entry) => this._ensureLoaded(group.toLowerCase()))
+    }
+
+    buildRouteContent(target) {
+        return this._findMap(target, '', (group, entry) => entry.panel(entry.icon))
     }
 
     // Transition/animation timing helpers

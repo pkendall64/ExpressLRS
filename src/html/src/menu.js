@@ -1,0 +1,96 @@
+import './pages/info-panel.js'
+import {html, svg} from "lit";
+import {elrsState} from "./utils/state.js";
+
+let OPTIONS_PANEL
+// FEATURE:IS_TX
+OPTIONS_PANEL = (icon) => html`<tx-options-panel></tx-options-panel>`
+// /FEATURE:IS_TX
+// FEATURE:NOT IS_TX
+OPTIONS_PANEL = (icon) => html`<rx-options-panel></rx-options-panel>`
+// /FEATURE:NOT IS_TX
+
+const APP_MENU = {
+    "General": {
+        "info": {
+            label: "Information",
+            panel: (icon) => html`<info-panel></info-panel>`,
+            icon: svg`<svg viewBox="0 0 32 32"><path fill="currentColor" d="M17 22v-8h-4v2h2v6h-3v2h8v-2zM16 8a1.5 1.5 0 1 0 1.5 1.5A1.5 1.5 0 0 0 16 8"/><path fill="currentColor" d="M16 30a14 14 0 1 1 14-14a14 14 0 0 1-14 14m0-26a12 12 0 1 0 12 12A12 12 0 0 0 16 4"/></svg>`
+        },
+        "bind": {
+            label: "Binding",
+            panel: (icon) => html`<binding-panel></binding-panel>`,
+            icon: svg`<svg viewBox="0 0 24 24"><path fill="currentColor" d="M11 17H7q-2.075 0-3.537-1.463T2 12t1.463-3.537T7 7h4v2H7q-1.25 0-2.125.875T4 12t.875 2.125T7 15h4zm-3-4v-2h8v2zm5 4v-2h4q1.25 0 2.125-.875T20 12t-.875-2.125T17 9h-4V7h4q2.075 0 3.538 1.463T22 12t-1.463 3.538T17 17z"/></svg>`
+        },
+        "options": {
+            label: "Options",
+            panel: OPTIONS_PANEL,
+            icon: svg`<svg viewBox="0 0 24 24"><path fill="currentColor" d="M2 16v-2h2v2zm0-4v-2h2v2zm0-4V6h2v2zm4 8v-2h4v2zm0-4v-2h13v2zm0-4V6h13v2zm9.95 12l-4.25-4.25l1.425-1.425l2.825 2.825l5.65-5.65l1.4 1.45z"/></svg>`
+        },
+        // FEATURE:IS_TX
+        "buttons": {
+            label: "Buttons",
+            panel: (icon) => html`<buttons-panel></buttons-panel>`,
+            when: () => elrsState.config['button-actions'] && elrsState.config['button-actions'].length !== 0,
+            icon: svg`<svg viewBox="0 0 15 15"><path fill="none" stroke="currentColor" d="M5.5 10V8.5m0 0v-5a1 1 0 0 1 2 0v4h3.353c.91 0 1.647.737 1.647 1.647V10A4.5 4.5 0 0 1 8 14.5h-.5a4 4 0 0 1-4-4a2 2 0 0 1 2-2Zm3.5-3h2a2.5 2.5 0 0 0 0-5H4a2.5 2.5 0 0 0 0 5" stroke-width="1"/></svg>`
+        },
+        "models": {
+            label: "Import/Export",
+            panel: (icon) => html`<models-panel></models-panel>`,
+            icon: svg`<svg viewBox="0 0 48 48"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.99" d="m14 26l-9 9l9 9m-9-8.992h17.5M34 18l9 9l-9 9m9-8.992H25.5M4.5 24V7.5h39V15"/></svg>`
+        },
+        // /FEATURE:IS_TX
+        // FEATURE:NOT IS_TX
+        "connections": {
+            label: "Connections",
+            panel: (icon) => html`<connections-panel></connections-panel>`,
+            when: () => elrsState.config.pwm !== undefined,
+            icon: svg`<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 20v-1H6q-1.25 0-2.125-.875T3 16v-3H1v-2h2V8q0-1.25.875-2.125T6 5h1V4h2v16zm-1-3h1V7H6q-.425 0-.712.288T5 8v8q0 .425.288.713T6 17m9 3v-4h-4v-2h4v-4h-4V8h4V4h2v1h1q1.25 0 2.125.875T21 8v3h2v2h-2v3q0 1.25-.875 2.125T18 19h-1v1zm2-3h1q.425 0 .713-.288T19 16V8q0-.425-.288-.712T18 7h-1zm0-5"/></svg>`
+        },
+        "serial": {
+            label: "Serial",
+            panel: (icon) => html`<serial-panel></serial-panel>`,
+            icon: svg`<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M17 19a1 1 0 0 1-1-1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a1 1 0 0 1-1 1zm0 2v-2"/><path d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10m16 11v-2M3 5V3"/><path d="M4 10a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2zm3-5V3"/></g></svg>`
+        },
+        // /FEATURE:NOT IS_TX
+        "wifi": {
+            label: "WiFi",
+            panel: (icon) => html`<wifi-panel></wifi-panel>`,
+            icon: svg`<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21q-1.05 0-1.775-.725T9.5 18.5t.725-1.775T12 16t1.775.725t.725 1.775t-.725 1.775T12 21m-5.65-5.65l-2.1-2.15q1.475-1.475 3.463-2.337T12 10t4.288.875t3.462 2.375l-2.1 2.1q-1.1-1.1-2.55-1.725T12 13t-3.1.625t-2.55 1.725M2.1 11.1L0 9q2.3-2.35 5.375-3.675T12 4t6.625 1.325T24 9l-2.1 2.1q-1.925-1.925-4.462-3.012T12 7T6.563 8.088T2.1 11.1"/></svg>`
+        },
+        "update": {
+            label: "Update",
+            panel: (icon) => html`<update-panel></update-panel>`,
+            icon: svg`<svg viewBox="0 0 24 24"><path fill="currentColor" d="m18 22l3-3l-.7-.7l-1.8 1.8V16h-1v4.1l-1.8-1.8l-.7.7zM12 4L6.075 7.425L12 10.85l5.925-3.425zM3 15.975v-7.95q0-.55.263-1T4 6.3l7-4.025q.25-.125.488-.2T12 2t.525.075t.475.2L20 6.3q.475.275.738.725t.262 1V12h-2V9.1l-7.025 4.05L5 9.1v6.85l6 3.475v2.3L4 17.7q-.475-.275-.737-.725t-.263-1M18 24q-2.075 0-3.537-1.463T13 19t1.463-3.537T18 14t3.538 1.463T23 19t-1.463 3.538T18 24m-6-12.275"/></svg>`
+        }
+    },
+    "Advanced": {
+        "hardware": {
+            label: "Hardware Layout",
+            panel: (icon) => html`<hardware-layout></hardware-layout>`,
+            icon: svg`<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M18.75.75v1.5h-4.5V.75H3.75a3 3 0 0 0-3 3V15h1.5v3H.75v2.25a3 3 0 0 0 3 3h16.5a3 3 0 0 0 3-3V3.75a3 3 0 0 0-3-3zm0 14.25H21m-2.25-3H21M7.5 15h2.25M7.5 12h2.25m6 6v2.25m-3-2.25v2.25m3-13.5V9m-3-2.25V9"/><path d="M9.75 9h9v9h-9zm-6-5.25v3m3-3v3"/></g></svg>`
+        },
+        // FEATURE:NOT IS_TX
+        "voltage": {
+            label: "Voltage Calibration",
+            panel: (icon) => html`<voltage-calibration-panel .icon=${icon}></voltage-calibration-panel>`,
+            when: () => elrsState.settings?.voltage_source_count > 0,
+            icon: svg`<svg viewBox="0 0 512 512"><path fill="currentColor" d="M57.767 84.479v112.298h153.655V84.479zm120.263 78.906H91.158V117.87h86.872z"/><path fill="currentColor" d="m190.05 262.574 6.041-6.041-23.611-23.611-6.04 6.04c-9.385-5.411-20.255-8.524-31.844-8.524-35.278 0-63.978 28.701-63.978 63.978 0 11.589 3.113 22.459 8.524 31.844l-6.04 6.04 23.611 23.611 6.04-6.04c9.385 5.41 20.255 8.524 31.844 8.524 35.278 0 63.978-28.701 63.978-63.979 0-11.588-3.114-22.457-8.525-31.842M104.007 294.418c0-16.866 13.722-30.586 30.586-30.586 2.165 0 4.277.229 6.317.66l-36.244 36.244c-.429-2.041-.659-4.153-.659-6.318m30.588 30.587c-2.165 0-4.277-.229-6.317-.66l36.244-36.244c.43 2.039.659 4.152.659 6.316-.001 16.867-13.722 30.588-30.586 30.588"/><path fill="currentColor" d="M485.658 208.882v-44.338h-33.391v44.338c-15.45 6.436-26.341 21.69-26.341 39.444v125.472h26.341v64.766c0 7.353-5.982 13.334-13.333 13.334h-72.467c1.261-4.228 1.949-8.702 1.949-13.334v-64.766h26.341V248.326c0-17.754-10.891-33.007-26.341-39.444v-44.338h-33.391v44.338c-15.451 6.436-26.342 21.69-26.342 39.444v125.472h26.342v64.766c0 7.353-5.982 13.334-13.334 13.334h-96.933c-7.353 0-13.334-5.981-13.334-13.334v-10.716h57.767V26.712H0v401.134h178.03v10.716c0 25.765 20.961 46.726 46.726 46.726h96.932h117.245c25.764 0 46.724-20.961 46.724-46.726v-64.766H512V248.326c0-17.755-10.892-33.009-26.342-39.444M33.391 394.455V60.103h202.407v334.352zm327.973-54.049h-19.292v-92.081c0-5.139 4.181-9.32 9.319-9.32h.654c5.138 0 9.318 4.181 9.318 9.32zm117.245-.001h-19.292v-92.081c0-5.139 4.181-9.32 9.318-9.32h.656c5.138 0 9.318 4.181 9.318 9.32z"/></svg>`
+        },
+        // /FEATURE:NOT IS_TX
+        "wave": {
+            label: "Continuous Wave",
+            panel: (icon) => html`<continuous-wave></continuous-wave>`,
+            icon: svg`<svg viewBox="0 0 24 24" style="transform: rotate(180deg)"><path fill="currentColor" d="M22 2v2c-1.74 0-3 4.58-4.04 8.27c-1.39 5-2.7 9.73-5.96 9.73s-4.57-4.73-5.96-9.73C5 8.58 3.74 4 2 4V2c3.26 0 4.57 4.73 5.96 9.73C9 15.42 10.26 20 12 20s3-4.58 4.04-8.27C17.43 6.73 18.74 2 22 2"/></svg>`
+        },
+        // FEATURE:HAS_LR1121
+        "lr1121": {
+            label: "LR1121 Firmware",
+            panel: (icon) => html`<lr1121-updater></lr1121-updater>`,
+            icon: svg`<svg viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M6.75 8.25v-3m3 3v-3m-6 6h-3m3 6h-3m3-3h-3m9 9v-3m9-3h-3m-9 6v-3m6 3v-3m3-6v4.5a1.5 1.5 0 0 1-1.5 1.5h-9a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5h7.5"/><path d="M6.75 11.25h6v6h-6zM17.25.75h6L21 4.5h2.25l-6 6.75L18 6h-2.25z"/></g></svg>`
+        }
+        // /FEATURE:HAS_LR1121
+    }
+}
+
+export default APP_MENU
