@@ -17,6 +17,9 @@ import { devProxyPlugin } from './dev-plugins/dev-proxy-plugin.js'
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
+    server: {
+      host: true
+    },
     plugins: [
       htmlFeatureBlocksPlugin(env),
       minifyTemplateLiterals({
