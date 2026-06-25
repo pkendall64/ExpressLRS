@@ -379,6 +379,59 @@ expresslrs_tlm_ratio_e ICACHE_RAM_ATTR UpdateTlmRatioEffective()
   return retVal;
 }
 
+enum class SyncDispatchMode : uint8_t
+{
+  None,
+  Spam,
+  Regular,
+};
+
+static void RequestSyncSpam()
+{
+  syncSpamCounter = syncSpamAmount;
+  syncSpamCounterAfterRateChange = syncSpamAmountAfterRateChange;
+}
+
+static SyncDispatchMode ICACHE_RAM_ATTR GetSyncDispatchMode(
+  const uint8_t nonceFhssResult,
+  const bool skipSync,
+  const uint8_t syncSlot,
+  const uint32_t now,
+  const uint32_t syncInterval)
+{
+  const bool onSyncChannel = FHSSonSyncChannel();
+  if ((syncSpamCounter || syncSpamCounterAfterRateChange && onSyncChannel)
+      && (nonceFhssResult == 1 || nonceFhssResult == 2))
+  {
+    return SyncDispatchMode::Spam;
+  }
+
+  if (!skipSync
+      && onSyncChannel
+      && syncSlot / 2 <= nonceFhssResult
+      && now - SyncPacketLastSent > syncInterval)
+  {
+    return SyncDispatchMode::Regular;
+  }
+
+  return SyncDispatchMode::None;
+}
+
+static uint8_t ICACHE_RAM_ATTR UpdateSyncSlot(const SyncDispatchMode mode, const uint8_t syncSlot)
+{
+  if (mode == SyncDispatchMode::Spam)
+  {
+    return 0;
+  }
+
+  if (mode == SyncDispatchMode::Regular)
+  {
+    return (syncSlot + 1) % (ExpressLRS_currAirRate_Modparams->FHSShopInterval * 2);
+  }
+
+  return syncSlot;
+}
+
 void ICACHE_RAM_ATTR GenerateSyncPacketData(OTA_Sync_s * const syncPtr)
 {
   const uint8_t SwitchEncMode = config.GetSwitchMode();
@@ -543,20 +596,13 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
 
   uint8_t NonceFHSSresult = OtaNonce % ExpressLRS_currAirRate_Modparams->FHSShopInterval;
 
-  // Sync spam only happens on slot 1 and 2 and can't be disabled
-  if ((syncSpamCounter || (syncSpamCounterAfterRateChange && FHSSonSyncChannel())) && (NonceFHSSresult == 1 || NonceFHSSresult == 2))
+  const SyncDispatchMode syncMode = GetSyncDispatchMode(NonceFHSSresult, skipSync, syncSlot, now, SyncInterval);
+  if (syncMode != SyncDispatchMode::None)
   {
     otaPkt.std.type = PACKET_TYPE_SYNC;
     GenerateSyncPacketData(OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
-    syncSlot = 0; // reset the sync slot in case the new rate (after the syncspam) has a lower FHSShopInterval
-  }
-  // Regular sync rotates through 4x slots, twice on each slot, and telemetry pushes it to the next slot up
-  // But only on the sync FHSS channel and with a timed delay between them
-  else if ((!skipSync) && ((syncSlot / 2) <= NonceFHSSresult) && (now - SyncPacketLastSent > SyncInterval) && FHSSonSyncChannel())
-  {
-    otaPkt.std.type = PACKET_TYPE_SYNC;
-    GenerateSyncPacketData(OtaIsFullRes ? &otaPkt.full.sync.sync : &otaPkt.std.sync);
-    syncSlot = (syncSlot + 1) % (ExpressLRS_currAirRate_Modparams->FHSShopInterval * 2);
+    // Sync spam restarts the schedule in case the new rate shortens the hop interval; regular sync advances it.
+    syncSlot = UpdateSyncSlot(syncMode, syncSlot);
   }
   else
   {
@@ -774,8 +820,7 @@ void ModelUpdateReq()
   // Force synspam with the current rate parameters in case already have a connection established
   if (config.SetModelId(crsfTransmitter.modelId))
   {
-    syncSpamCounter = syncSpamAmount;
-    syncSpamCounterAfterRateChange = syncSpamAmountAfterRateChange;
+    RequestSyncSpam();
     ModelUpdatePending = true;
   }
 
@@ -940,8 +985,7 @@ void SetSyncSpam()
   // Send sync spam if a UI device has requested to and the config has changed
   if (config.IsModified())
   {
-    syncSpamCounter = syncSpamAmount;
-    syncSpamCounterAfterRateChange = syncSpamAmountAfterRateChange;
+    RequestSyncSpam();
   }
 }
 
