@@ -1584,24 +1584,8 @@ void setup()
   finalizeSetup();
 }
 
-void loop()
+static void updateLoopDevices(uint32_t now)
 {
-  uint32_t now = millis();
-
-  HandleUARTout(); // Only used for non-CRSF output
-
-  #if defined(USE_BLE_JOYSTICK)
-  if (connectionState != bleJoystick && connectionState != noCrossfire) // Wait until the correct crsf baud has been found
-  {
-      connectionState = bleJoystick;
-  }
-  #endif
-
-  if (connectionState < MODE_STATES)
-  {
-    UpdateConnectDisconnectStatus();
-  }
-
   // Update UI devices
   devicesUpdate(now);
 
@@ -1610,47 +1594,43 @@ void loop()
   checkRebootTime(now);
 
   executeDeferredFunction(micros());
+}
 
-  HandleUARTin();
-
-  if (connectionState > MODE_STATES)
+static void handleCompletedTelemetry()
+{
+  if (!DataDlReceiver.HasFinishedData())
   {
     return;
   }
 
-  CheckReadyToSend();
-  CheckConfigChangePending();
-  DynamicPower_Update(now);
-  VtxPitmodeSwitchUpdate();
-  checkSendLinkStatsToHandset(now);
-
-  if (DataDlReceiver.HasFinishedData())
+  if (CRSFinBuffer[0] == CRSF_ADDRESS_USB)
   {
-      if (CRSFinBuffer[0] == CRSF_ADDRESS_USB)
+    if (config.GetLinkMode() == TX_MAVLINK_MODE)
+    {
+      const uint8_t count = CRSFinBuffer[CRSF_TELEMETRY_LENGTH_INDEX];
+      // Convert to CRSF telemetry where we can and send to handset
+      convert_mavlink_to_crsf_telem(CRSF_ADDRESS_RADIO_TRANSMITTER, CRSFinBuffer, count);
+      // forward raw mavlink data to USB
+      TxUSB->write(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
+      // And to the backpack if we have one
+      if (TxUSB != BackpackOrLogStrm)
       {
-        if (config.GetLinkMode() == TX_MAVLINK_MODE)
-        {
-          const uint8_t count = CRSFinBuffer[CRSF_TELEMETRY_LENGTH_INDEX];
-          // Convert to CRSF telemetry where we can and send to handset
-          convert_mavlink_to_crsf_telem(CRSF_ADDRESS_RADIO_TRANSMITTER, CRSFinBuffer, count);
-          // forward raw mavlink data to USB
-          TxUSB->write(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
-          // And to the backpack if we have one
-          if (TxUSB != BackpackOrLogStrm)
-          {
-            sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
-          }
-        }
+        sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
       }
-      else
-      {
-        // Send all other tlm to CRSF router
-        crsfRouter.processMessage(&otaConnector, (crsf_header_t *)CRSFinBuffer);
-        sendCRSFTelemetryToBackpack(CRSFinBuffer);
-      }
-      DataDlReceiver.Unlock();
+    }
+  }
+  else
+  {
+    // Send all other tlm to CRSF router
+    crsfRouter.processMessage(&otaConnector, (crsf_header_t *)CRSFinBuffer);
+    sendCRSFTelemetryToBackpack(CRSFinBuffer);
   }
 
+  DataDlReceiver.Unlock();
+}
+
+static void pumpUplinkData()
+{
   // only send Uplink data when binding is not active
   if (InBindingMode)
   {
@@ -1671,4 +1651,42 @@ void loop()
   {
     otaConnector.pumpSender();
   }
+}
+
+void loop()
+{
+  uint32_t now = millis();
+
+  HandleUARTout(); // Only used for non-CRSF output
+
+  #if defined(USE_BLE_JOYSTICK)
+  if (connectionState != bleJoystick && connectionState != noCrossfire) // Wait until the correct crsf baud has been found
+  {
+      connectionState = bleJoystick;
+  }
+  #endif
+
+  if (connectionState < MODE_STATES)
+  {
+    UpdateConnectDisconnectStatus();
+  }
+
+  updateLoopDevices(now);
+
+  HandleUARTin();
+
+  if (connectionState > MODE_STATES)
+  {
+    return;
+  }
+
+  CheckReadyToSend();
+  CheckConfigChangePending();
+  DynamicPower_Update(now);
+  VtxPitmodeSwitchUpdate();
+  checkSendLinkStatsToHandset(now);
+
+  handleCompletedTelemetry();
+
+  pumpUplinkData();
 }
