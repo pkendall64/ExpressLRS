@@ -557,6 +557,82 @@ void SetRFLinkRate(uint8_t index) // Set speed of RF link
   rfModeLastChangedMS = millis();
 }
 
+static void ICACHE_RAM_ATTR FillDataPacket(OTA_Packet_s * const otaPkt)
+{
+  otaPkt->std.type = PACKET_TYPE_DATA;
+  if (OtaIsFullRes)
+  {
+    otaPkt->full.data_ul.packageIndex = DataUlSender.GetCurrentPayload(
+      otaPkt->full.data_ul.payload,
+      sizeof(otaPkt->full.data_ul.payload));
+    if (config.GetLinkMode() == TX_MAVLINK_MODE)
+      otaPkt->full.data_ul.stubbornAck = DataDlReceiver.GetCurrentConfirm();
+  }
+  else
+  {
+    otaPkt->std.data_ul.packageIndex = DataUlSender.GetCurrentPayload(
+      otaPkt->std.data_ul.payload,
+      sizeof(otaPkt->std.data_ul.payload));
+    if (config.GetLinkMode() == TX_MAVLINK_MODE)
+      otaPkt->std.data_ul.stubbornAck = DataDlReceiver.GetCurrentConfirm();
+  }
+}
+
+static void ICACHE_RAM_ATTR PrepareDataOrChannelPacket(OTA_Packet_s * const otaPkt, const bool dontSendChannelData)
+{
+  if (firmwareOptions.is_airport)
+  {
+    OtaPackAirportData(otaPkt, &apInputBuffer);
+    return;
+  }
+
+  if ((NextPacketIsDataUl && DataUlSender.IsActive()) || dontSendChannelData)
+  {
+    FillDataPacket(otaPkt);
+
+    // send channel data next so the channel messages also get sent during data uplink transmissions
+    NextPacketIsDataUl = false;
+    // counter can be increased even for normal DataUl messages since it's reset if a real bind message should be sent
+    BindingSendCount++;
+    // If not in TlmBurst, request a sync packet soon to trigger higher download bandwidth for reply
+    if (syncTelemBoostState == stbIdle)
+      syncSpamCounter = 1;
+    syncTelemBoostState = stbRequested;
+    return;
+  }
+
+  // always enable DataUl after a channel package since the slot is only used if DataUlSender has data to send
+  NextPacketIsDataUl = true;
+  OtaPackChannelData(otaPkt, ChannelData, DataDlReceiver.GetCurrentConfirm());
+}
+
+static SX12XX_Radio_Number_t ICACHE_RAM_ATTR GetTransmittingRadio()
+{
+  SX12XX_Radio_Number_t transmittingRadio = SX12XX_Radio_All;
+
+  if (isDualRadio())
+  {
+    // Single antenna modes: tx on one antenna, and true diversity rx for tlm reception.
+    switch (config.GetAntennaMode())
+    {
+    case TX_RADIO_MODE_ANT_1:
+      transmittingRadio = SX12XX_Radio_1;
+      break;
+    case TX_RADIO_MODE_ANT_2:
+      transmittingRadio = SX12XX_Radio_2;
+      break;
+    case TX_RADIO_MODE_SWITCH:
+      static boolean toggle = false;
+      transmittingRadio = (toggle ^= true) ? SX12XX_Radio_1 : SX12XX_Radio_2;
+      break;
+    default:
+      break;
+    }
+  }
+
+  return transmittingRadio;
+}
+
 void ICACHE_RAM_ATTR SendRCdataToRF()
 {
   // Do not send a stale channels packet to the RX if one has not been received from the handset
@@ -592,7 +668,6 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
     (isTlmDisarmed && isArmed && (ExpressLRS_currTlmDenom == 1));
 
   uint8_t NonceFHSSresult = OtaNonce % ExpressLRS_currAirRate_Modparams->FHSShopInterval;
-
   const SyncDispatchMode syncMode = GetSyncDispatchMode(NonceFHSSresult, skipSync, syncSlot, now, SyncInterval);
   if (syncMode != SyncDispatchMode::None)
   {
@@ -603,72 +678,13 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   }
   else
   {
-    if (firmwareOptions.is_airport)
-    {
-      OtaPackAirportData(&otaPkt, &apInputBuffer);
-    }
-    else if ((NextPacketIsDataUl && DataUlSender.IsActive()) || dontSendChannelData)
-    {
-      otaPkt.std.type = PACKET_TYPE_DATA;
-      if (OtaIsFullRes)
-      {
-        otaPkt.full.data_ul.packageIndex = DataUlSender.GetCurrentPayload(
-          otaPkt.full.data_ul.payload,
-          sizeof(otaPkt.full.data_ul.payload));
-        if (config.GetLinkMode() == TX_MAVLINK_MODE)
-          otaPkt.full.data_ul.stubbornAck = DataDlReceiver.GetCurrentConfirm();
-      }
-      else
-      {
-        otaPkt.std.data_ul.packageIndex = DataUlSender.GetCurrentPayload(
-          otaPkt.std.data_ul.payload,
-          sizeof(otaPkt.std.data_ul.payload));
-        if (config.GetLinkMode() == TX_MAVLINK_MODE)
-          otaPkt.std.data_ul.stubbornAck = DataDlReceiver.GetCurrentConfirm();
-      }
-
-      // send channel data next so the channel messages also get sent during data uplink transmissions
-      NextPacketIsDataUl = false;
-      // counter can be increased even for normal DataUl messages since it's reset if a real bind message should be sent
-      BindingSendCount++;
-      // If not in TlmBurst, request a sync packet soon to trigger higher download bandwidth for reply
-      if (syncTelemBoostState == stbIdle)
-        syncSpamCounter = 1;
-      syncTelemBoostState = stbRequested;
-    }
-    else
-    {
-      // always enable DataUl after a channel package since the slot is only used if DataUlSender has data to send
-      NextPacketIsDataUl = true;
-
-      OtaPackChannelData(&otaPkt, ChannelData, DataDlReceiver.GetCurrentConfirm());
-    }
+    PrepareDataOrChannelPacket(&otaPkt, dontSendChannelData);
   }
 
   ///// Next, Calculate the CRC and put it into the buffer /////
   OtaGeneratePacketCrc(&otaPkt);
 
-  SX12XX_Radio_Number_t transmittingRadio = SX12XX_Radio_All;
-
-  if (isDualRadio())
-  {
-    // Single antenna modes: tx on one antenna, and true diversity rx for tlm reception.
-    switch (config.GetAntennaMode())
-    {
-    case TX_RADIO_MODE_ANT_1:
-      transmittingRadio = SX12XX_Radio_1;
-      break;
-    case TX_RADIO_MODE_ANT_2:
-      transmittingRadio = SX12XX_Radio_2;
-      break;
-    case TX_RADIO_MODE_SWITCH:
-      static boolean toggle = false;
-      transmittingRadio = (toggle ^= true) ? SX12XX_Radio_1 : SX12XX_Radio_2;
-      break;
-    default:
-      break;
-    }
-  }
+  SX12XX_Radio_Number_t transmittingRadio = GetTransmittingRadio();
 
 #if defined(Regulatory_Domain_EU_CE_2400)
   transmittingRadio = LbtChannelIsClear(transmittingRadio);   // weed out the radio(s) if channel in use
