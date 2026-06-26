@@ -842,6 +842,11 @@ static void ConfigChangeCommit()
   devicesTriggerEvent(changes);
 }
 
+static void waitForTxIdle()
+{
+  while (busyTransmitting);
+}
+
 static void CheckConfigChangePending()
 {
   if (config.IsModified() || ModelUpdatePending)
@@ -851,7 +856,7 @@ static void CheckConfigChangePending()
       return;
 
     // wait until no longer transmitting
-    while (busyTransmitting);
+    waitForTxIdle();
     // Set the commitInProgress flag to prevent any other RF SPI traffic during the commit from RX or scheduled TX
     commitInProgress = true;
     // If telemetry expected in the next interval, the radio was in RX mode
@@ -1050,7 +1055,7 @@ static void EnterBindingMode()
 
   // Disable the TX timer and wait for any TX to complete
   hwTimer::stop();
-  while (busyTransmitting);
+  waitForTxIdle();
 
   // Queue up sending the Master UID as MSP packets
   SendUIDOverMSP();
