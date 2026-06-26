@@ -1295,72 +1295,83 @@ static void HandleUARTin()
   }
 }
 
-static void setupSerial()
-{  /*
-   * Setup the logging/backpack serial port, and the USB serial port.
-   * This is always done because we need a place to send data even if there is no backpack!
-   */
-
-// Setup BackpackOrLogStrm
 #if defined(PLATFORM_ESP32)
-  Stream *serialPort;
-
-  if(firmwareOptions.is_airport)
+static Stream *makeBackpackOrLogStream()
+{
+  if (firmwareOptions.is_airport)
   {
-    serialPort = new HardwareSerial(1);
+    Stream *serialPort = new HardwareSerial(1);
     ((HardwareSerial *)serialPort)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
+    return serialPort;
   }
-  else if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
+
+  if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
   {
-    serialPort = new HardwareSerial(2);
+    Stream *serialPort = new HardwareSerial(2);
     ((HardwareSerial *)serialPort)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
+    return serialPort;
   }
-  else
-  {
-    serialPort = new NullStream();
-  }
+
+  return new NullStream();
+}
 #elif defined(PLATFORM_ESP8266)
-  Stream *serialPort;
+static Stream *makeBackpackOrLogStream()
+{
   if (GPIO_PIN_DEBUG_TX != UNDEF_PIN)
   {
-    serialPort = new HardwareSerial(1);
-    ((HardwareSerial*)serialPort)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, SERIAL_TX_ONLY, GPIO_PIN_DEBUG_TX);
+    Stream *serialPort = new HardwareSerial(1);
+    ((HardwareSerial *)serialPort)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, SERIAL_TX_ONLY, GPIO_PIN_DEBUG_TX);
+    return serialPort;
   }
-  else
-  {
-    serialPort = new NullStream();
-  }
-#endif
-  BackpackOrLogStrm = serialPort;
 
-// Setup TxUSB
+  return new NullStream();
+}
+#endif
+
 #if defined(PLATFORM_ESP32_S3)
+static Stream *makeTxUsbStream()
+{
   // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
   USBSerial.begin(firmwareOptions.uart_baud);
-  TxUSB = &USBSerial;
+  return &USBSerial;
+}
 #elif defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
+static Stream *makeTxUsbStream()
+{
   if (GPIO_PIN_DEBUG_RX == U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX == U0TXD_GPIO_NUM)
   {
     // The backpack or Airpoirt is already assigned on UART0 (pins 3, 1)
     // This is also USB on modules that use DIPs
     // Set TxUSB to BackpackOrLogStrm so that data goes to the same place
-    TxUSB = BackpackOrLogStrm;
+    return BackpackOrLogStrm;
   }
-  else if (GPIO_PIN_RCSIGNAL_RX == U0RXD_GPIO_NUM && GPIO_PIN_RCSIGNAL_TX == U0TXD_GPIO_NUM)
+
+  if (GPIO_PIN_RCSIGNAL_RX == U0RXD_GPIO_NUM && GPIO_PIN_RCSIGNAL_TX == U0TXD_GPIO_NUM)
   {
     // This is an internal module, or an external module configured with a relay.  Do not setup TxUSB.
-    TxUSB = new NullStream();
+    return new NullStream();
   }
-  else
-  {
-    // The backpack is on a separate UART to UART0
-    // Set TxUSB to UART0 default pins so that we can access TxUSB and BackpackOrLogStrm independantly
-    TxUSB = new HardwareSerial(1);
-    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
-  }
+
+  // The backpack is on a separate UART to UART0
+  // Set TxUSB to UART0 default pins so that we can access TxUSB and BackpackOrLogStrm independently
+  Stream *serialPort = new HardwareSerial(1);
+  ((HardwareSerial *)serialPort)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
+  return serialPort;
+}
 #else
-  TxUSB = new NullStream();
+static Stream *makeTxUsbStream()
+{
+  return new NullStream();
+}
 #endif
+
+static void setupSerial()
+{  /*
+   * Setup the logging/backpack serial port, and the USB serial port.
+   * This is always done because we need a place to send data even if there is no backpack!
+   */
+  BackpackOrLogStrm = makeBackpackOrLogStream();
+  TxUSB = makeTxUsbStream();
 }
 
 /**
