@@ -1480,81 +1480,71 @@ static void checkSendLinkStatsToHandset(uint32_t now)
   }
 }
 
-void setup()
+static void initConfiguredHardware()
 {
-  if (setupHardwareFromOptions())
+  setupTarget();
+  // Register the devices with the framework
+  devicesRegister(ui_devices, ARRAY_SIZE(ui_devices));
+  // Initialise the devices
+  devicesInit();
+  DBGLN("Initialised devices");
+
+  setupBindingFromConfig();
+  FHSSrandomiseFHSSsequence(OtaGetUidSeed());
+
+  Radio.RXdoneCallback = &RXdoneISR;
+  Radio.TXdoneCallback = &TXdoneISR;
+
+  crsfTransmitter.begin();
+  crsfRouter.addConnector(&otaConnector);
+  crsfRouter.addEndpoint(&crsfTransmitter);
+  crsfRouter.addConnector(&usbConnector);
+  // When a CRSF handset is detected, it will add itself to the router
+
+  handset->registerCallbacks(UARTconnected, firmwareOptions.is_airport ? nullptr : UARTdisconnected);
+
+  eeprom.Begin(); // Init the eeprom
+  config.SetStorageProvider(&eeprom); // Pass pointer to the Config class for access to storage
+  config.Load(); // Load the stored values from eeprom
+}
+
+static bool beginConfiguredRadio()
+{
+  Radio.currFreq = FHSSgetInitialFreq(); //set frequency first or an error will occur!!!
+#if defined(RADIO_SX127X)
+  //Radio.currSyncWord = UID[3];
+#endif
+
+#if defined(USE_BLE_JOYSTICK)
+  return true; // No radio is attached with a joystick only module. So fake success so crsf and hwTimer still start below.
+#else
+  if (GPIO_PIN_SCK == UNDEF_PIN)
   {
-    setupTarget();
-    // Register the devices with the framework
-    devicesRegister(ui_devices, ARRAY_SIZE(ui_devices));
-    // Initialise the devices
-    devicesInit();
-    DBGLN("Initialised devices");
-
-    setupBindingFromConfig();
-    FHSSrandomiseFHSSsequence(OtaGetUidSeed());
-
-    Radio.RXdoneCallback = &RXdoneISR;
-    Radio.TXdoneCallback = &TXdoneISR;
-
-    crsfTransmitter.begin();
-    crsfRouter.addConnector(&otaConnector);
-    crsfRouter.addEndpoint(&crsfTransmitter);
-    crsfRouter.addConnector(&usbConnector);
-    // When a CRSF handset is detected, it will add itself to the router
-
-    handset->registerCallbacks(UARTconnected, firmwareOptions.is_airport ? nullptr : UARTdisconnected);
-
-    eeprom.Begin(); // Init the eeprom
-    config.SetStorageProvider(&eeprom); // Pass pointer to the Config class for access to storage
-    config.Load(); // Load the stored values from eeprom
-
-    Radio.currFreq = FHSSgetInitialFreq(); //set frequency first or an error will occur!!!
-    #if defined(RADIO_SX127X)
-    //Radio.currSyncWord = UID[3];
-    #endif
-    bool init_success;
-    #if defined(USE_BLE_JOYSTICK)
-    init_success = true; // No radio is attached with a joystick only module.  So we are going to fake success so that crsf, hwTimer etc are initiated below.
-    #else
-    if (GPIO_PIN_SCK != UNDEF_PIN)
-    {
-      init_success = Radio.Begin(FHSSgetMinimumFreq(), FHSSgetMaximumFreq());
-    }
-    else
-    {
-      // Assume BLE Joystick mode if no radio SCK pin
-      init_success = true;
-    }
-    #endif
-
-    if (!init_success)
-    {
-      setConnectionState(radioFailed);
-    }
-    else
-    {
-      DataDlReceiver.SetDataToReceive(CRSFinBuffer, sizeof(CRSFinBuffer));
-
-      POWERMGNT::init();
-      DynamicPower_Init();
-
-      // Set the pkt rate, TLM ratio, and power from the stored eeprom values
-      ChangeRadioParams();
-
-      LbtCcaTimerStart();
-      hwTimer::init(nullptr, timerCallback);
-      setConnectionState(noCrossfire);
-    }
-  }
-  else
-  {
-    // In the failure case we set the logging to the null logger so nothing crashes
-    // if it decides to log something
-    BackpackOrLogStrm = new NullStream();
-    TxUSB = BackpackOrLogStrm;
+    // Assume BLE Joystick mode if no radio SCK pin
+    return true;
   }
 
+  return Radio.Begin(FHSSgetMinimumFreq(), FHSSgetMaximumFreq());
+#endif
+}
+
+static void startConfiguredRadio()
+{
+  DataDlReceiver.SetDataToReceive(CRSFinBuffer, sizeof(CRSFinBuffer));
+
+  POWERMGNT::init();
+  DynamicPower_Init();
+
+  // Set the pkt rate, TLM ratio, and power from the stored eeprom values
+  ChangeRadioParams();
+
+  LbtCcaTimerStart();
+  hwTimer::init(nullptr, timerCallback);
+  setConnectionState(noCrossfire);
+}
+
+static void finalizeSetup()
+{
   registerButtonFunction(ACTION_BIND, EnterBindingMode);
   registerButtonFunction(ACTION_INCREASE_POWER, cyclePower);
 
@@ -1566,6 +1556,32 @@ void setup()
     config.SetMotionMode(0); // Ensure motion detection is off
     UARTconnected();
   }
+}
+
+void setup()
+{
+  if (setupHardwareFromOptions())
+  {
+    initConfiguredHardware();
+
+    if (!beginConfiguredRadio())
+    {
+      setConnectionState(radioFailed);
+    }
+    else
+    {
+      startConfiguredRadio();
+    }
+  }
+  else
+  {
+    // In the failure case we set the logging to the null logger so nothing crashes
+    // if it decides to log something
+    BackpackOrLogStrm = new NullStream();
+    TxUSB = BackpackOrLogStrm;
+  }
+
+  finalizeSetup();
 }
 
 void loop()
