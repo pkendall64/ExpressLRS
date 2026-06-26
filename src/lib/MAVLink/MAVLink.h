@@ -4,5 +4,5 @@
 // Takes a MAVLink message wrapped in CRSF and possibly converts it to a CRSF telemetry message
 void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffer, uint8_t count);
 
-bool isThisAMavPacket(uint8_t *buffer, uint16_t bufferSize);
+bool isThisAMavPacket(const uint8_t *buffer, uint16_t bufferSize);
 uint16_t buildMAVLinkELRSModeChange(uint8_t mode, uint8_t *buffer);

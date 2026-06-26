@@ -134,9 +134,9 @@ void switchDiversityAntennas()
   }
 }
 
-void ICACHE_RAM_ATTR LinkStatsFromOta(OTA_LinkStats_s * const ls)
+void ICACHE_RAM_ATTR LinkStatsFromOta(const OTA_LinkStats_s * const ls)
 {
-  int8_t snrScaled = ls->SNR;
+  const int8_t snrScaled = ls->SNR;
   DynamicPower_TelemetryUpdate(snrScaled);
 
   // Antenna is the high bit in the RSSI_1 value
@@ -174,7 +174,10 @@ void ICACHE_RAM_ATTR LinkStatsFromOta(OTA_LinkStats_s * const ls)
  * @param dataLen sizeof payload data in both data1 and data2
  * @param stubbornAck StubbornSender ack bit from either buffer (should be same)
  */
-void ICACHE_RAM_ATTR ProcessOtaDataDl(uint8_t pi1, uint8_t pi2, uint8_t *data1, uint8_t *data2, size_t dataLen, bool stubbornAck)
+void ICACHE_RAM_ATTR ProcessOtaDataDl(
+  const uint8_t pi1, const uint8_t pi2,
+  const uint8_t *data1, const uint8_t *data2,
+  const size_t dataLen, const bool stubbornAck)
 {
   static uint8_t packageIndexRadio1 = 0xFF;
   static uint8_t packageIndexRadio2 = 0xFF;
@@ -325,6 +328,9 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
         );
       }
       break;
+
+    default:
+      break;
   }
 
   return true;
@@ -332,7 +338,7 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
 
 expresslrs_tlm_ratio_e ICACHE_RAM_ATTR UpdateTlmRatioEffective()
 {
-  expresslrs_tlm_ratio_e ratioConfigured = (expresslrs_tlm_ratio_e)config.GetTlm();
+  const auto ratioConfigured = (expresslrs_tlm_ratio_e)config.GetTlm();
   // default is suggested rate for TLM_RATIO_STD/TLM_RATIO_DISARMED
   expresslrs_tlm_ratio_e retVal = ExpressLRS_currAirRate_Modparams->TLMinterval;
   bool updateTelemDenom = true;
@@ -440,7 +446,7 @@ void ICACHE_RAM_ATTR GenerateSyncPacketData(OTA_Sync_s * const syncPtr)
   if (syncSpamCounterAfterRateChange && Index == ExpressLRS_currAirRate_Modparams->index)
   {
     --syncSpamCounterAfterRateChange;
-    if (connectionState == connected) // We are connected again after a rate change.  No need to keep spaming sync.
+    if (connectionState == connected) // We are connected again after a rate change.  No need to keep spamming sync.
       syncSpamCounterAfterRateChange = 0;
   }
 
@@ -485,7 +491,7 @@ void SetRFLinkRate(uint8_t index) // Set speed of RF link
   expresslrs_rf_pref_params_s *const RFperf = get_elrs_RFperfParams(index);
   // Binding always uses invertIQ
   bool invertIQ = InBindingMode || (UID[5] & 0x01);
-  OtaSwitchMode_e newSwitchMode = (OtaSwitchMode_e)config.GetSwitchMode();
+  auto newSwitchMode = (OtaSwitchMode_e)config.GetSwitchMode();
 
   bool subGHz = FHSSconfig->freq_center < 1000000000;
 #if defined(RADIO_LR1121)
@@ -503,7 +509,7 @@ void SetRFLinkRate(uint8_t index) // Set speed of RF link
     return;
 
   DBGLN("set rate %u", index);
-  uint32_t interval = ModParams->interval;
+  int32_t interval = ModParams->interval;
 #if defined(DEBUG_FREQ_CORRECTION) && defined(RADIO_SX128X)
   interval = interval * 12 / 10; // increase the packet interval by 20% to allow adding packet header
 #endif
@@ -533,7 +539,7 @@ void SetRFLinkRate(uint8_t index) // Set speed of RF link
   }
 #endif
 
-  Radio.FuzzySNRThreshold = (RFperf->DynpowerSnrThreshUp == DYNPOWER_SNR_THRESH_NONE) ? 0 : (RFperf->DynpowerSnrThreshUp - RFperf->DynpowerSnrThreshDn);
+  Radio.FuzzySNRThreshold = (RFperf->DynpowerSnrThreshUp == DYNPOWER_SNR_THRESH_NONE) ? 0 : (int8_t)(RFperf->DynpowerSnrThreshUp - RFperf->DynpowerSnrThreshDn);
 
   if (inGeminiMode() || FHSSuseDualBand)
   {
@@ -830,7 +836,7 @@ static void ChangeRadioParams()
 
 void ModelUpdateReq()
 {
-  // Force synspam with the current rate parameters in case already have a connection established
+  // Force sync spam with the current rate parameters in case already have a connection established
   if (config.SetModelId(crsfTransmitter.modelId))
   {
     RequestSyncSpam();
@@ -1037,7 +1043,7 @@ void OnPowerGetCalibration(mspPacket_t *packet)
 void OnPowerSetCalibration(mspPacket_t *packet)
 {
   uint8_t index = packet->readByte();
-  int8_t value = packet->readByte();
+  auto value = (int8_t)packet->readByte();
 
   if (index >= PWR_COUNT)
   {
@@ -1162,7 +1168,7 @@ void ProcessMSPPacket(uint32_t now, mspPacket_t *packet)
 #endif
 }
 
-void ParseMSPData(uint8_t *buf, uint8_t size)
+void ParseMSPData(const uint8_t *buf, const uint8_t size)
 {
   for (uint8_t i = 0; i < size; ++i)
   {
@@ -1192,14 +1198,14 @@ static void HandleUARTout()
 
 static void HandleUARTin()
 {
-  auto queueUartInput = [](uint8_t *buf, uint16_t size)
+  auto queueUartInput = [](const uint8_t *buf, const uint16_t size)
   {
     uartInputBuffer.lock();
     uartInputBuffer.pushBytes(buf, size);
     uartInputBuffer.unlock();
   };
 
-  auto maybeStartMavlink = [&](uint8_t *buf, uint16_t size, bool setLinkMode)
+  auto maybeStartMavlink = [&](const uint8_t *buf, const uint16_t size, const bool setLinkMode)
   {
     if (connectionState == noCrossfire && isThisAMavPacket(buf, size))
     {
@@ -1213,7 +1219,7 @@ static void HandleUARTin()
 
   if (firmwareOptions.is_airport)
   {
-    auto size = std::min(apInputBuffer.free(), (uint16_t)TxUSB->available());
+    const auto size = std::min(apInputBuffer.free(), (uint16_t)TxUSB->available());
     if (size > 0)
     {
       uint8_t buf[size];
@@ -1252,7 +1258,7 @@ static void HandleUARTin()
   // Backpack serial data is ALSO always processed as backpack MSP
   if (BackpackOrLogStrm != TxUSB && BackpackOrLogStrm->available())
   {
-    auto size = std::min(uartInputBuffer.free(), (uint16_t)BackpackOrLogStrm->available());
+    size = std::min(uartInputBuffer.free(), (uint16_t)BackpackOrLogStrm->available());
     if (size > 0)
     {
       uint8_t buf[size];
@@ -1276,8 +1282,6 @@ static void HandleUARTin()
   if (config.GetLinkMode() == TX_MAVLINK_MODE)
   {
     // Use DataUlSender for MAVLINK uplink data
-    uint8_t *nextPayload = 0;
-    uint8_t nextPlayloadSize = 0;
     uint16_t count = uartInputBuffer.size();
     if (count > 0 && !DataUlSender.IsActive())
     {
@@ -1288,8 +1292,8 @@ static void HandleUARTin()
       uartInputBuffer.lock();
       uartInputBuffer.popBytes(mavlinkSSBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
       uartInputBuffer.unlock();
-      nextPayload = mavlinkSSBuffer;
-      nextPlayloadSize = count + CRSF_FRAME_NOT_COUNTED_BYTES;
+      uint8_t *nextPayload = mavlinkSSBuffer;
+      const uint8_t nextPlayloadSize = count + CRSF_FRAME_NOT_COUNTED_BYTES;
       DataUlSender.SetDataToTransmit(nextPayload, nextPlayloadSize);
     }
   }
@@ -1471,7 +1475,7 @@ static void checkSendLinkStatsToHandset(uint32_t now)
       }
     }
 
-    CRSF_MK_FRAME_T(crsfLinkStatistics_t) linkStatisticsFrame;
+    CRSF_MK_FRAME_T(crsfLinkStatistics_t) linkStatisticsFrame {};
     crsfRouter.makeLinkStatisticsPacket(&linkStatisticsFrame.h);
     // the linkStats originates from the OTA connector so we don't send it back there.
     crsfRouter.deliverMessage(&otaConnector, &linkStatisticsFrame.h);

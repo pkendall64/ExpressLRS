@@ -317,7 +317,7 @@ void convert_mavlink_to_crsf_telem(crsf_addr_e destination, uint8_t *CRSFinBuffe
     }
 }
 
-bool isThisAMavPacket(uint8_t *buffer, uint16_t bufferSize)
+bool isThisAMavPacket(const uint8_t *buffer, const uint16_t bufferSize)
 {
     for (uint8_t i = 0; i < bufferSize; ++i)
     {
