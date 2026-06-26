@@ -1171,6 +1171,25 @@ static void HandleUARTout()
 
 static void HandleUARTin()
 {
+  auto queueUartInput = [](uint8_t *buf, uint16_t size)
+  {
+    uartInputBuffer.lock();
+    uartInputBuffer.pushBytes(buf, size);
+    uartInputBuffer.unlock();
+  };
+
+  auto maybeStartMavlink = [&](uint8_t *buf, uint16_t size, bool setLinkMode)
+  {
+    if (connectionState == noCrossfire && isThisAMavPacket(buf, size))
+    {
+      if (setLinkMode)
+      {
+        config.SetLinkMode(TX_MAVLINK_MODE);
+      }
+      UARTconnected();
+    }
+  };
+
   if (firmwareOptions.is_airport)
   {
     auto size = std::min(apInputBuffer.free(), (uint16_t)TxUSB->available());
@@ -1196,19 +1215,10 @@ static void HandleUARTin()
 
     // If the data is MAVLink, then auto change LinkMode and start the radio link
     // since the user might be operating the module as a standalone unit without a handset.
-    if (connectionState == noCrossfire)
-    {
-      if (isThisAMavPacket(buf, size))
-      {
-        config.SetLinkMode(TX_MAVLINK_MODE);
-        UARTconnected();
-      }
-    }
+    maybeStartMavlink(buf, size, true);
     if (config.GetLinkMode() == TX_MAVLINK_MODE)
     {
-      uartInputBuffer.lock();
-      uartInputBuffer.pushBytes(buf, size);
-      uartInputBuffer.unlock();
+      queueUartInput(buf, size);
     }
     else
     {
@@ -1230,19 +1240,11 @@ static void HandleUARTin()
       // If the TX is in Mavlink mode, push the bytes into the fifo buffer
       if (config.GetLinkMode() == TX_MAVLINK_MODE)
       {
-        uartInputBuffer.lock();
-        uartInputBuffer.pushBytes(buf, size);
-        uartInputBuffer.unlock();
+        queueUartInput(buf, size);
 
         // The TX is in MAVLink mode and receiving data from the Backpack,
         // start the radio since the user might be operating the module as a standalone unit without a handset.
-        if (connectionState == noCrossfire)
-        {
-          if (isThisAMavPacket(buf, size))
-          {
-            UARTconnected();
-          }
-        }
+        maybeStartMavlink(buf, size, false);
       }
 
       // Try to parse any MSP packets from the Backpack
