@@ -230,8 +230,8 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
     return false;
   }
 
-  OTA_Packet_s * const otaPktPtr = (OTA_Packet_s * const)Radio.RXdataBuffer;
-  OTA_Packet_s * const otaPktPtrSecond = (OTA_Packet_s * const)Radio.RXdataBufferSecond;
+  auto * const otaPktPtr = (OTA_Packet_s * const)Radio.RXdataBuffer;
+  auto * const otaPktPtrSecond = (OTA_Packet_s * const)Radio.RXdataBufferSecond;
 
   if (!OtaValidatePacketCrc(otaPktPtr))
   {
@@ -256,78 +256,75 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
   linkStats.downlink_RSSI_1 = Radio.LastPacketRSSI;
   linkStats.downlink_RSSI_2 = Radio.LastPacketRSSI2;
 
-  // Full res mode
+  OTA_LinkStats_s *linkStatsPtr;
+  uint8_t *linkStatsPayload;
+  uint8_t *linkStatsPayloadSecond;
+  uint8_t *dataPayload;
+  uint8_t *dataPayloadSecond;
+  uint8_t packageIndex;
+  uint8_t packageIndexSecond;
+  size_t linkStatsPayloadSize;
+  size_t dataPayloadSize;
+  bool stubbornAck;
+
   if (OtaIsFullRes)
   {
-    OTA_Packet8_s * const ota8 = (OTA_Packet8_s * const)otaPktPtr;
-    OTA_Packet8_s * const ota8Second = (OTA_Packet8_s * const)otaPktPtrSecond;
+    auto * const ota8 = (OTA_Packet8_s * const)otaPktPtr;
+    auto * const ota8Second = (OTA_Packet8_s * const)otaPktPtrSecond;
 
-    switch (otaPktPtr->std.type)
-    {
-      case PACKET_TYPE_LINKSTATS:
-        LinkStatsFromOta(&ota8->data_dl.ul_link_stats.stats);
-
-        ProcessOtaDataDl(
-          ota8->data_dl.packageIndex, ota8Second->data_dl.packageIndex,
-          ota8->data_dl.ul_link_stats.payload,
-          ota8Second->data_dl.ul_link_stats.payload,
-          sizeof(ota8->data_dl.ul_link_stats.payload),
-          ota8->data_dl.stubbornAck
-        );
-        break;
-
-      case PACKET_TYPE_DATA:
-        if (firmwareOptions.is_airport)
-        {
-          OtaUnpackAirportData(otaPktPtr, &apOutputBuffer);
-        }
-        else
-        {
-          ProcessOtaDataDl(
-            ota8->data_dl.packageIndex, ota8Second->data_dl.packageIndex,
-            ota8->data_dl.payload,
-            ota8Second->data_dl.payload,
-            sizeof(ota8->data_dl.payload),
-            ota8->data_dl.stubbornAck
-          );
-        }
-        break;
-    }
+    linkStatsPtr = &ota8->data_dl.ul_link_stats.stats;
+    linkStatsPayload = ota8->data_dl.ul_link_stats.payload;
+    linkStatsPayloadSecond = ota8Second->data_dl.ul_link_stats.payload;
+    dataPayload = ota8->data_dl.payload;
+    dataPayloadSecond = ota8Second->data_dl.payload;
+    packageIndex = ota8->data_dl.packageIndex;
+    packageIndexSecond = ota8Second->data_dl.packageIndex;
+    linkStatsPayloadSize = sizeof(ota8->data_dl.ul_link_stats.payload);
+    dataPayloadSize = sizeof(ota8->data_dl.payload);
+    stubbornAck = ota8->data_dl.stubbornAck;
   }
-  // Std res mode
   else
   {
-    switch (otaPktPtr->std.type)
-    {
-      case PACKET_TYPE_LINKSTATS:
-        LinkStatsFromOta(&otaPktPtr->std.data_dl.ul_link_stats.stats);
+    linkStatsPtr = &otaPktPtr->std.data_dl.ul_link_stats.stats;
+    linkStatsPayload = otaPktPtr->std.data_dl.ul_link_stats.payload;
+    linkStatsPayloadSecond = otaPktPtrSecond->std.data_dl.ul_link_stats.payload;
+    dataPayload = otaPktPtr->std.data_dl.payload;
+    dataPayloadSecond = otaPktPtrSecond->std.data_dl.payload;
+    packageIndex = otaPktPtr->std.data_dl.packageIndex;
+    packageIndexSecond = otaPktPtrSecond->std.data_dl.packageIndex;
+    linkStatsPayloadSize = sizeof(otaPktPtr->std.data_dl.ul_link_stats.payload);
+    dataPayloadSize = sizeof(otaPktPtr->std.data_dl.payload);
+    stubbornAck = otaPktPtr->std.data_dl.stubbornAck;
+  }
 
+  switch (otaPktPtr->std.type)
+  {
+    case PACKET_TYPE_LINKSTATS:
+      LinkStatsFromOta(linkStatsPtr);
+
+      ProcessOtaDataDl(
+        packageIndex, packageIndexSecond,
+        linkStatsPayload, linkStatsPayloadSecond,
+        linkStatsPayloadSize,
+        stubbornAck
+      );
+      break;
+
+    case PACKET_TYPE_DATA:
+      if (firmwareOptions.is_airport)
+      {
+        OtaUnpackAirportData(otaPktPtr, &apOutputBuffer);
+      }
+      else
+      {
         ProcessOtaDataDl(
-          otaPktPtr->std.data_dl.packageIndex, otaPktPtrSecond->std.data_dl.packageIndex,
-          otaPktPtr->std.data_dl.ul_link_stats.payload,
-          otaPktPtrSecond->std.data_dl.ul_link_stats.payload,
-          sizeof(otaPktPtr->std.data_dl.ul_link_stats.payload),
-          otaPktPtr->std.data_dl.stubbornAck
+          packageIndex, packageIndexSecond,
+          dataPayload, dataPayloadSecond,
+          dataPayloadSize,
+          stubbornAck
         );
-        break;
-
-      case PACKET_TYPE_DATA:
-        if (firmwareOptions.is_airport)
-        {
-          OtaUnpackAirportData(otaPktPtr, &apOutputBuffer);
-        }
-        else
-        {
-          ProcessOtaDataDl(
-            otaPktPtr->std.data_dl.packageIndex, otaPktPtrSecond->std.data_dl.packageIndex,
-            otaPktPtr->std.data_dl.payload,
-            otaPktPtrSecond->std.data_dl.payload,
-            sizeof(otaPktPtr->std.data_dl.payload),
-            otaPktPtr->std.data_dl.stubbornAck
-          );
-        }
-        break;
-    }
+      }
+      break;
   }
 
   return true;
