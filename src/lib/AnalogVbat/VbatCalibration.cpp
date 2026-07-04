@@ -1,10 +1,8 @@
 #include "VbatCalibration.h"
 
 #include <Arduino.h>
+#include "ESP32AdcCalibration.h"
 
-#if defined(PLATFORM_ESP32)
-#include "esp_adc_cal.h"
-#endif
 
 #if defined(PLATFORM_ESP8266)
 static constexpr uint8_t VOLTAGE_SOURCE_COUNT = 1;
@@ -47,31 +45,21 @@ static bool sourceIsDefined(const uint8_t sourceIdx)
 }
 
 #if defined(PLATFORM_ESP32)
-static int getSamplingAttenuation(const int atten)
+static bool useCalibratedReading(const int atten)
 {
-    if (atten >= CALIBRATED_ATTENUATION_START)
-        return atten - CALIBRATED_ATTENUATION_START;
+    return atten >= CALIBRATED_ATTENUATION_START;
+}
+
+static adc_atten_t getSamplingAttenuation(const int atten)
+{
+    if (useCalibratedReading(atten))
+        return (adc_atten_t)(atten - CALIBRATED_ATTENUATION_START);
     if (atten == -1)
-        return ADC_11db;
-    return atten;
+        return ADC_ATTEN_DB_12;
+    return (adc_atten_t)atten;
 }
 #endif
 
-static uint32_t convertRawToAdcDomain(const uint8_t sourceIdx, const int atten, const uint32_t raw)
-{
-#if defined(PLATFORM_ESP32)
-    if (atten > ADC_11db)
-    {
-        esp_adc_cal_characteristics_t characteristics;
-        const int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
-        const int8_t channel = digitalPinToAnalogChannel(sourcePin);
-        const adc_unit_t unit = (channel > (SOC_ADC_MAX_CHANNEL_NUM - 1)) ? ADC_UNIT_2 : ADC_UNIT_1;
-        esp_adc_cal_characterize(unit, (adc_atten_t)getSamplingAttenuation(atten), ADC_WIDTH_BIT_12, 3300, &characteristics);
-        return esp_adc_cal_raw_to_voltage(raw, &characteristics);
-    }
-#endif
-    return raw;
-}
 
 static void sortSamples(uint16_t *values, const uint8_t count)
 {
@@ -158,18 +146,41 @@ bool VbatCalibration_sampleSource(const uint8_t sourceIdx, int atten, uint8_t sa
     memset(sample, 0, sizeof(*sample));
 
 #if defined(PLATFORM_ESP32)
+    adc_cali_handle_t calibration = nullptr;
+    const int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
     analogReadResolution(12);
-    analogSetPinAttenuation(hardware_pin(voltageSources[sourceIdx].hardwarePin), (adc_attenuation_t)getSamplingAttenuation(atten));
+    const adc_atten_t samplingAttenuation = getSamplingAttenuation(atten);
+    analogSetPinAttenuation(sourcePin, (adc_attenuation_t)samplingAttenuation);
+    if (useCalibratedReading(atten))
+        ESP32AdcCalibration_create(sourcePin, samplingAttenuation, &calibration);
+#else
+    const int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
 #endif
 
     uint16_t rawValues[samples] {};
     uint16_t adcValues[samples] {};
     for (uint8_t i = 0; i < samples; ++i)
     {
-        const uint16_t raw = analogRead(hardware_pin(voltageSources[sourceIdx].hardwarePin));
+        const uint16_t raw = analogRead(sourcePin);
         rawValues[i] = raw;
-        adcValues[i] = convertRawToAdcDomain(sourceIdx, atten, raw);
+
+        uint16_t adc = raw;
+#if defined(PLATFORM_ESP32)
+        if (useCalibratedReading(atten))
+        {
+            uint32_t calibrated = 0;
+            if (ESP32AdcCalibration_rawToMilliVolts(calibration, raw, &calibrated))
+                adc = calibrated;
+            else
+                adc = analogReadMilliVolts(sourcePin);
+        }
+#endif
+        adcValues[i] = adc;
     }
+
+#if defined(PLATFORM_ESP32)
+    ESP32AdcCalibration_destroy(calibration);
+#endif
 
     summarizeSamples(rawValues, adcValues, samples, sample);
     sample->saturated = sample->rawMax >= (ADC_MAX_VALUE - ADC_SATURATION_MARGIN);

@@ -7,6 +7,7 @@
 #include "median.h"
 #include "config.h"
 #include <Arduino.h>
+#include "ESP32AdcCalibration.h"
 
 // Sample 5x samples over 500ms (unless SlowUpdate)
 #define VBAT_SMOOTH_CNT         5
@@ -46,11 +47,10 @@ static const voltageSource_t voltageSources[VOLTAGE_SOURCE_COUNT] = {
     {HARDWARE_vsrc3, HARDWARE_vsrc3_offset, HARDWARE_vsrc3_scale, HARDWARE_vsrc3_atten, HARDWARE_vsrc3_noreading}
 #endif
 };
-
 #if defined(PLATFORM_ESP32)
-#include "esp_adc_cal.h"
-static esp_adc_cal_characteristics_t *voltageAdcUnitCharacterics[VOLTAGE_SOURCE_COUNT];
+static adc_cali_handle_t voltageAdcCalibration[VOLTAGE_SOURCE_COUNT];
 #endif
+
 
 /**
  * @brief: Enable SlowUpdate mode to reduce the frequency Vbat telemetry is sent
@@ -74,6 +74,22 @@ static bool sourceHasReading(uint8_t sourceIdx)
 {
     return sourceIsDefined(sourceIdx) && voltageSourceConnected[sourceIdx];
 }
+#if defined(PLATFORM_ESP32)
+static bool useCalibratedReading(uint8_t sourceIdx)
+{
+    return hardware_int(voltageSources[sourceIdx].atten) > ADC_ATTEN_DB_12;
+}
+
+static adc_atten_t getSamplingAttenuation(uint8_t sourceIdx)
+{
+    int atten = hardware_int(voltageSources[sourceIdx].atten);
+    if (useCalibratedReading(sourceIdx))
+        atten -= (ADC_ATTEN_DB_12 + 1);
+    if (atten == -1)
+        atten = ADC_ATTEN_DB_12;
+    return (adc_atten_t)atten;
+}
+#endif
 
 static int32_t adcToMilliVolts(uint8_t sourceIdx, uint32_t adc)
 {
@@ -91,12 +107,7 @@ static int32_t adcToMilliVolts(uint8_t sourceIdx, uint32_t adc)
 
 static uint32_t readSmoothedAdc(uint8_t sourceIdx)
 {
-    uint32_t adc = voltageSmooth[sourceIdx].calc();
-#if defined(PLATFORM_ESP32) && !defined(DEBUG_VBAT_ADC)
-    if (voltageAdcUnitCharacterics[sourceIdx])
-        adc = esp_adc_cal_raw_to_voltage(adc, voltageAdcUnitCharacterics[sourceIdx]);
-#endif
-    return adc;
+    return voltageSmooth[sourceIdx].calc();
 }
 
 static bool initialize()
@@ -118,28 +129,18 @@ static int start()
 
     for (uint8_t sourceIdx = 0; sourceIdx < VOLTAGE_SOURCE_COUNT; ++sourceIdx)
     {
+        ESP32AdcCalibration_destroy(voltageAdcCalibration[sourceIdx]);
+        voltageAdcCalibration[sourceIdx] = nullptr;
+
         if (!sourceIsDefined(sourceIdx))
             continue;
 
-        int atten = hardware_int(voltageSources[sourceIdx].atten);
-        if (atten == -1)
-            continue;
-
-        // if the configured value is higher than the max item (11dB, it indicates to use cal_characterize)
-        bool useCal = atten > ADC_11db;
-        if (useCal)
-            atten -= (ADC_11db + 1);
-
-        if (useCal)
-        {
-            voltageAdcUnitCharacterics[sourceIdx] = new esp_adc_cal_characteristics_t();
-            int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
-            int8_t channel = digitalPinToAnalogChannel(sourcePin);
-            adc_unit_t unit = (channel > (SOC_ADC_MAX_CHANNEL_NUM - 1)) ? ADC_UNIT_2 : ADC_UNIT_1;
-            esp_adc_cal_characterize(unit, (adc_atten_t)atten, ADC_WIDTH_BIT_12, 3300, voltageAdcUnitCharacterics[sourceIdx]);
-        }
-
-        analogSetPinAttenuation(hardware_pin(voltageSources[sourceIdx].hardwarePin), (adc_attenuation_t)atten);
+        const int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
+        const adc_atten_t samplingAttenuation = getSamplingAttenuation(sourceIdx);
+        analogSetPinAttenuation(sourcePin, (adc_attenuation_t)samplingAttenuation);
+        if (useCalibratedReading(sourceIdx) &&
+            !ESP32AdcCalibration_create(sourcePin, samplingAttenuation, &voltageAdcCalibration[sourceIdx]))
+            ERRLN("ADC calibration unavailable for source %u pin %d", sourceIdx, sourcePin);
     }
 #endif
 
@@ -223,15 +224,21 @@ static int timeout()
         if (!sourceIsDefined(sourceIdx))
             continue;
 
-        uint32_t adc = analogRead(hardware_pin(voltageSources[sourceIdx].hardwarePin));
+        const int sourcePin = hardware_pin(voltageSources[sourceIdx].hardwarePin);
+        const uint32_t raw = analogRead(sourcePin);
         int noReadingThreshold = hardware_int(voltageSources[sourceIdx].noReading);
-        voltageSourceConnected[sourceIdx] = (noReadingThreshold < 0) || (adc > (uint32_t)noReadingThreshold);
+        voltageSourceConnected[sourceIdx] = (noReadingThreshold < 0) || (raw > (uint32_t)noReadingThreshold);
 
-#if defined(PLATFORM_ESP32) && defined(DEBUG_VBAT_ADC)
-        // When doing DEBUG_VBAT_ADC, every value is adjusted (for logging)
-        // in normal mode only the final value is adjusted to save CPU cycles
-        if (voltageAdcUnitCharacterics[sourceIdx])
-            adc = esp_adc_cal_raw_to_voltage(adc, voltageAdcUnitCharacterics[sourceIdx]);
+        uint32_t adc = raw;
+#if defined(PLATFORM_ESP32)
+        if (useCalibratedReading(sourceIdx))
+        {
+            if (!ESP32AdcCalibration_rawToMilliVolts(voltageAdcCalibration[sourceIdx], raw, &adc))
+                adc = analogReadMilliVolts(sourcePin);
+        }
+#endif
+
+#if defined(DEBUG_VBAT_ADC)
         DBGLN("$ADC,%u,%u", sourceIdx, adc);
 #endif
 
@@ -244,6 +251,7 @@ static int timeout()
 
     return VBAT_SAMPLE_INTERVAL * vbatUpdateScale;
 }
+
 
 device_t AnalogVbat_device = {
     .initialize = initialize,
