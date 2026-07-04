@@ -536,7 +536,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
 static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &json)
 {
   if (json["button-actions"].is<JsonVariant>()) {
-    const JsonArray &array = json["button-actions"].as<JsonArray>();
+    const JsonArray array = json["button-actions"];
     for (size_t button=0 ; button<array.size() ; button++)
     {
       tx_button_color_t action;
@@ -586,7 +586,8 @@ static void ImportConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
 
   if (json["model"].is<JsonVariant>())
   {
-    for(JsonPair kv : json["model"].as<JsonObject>())
+    const JsonObject models = json["model"];
+    for(JsonPair kv : models)
     {
       const uint8_t model = atoi(kv.key().c_str());
       const auto modelJson = kv.value().as<JsonObject>();
