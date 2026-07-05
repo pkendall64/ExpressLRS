@@ -3,7 +3,7 @@
 #include <unity.h>
 
 #include "CRSFRouter.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "msptypes.h"
 
 using namespace std;

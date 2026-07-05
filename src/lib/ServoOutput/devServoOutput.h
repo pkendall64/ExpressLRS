@@ -2,7 +2,7 @@
 #if defined(TARGET_RX)
 
 #include "device.h"
-#include "common.h"
+#include "elrs_common.h"
 
 #if defined(PLATFORM_ESP32)
 #include "DShotRMT.h"

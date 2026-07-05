@@ -2,7 +2,7 @@
 #include "targets.h"
 #include "SX1280Driver.h"
 #include "esp32-hal.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "FHSS.h"
 
 SX1280Driver Radio;

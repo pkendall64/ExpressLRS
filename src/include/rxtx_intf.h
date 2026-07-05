@@ -4,7 +4,7 @@
  * Use this instead of drectly declaring externs in your unit
  ***/
 
-#include "common.h"
+#include "elrs_common.h"
 
 /***
  * In both RX and TX builds

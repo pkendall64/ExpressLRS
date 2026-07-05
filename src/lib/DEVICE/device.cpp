@@ -1,5 +1,5 @@
 #include "targets.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 #include "helpers.h"
 #include "device.h"

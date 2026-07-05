@@ -1,7 +1,7 @@
 #pragma once
 
 #include "device.h"
-#include "common.h"
+#include "elrs_common.h"
 
 typedef void (*ButtonAction_fn)();
 

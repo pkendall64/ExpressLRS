@@ -4,7 +4,7 @@
 
 #include "CRSFRouter.h"
 #include "FIFO.h"
-#include "common.h"
+#include "elrs_common.h"
 
 #define NOT_FOUND 0xff          // no device found indicator
 

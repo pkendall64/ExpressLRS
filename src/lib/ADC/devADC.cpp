@@ -1,6 +1,6 @@
 #include "targets.h"
 #if defined(TARGET_TX)
-#include "common.h"
+#include "elrs_common.h"
 #include "devADC.h"
 
 #define ADC_READING_PERIOD_MS 20

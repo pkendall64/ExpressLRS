@@ -1,6 +1,6 @@
 #include "TXUSBConnector.h"
 
-#include "common.h"
+#include "elrs_common.h"
 #include "config.h"
 
 extern Stream *BackpackOrLogStrm;

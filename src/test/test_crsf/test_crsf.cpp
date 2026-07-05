@@ -5,7 +5,7 @@
 #include "../test_msp/mock_serial.h"
 
 #include "CRSFRouter.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "options.h"
 
 using namespace std;

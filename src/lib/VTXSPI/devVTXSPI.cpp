@@ -2,7 +2,7 @@
 
 #if defined(TARGET_RX) && defined(PLATFORM_ESP32)
 #include "devVTXSPI.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "helpers.h"
 #include "hwTimer.h"
 #include "logging.h"

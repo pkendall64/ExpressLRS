@@ -1,5 +1,5 @@
 #include "TXModuleEndpoint.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "device.h"
 
 static int event()

@@ -1,7 +1,7 @@
 #include "SerialCRSF.h"
 
 #include "OTA.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "device.h"
 #include "msp2crsf.h"
 

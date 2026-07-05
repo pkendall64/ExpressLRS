@@ -1,4 +1,4 @@
-#include "common.h"
+#include "elrs_common.h"
 #include "OTA.h"
 
 #if defined(RADIO_SX127X)

@@ -2,7 +2,7 @@
 
 #include "SerialMavlink.h"
 #include "OTA.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "config.h"
 #include "device.h"
 

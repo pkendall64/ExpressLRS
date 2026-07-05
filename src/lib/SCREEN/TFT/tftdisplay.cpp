@@ -8,7 +8,7 @@
 #include "tftdisplay.h"
 
 #include "OTA.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 #include "logos.h"
 #include "options.h"

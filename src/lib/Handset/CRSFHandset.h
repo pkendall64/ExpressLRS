@@ -9,7 +9,7 @@
 #include "HardwareSerial.h"
 #endif
 #include "CRSFConnector.h"
-#include "common.h"
+#include "elrs_common.h"
 
 #ifdef PLATFORM_ESP32
 #include "driver/uart.h"

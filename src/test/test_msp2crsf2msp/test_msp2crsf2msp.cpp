@@ -1,5 +1,5 @@
 #include "CRSFRouter.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "crsf2msp.h"
 #include "msp2crsf.h"
 #include <iostream>

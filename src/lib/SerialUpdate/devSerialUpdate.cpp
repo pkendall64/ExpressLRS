@@ -2,7 +2,7 @@
 
 #if defined(PLATFORM_ESP32) && defined(TARGET_RX)
 #include "devSerialUpdate.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "hwTimer.h"
 #include "POWERMGNT.h"
 #include "devVTXSPI.h"

@@ -26,7 +26,7 @@
 
 #include <ESPAsyncWebServer.h>
 
-#include "common.h"
+#include "elrs_common.h"
 #include "rxtx_intf.h"
 #include "POWERMGNT.h"
 #include "FHSS.h"

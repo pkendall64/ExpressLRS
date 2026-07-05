@@ -8,3 +8,7 @@ src/.vscode
 src/data/*.ini
 src/data/*.json
 src/hardware
+src/managed_components
+src/.dummy
+src/sdkconfig.*
+src/src/idf_component.yml*

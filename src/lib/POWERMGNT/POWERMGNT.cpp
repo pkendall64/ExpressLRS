@@ -42,7 +42,7 @@ PowerLevels_e crsfPowerToPower(uint8_t crsfpower)
 
 #ifndef UNIT_TEST
 
-#include "common.h"
+#include "elrs_common.h"
 #include "device.h"
 #include "helpers.h"
 

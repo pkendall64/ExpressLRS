@@ -3,7 +3,7 @@
 #if defined(TARGET_RX)
 
 #include "SerialIO.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "config.h"
 #include "crsf_protocol.h"
 #include "device.h"

@@ -2,7 +2,7 @@
 
 #include "SerialAirPort.h"
 #include "device.h"
-#include "common.h"
+#include "elrs_common.h"
 
 uint32_t SerialAirPort::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {

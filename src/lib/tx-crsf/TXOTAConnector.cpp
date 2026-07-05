@@ -1,6 +1,6 @@
 #include "TXOTAConnector.h"
 
-#include "common.h"
+#include "elrs_common.h"
 #include "stubborn_sender.h"
 
 extern StubbornSender DataUlSender;

@@ -4,7 +4,7 @@
 
 #include "devScreen.h"
 
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 
 #include "OLED/oleddisplay.h"

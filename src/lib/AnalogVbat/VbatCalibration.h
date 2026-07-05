@@ -2,7 +2,7 @@
 
 #if defined(PLATFORM_ESP32) || defined(PLATFORM_ESP8266)
 
-#include "common.h"
+#include "elrs_common.h"
 
 typedef struct {
     const char *id;

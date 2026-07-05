@@ -6,7 +6,7 @@
 
 #include "OTA.h"
 #include "XBMStrings.h" // Contains all the ELRS logos and animations for the UI
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 #include "options.h"
 

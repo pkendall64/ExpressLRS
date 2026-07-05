@@ -2,7 +2,7 @@
 #include <iostream>
 #include <unity.h>
 #include "msp.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "mock_serial.h"
 
 MSP MSPProtocol;

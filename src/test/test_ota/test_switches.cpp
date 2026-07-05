@@ -14,7 +14,7 @@
 
 #include "CRSFEndpoint.h"
 #include "POWERMGNT.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "crsf_sysmocks.h"
 #include "targets.h"
 

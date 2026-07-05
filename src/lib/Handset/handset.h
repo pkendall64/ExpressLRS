@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common.h"
+#include "elrs_common.h"
 
 typedef void (*RcChannelsOverrideCallback_fn)(uint32_t channels[], size_t channelCnt);
 

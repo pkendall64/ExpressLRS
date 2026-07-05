@@ -8,7 +8,7 @@
 #include <StreamString.h>
 #include <LittleFS.h>
 
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 
 #if defined(TARGET_TX)

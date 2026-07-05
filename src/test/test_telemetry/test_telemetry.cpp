@@ -6,7 +6,7 @@
 #include "CRSFRouter.h"
 #include "CRSFParser.h"
 #include "RXOTAConnector.h"
-#include "common.h"
+#include "elrs_common.h"
 
 uint32_t ChannelData[CRSF_NUM_CHANNELS];      // Current state of channels, CRSF format
 

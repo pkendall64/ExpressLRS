@@ -1,5 +1,5 @@
 #if defined(Regulatory_Domain_EU_CE_2400)
-#include "common.h"
+#include "elrs_common.h"
 #include "logging.h"
 #include "LBT.h"
 #include "POWERMGNT.h"

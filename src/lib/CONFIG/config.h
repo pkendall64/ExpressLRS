@@ -3,7 +3,7 @@
 #include "targets.h"
 #include "elrs_eeprom.h"
 #include "options.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "OTA.h"
 
 #if defined(PLATFORM_ESP32)

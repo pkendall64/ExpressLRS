@@ -1,6 +1,6 @@
 #include "config.h"
 #include "config_legacy.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "device.h"
 #include "POWERMGNT.h"
 #include "OTA.h"

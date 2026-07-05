@@ -1,5 +1,5 @@
 #include "targets.h"
-#include "common.h"
+#include "elrs_common.h"
 #include "devLED.h"
 
 #if defined(TARGET_TX)

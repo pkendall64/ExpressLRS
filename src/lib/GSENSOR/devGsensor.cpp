@@ -1,5 +1,5 @@
 #include "targets.h"
-#include "common.h"
+#include "elrs_common.h"
 
 #include "devGsensor.h"
 #include <functional>

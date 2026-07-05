@@ -2,7 +2,7 @@
 
 #if defined(TARGET_RX)
 
-#include "common.h"
+#include "elrs_common.h"
 #include "device.h"
 
 void Vbat_enableSlowUpdate(bool enable);
