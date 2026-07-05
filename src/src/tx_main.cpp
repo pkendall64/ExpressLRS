@@ -53,7 +53,7 @@ FIFO<AP_MAX_BUF_LEN> apOutputBuffer;
 #define UART_INPUT_BUF_LEN 1024
 FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
 
-uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]; // Buffer for current stubbon sender packet (mavlink only)
+uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]; // Buffer for current stubborn sender packet (mavlink only)
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
@@ -1178,7 +1178,7 @@ static void HandleUARTin()
   // Backpack serial input
   // Backpack will not switch modes, but will process data as mavlink if the link mode is already set to mavlink
   // Backpack serial data is ALSO always processed as backpack MSP
-  if (BackpackOrLogStrm != TxUSB && BackpackOrLogStrm->available())
+  if (BackpackOrLogStrm->available())
   {
     auto size = std::min(uartInputBuffer.free(), (uint16_t)BackpackOrLogStrm->available());
     if (size > 0)
@@ -1232,70 +1232,68 @@ static void HandleUARTin()
 }
 
 static void setupSerial()
-{  /*
+{
+  /*
    * Setup the logging/backpack serial port, and the USB serial port.
    * This is always done because we need a place to send data even if there is no backpack!
    */
-
-// Setup BackpackOrLogStrm
-#if defined(PLATFORM_ESP32)
-  Stream *serialPort;
-
-  if(firmwareOptions.is_airport)
-  {
-    serialPort = new HardwareSerial(1);
-    ((HardwareSerial *)serialPort)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
-  }
-  else if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
-  {
-    serialPort = new HardwareSerial(2);
-    ((HardwareSerial *)serialPort)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
-  }
-  else
-  {
-    serialPort = new NullStream();
-  }
-#elif defined(PLATFORM_ESP8266)
-  Stream *serialPort;
-  if (GPIO_PIN_DEBUG_TX != UNDEF_PIN)
-  {
-    serialPort = new HardwareSerial(1);
-    ((HardwareSerial*)serialPort)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, SERIAL_TX_ONLY, GPIO_PIN_DEBUG_TX);
-  }
-  else
-  {
-    serialPort = new NullStream();
-  }
-#endif
-  BackpackOrLogStrm = serialPort;
-
-// Setup TxUSB
-#if defined(PLATFORM_ESP32_S3)
+#if defined(PLATFORM_ESP8266)
+  BackpackOrLogStrm = new NullStream();
+  TxUSB = new NullStream();
+#elif defined(PLATFORM_ESP32_S3)
   // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
   USBSerial.begin(firmwareOptions.uart_baud);
   TxUSB = &USBSerial;
-#elif defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
-  if (GPIO_PIN_DEBUG_RX == U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX == U0TXD_GPIO_NUM)
+  if (!firmwareOptions.is_airport && GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
   {
-    // The backpack or Airpoirt is already assigned on UART0 (pins 3, 1)
-    // This is also USB on modules that use DIPs
-    // Set TxUSB to BackpackOrLogStrm so that data goes to the same place
-    TxUSB = BackpackOrLogStrm;
-  }
-  else if (GPIO_PIN_RCSIGNAL_RX == U0RXD_GPIO_NUM && GPIO_PIN_RCSIGNAL_TX == U0TXD_GPIO_NUM)
-  {
-    // This is an internal module, or an external module configured with a relay.  Do not setup TxUSB.
-    TxUSB = new NullStream();
+    BackpackOrLogStrm = new HardwareSerial(2);
+    ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
   }
   else
   {
-    // The backpack is on a separate UART to UART0
-    // Set TxUSB to UART0 default pins so that we can access TxUSB and BackpackOrLogStrm independantly
+    BackpackOrLogStrm = new NullStream();
+  }
+#elif defined(PLATFORM_ESP32_C3)
+  if(firmwareOptions.is_airport)
+  {
     TxUSB = new HardwareSerial(1);
     ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
   }
+  else
+  {
+    TxUSB = new NullStream();
+  }
+  BackpackOrLogStrm = new NullStream();
 #else
-  TxUSB = new NullStream();
+  if(firmwareOptions.is_airport)
+  {
+    TxUSB = new HardwareSerial(1);
+    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
+    BackpackOrLogStrm = new NullStream();
+  }
+  else
+  {
+    // If the default UART is not the backpack, then our USB is assigned
+    if (GPIO_PIN_DEBUG_RX != U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX != U0TXD_GPIO_NUM)
+    {
+      TxUSB = new HardwareSerial(1);
+      ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
+    }
+    else
+    {
+      TxUSB = new NullStream();
+    }
+    // If we have a backpack then set that up
+    if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
+    {
+      BackpackOrLogStrm = new HardwareSerial(2);
+      ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
+    }
+    else
+    {
+      BackpackOrLogStrm = new NullStream();
+    }
+  }
 #endif
 }
 
@@ -1545,10 +1543,7 @@ void loop()
           // forward raw mavlink data to USB
           TxUSB->write(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
           // And to the backpack if we have one
-          if (TxUSB != BackpackOrLogStrm)
-          {
-            sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
-          }
+          sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
         }
       }
       else
