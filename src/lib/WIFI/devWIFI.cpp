@@ -141,6 +141,19 @@ static bool captivePortal(AsyncWebServerRequest *request)
   return false;
 }
 
+static void copyStationCredentials(const char *ssid, const char *password)
+{
+  strlcpy(station_ssid, ssid, sizeof(station_ssid));
+  strlcpy(station_password, password, sizeof(station_password));
+}
+
+static void sendTextResponse(AsyncWebServerRequest *request, const String &msg, int status = 200)
+{
+  AsyncWebServerResponse *response = request->beginResponse(status, "text/plain", msg);
+  response->addHeader("Connection", "close");
+  request->send(response);
+}
+
 static void WebUpdateSendContent(AsyncWebServerRequest *request)
 {
   for (size_t i=0 ; i<WEB_ASSETS_COUNT ; i++) {
@@ -203,9 +216,7 @@ static void getFile(AsyncWebServerRequest *request)
 
 static void HandleReboot(AsyncWebServerRequest *request)
 {
-  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "Kill -9, no more CPU time!");
-  response->addHeader("Connection", "close");
-  request->send(response);
+  sendTextResponse(request, "Kill -9, no more CPU time!");
   scheduleRebootTime(200);
 }
 
@@ -228,9 +239,7 @@ static void HandleReset(AsyncWebServerRequest *request)
   if (request->hasArg("model") || request->hasArg("config")) {
     config.SetDefaults(true);
   }
-  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "Reset complete, rebooting...");
-  response->addHeader("Connection", "close");
-  request->send(response);
+  sendTextResponse(request, "Reset complete, rebooting...");
   scheduleRebootTime(100);
 }
 
@@ -723,9 +732,7 @@ static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
 }
 
 static void sendResponse(AsyncWebServerRequest *request, const String &msg, WiFiMode_t mode) {
-  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", msg);
-  response->addHeader("Connection", "close");
-  request->send(response);
+  sendTextResponse(request, msg);
   changeTime = millis();
   changeMode = mode;
 }
@@ -752,8 +759,7 @@ static void WebUpdateSetHome(AsyncWebServerRequest *request)
   String onInterval = request->arg("wifi-on-interval");
 
   DBGLN("Setting network %s", ssid.c_str());
-  strcpy(station_ssid, ssid.c_str());
-  strcpy(station_password, password.c_str());
+  copyStationCredentials(ssid.c_str(), password.c_str());
   if (request->hasArg("save")) {
     strlcpy(firmwareOptions.home_wifi_ssid, ssid.c_str(), sizeof(firmwareOptions.home_wifi_ssid));
     strlcpy(firmwareOptions.home_wifi_password, password.c_str(), sizeof(firmwareOptions.home_wifi_password));
@@ -771,8 +777,7 @@ static void WebUpdateForget(AsyncWebServerRequest *request)
   firmwareOptions.home_wifi_password[0] = 0;
   firmwareOptions.wifi_auto_on_interval = (onInterval.isEmpty() ? -1 : onInterval.toInt()) * 1000;
   saveOptions();
-  station_ssid[0] = 0;
-  station_password[0] = 0;
+  copyStationCredentials("", "");
   String msg = String("Home network forgotten, please connect to access point '") + wifi_ap_ssid + "' with password '" + wifi_ap_password + "'";
   sendResponse(request, msg, WIFI_AP);
 }
@@ -1056,8 +1061,7 @@ static void startWiFi(unsigned long now)
   WiFi.persistent(false);
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
-  strcpy(station_ssid, firmwareOptions.home_wifi_ssid);
-  strcpy(station_password, firmwareOptions.home_wifi_password);
+  copyStationCredentials(firmwareOptions.home_wifi_ssid, firmwareOptions.home_wifi_password);
   if (station_ssid[0] == 0) {
     changeTime = now;
     changeMode = WIFI_AP;
