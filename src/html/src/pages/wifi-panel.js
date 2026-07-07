@@ -1,6 +1,6 @@
 import {html, LitElement} from "lit"
 import {customElement, query, state} from "lit/decorators.js"
-import {elrsState} from "../utils/state.js"
+import {applyStatePatch, elrsState} from "../utils/state.js"
 import {loadJSON, postWithFeedback} from "../utils/feedback.js"
 import {autocomplete} from "../utils/autocomplete.js"
 
@@ -147,14 +147,8 @@ class WifiPanel extends LitElement {
             case '0':
                 postWithFeedback('Set Home Network', 'An error occurred setting the home network', '/sethome?save', function () {
                     return new FormData(self.form)
-                }, function () {
-                    elrsState.options = {
-                        ...elrsState.options,
-                        'wifi-ssid': self.wifiSsid,
-                        'wifi-password': self.wifiPassword,
-                        'wifi-on-interval': self.wifiOnInterval,
-                        customised: true
-                    }
+                }, function (response) {
+                    applyStatePatch(response)
                     self.requestUpdate()
                 })(event)
                 break
@@ -169,12 +163,8 @@ class WifiPanel extends LitElement {
             case '3':
                 postWithFeedback('Forget Home Network', 'An error occurred forgetting the home network', '/forget', function () {
                     return new FormData(self.form)
-                }, function () {
-                    elrsState.options = {
-                        ...elrsState.options,
-                        'wifi-on-interval': self.wifiOnInterval,
-                        customised: true
-                    }
+                }, function (response) {
+                    applyStatePatch(response)
                     self.requestUpdate()
                 })(event)
                 break

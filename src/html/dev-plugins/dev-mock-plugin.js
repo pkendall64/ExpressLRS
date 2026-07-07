@@ -31,6 +31,8 @@ export function devMockPlugin() {
         setTimeout(sendResponse, delayMs)
     }
 
+    const clone = (value) => JSON.parse(JSON.stringify(value))
+
     // Basic stub data used by multiple endpoints
     const stubState = {
         settings: {
@@ -53,7 +55,7 @@ export function devMockPlugin() {
         },
         options: {
             customised: true,
-            "uid": [1, 2, 3, 4, 5, 6],   // this is the 'flashed' UID and may be empty if using traditional binding on an RX.
+            "uid": [1, 2, 3, 4, 5, 6],
             "tlm-interval": 240,
             "fan-runtime": 30,
             "is-airport": true,
@@ -66,8 +68,7 @@ export function devMockPlugin() {
             "wifi-ssid": "network-ssid"
         },
         config: {
-            uid: [5, 4, 3, 2, 1, 0],  // current UID, different to options if traditional binding or on-loan
-            // RX config
+            uid: [5, 4, 3, 2, 1, 0],
             modelid: 62,
             'force-tlm': true,
             'serial-protocol': 1,
@@ -77,11 +78,10 @@ export function devMockPlugin() {
                 {"config": 0, "pin": 0, "features": 12},
                 {"config": 1536, "pin": 4, "features": 12 + 16},
                 {"config": 2048, "pin": 5, "features": 12 + 16},
-                {"config": 3584, "pin": 1, "features": 1 + 4 + 8 + 16 + 32+ 64},
-                {"config": 4608, "pin": 3, "features": 2 + 4 + 8 + 16 + 32+ 64}
+                {"config": 3584, "pin": 1, "features": 1 + 4 + 8 + 16 + 32 + 64},
+                {"config": 4608, "pin": 3, "features": 2 + 4 + 8 + 16 + 32 + 64}
             ],
             vbind: 0,
-            // TX config
             "button-actions": [
                 {
                     "color": 255,
@@ -150,10 +150,33 @@ export function devMockPlugin() {
         vsrc1_scale: 180,
         vsrc1_atten: 1,
         vsrc1_noreading: 8,
-        // vsrc1_cal_min: 3300,
-        // vsrc1_cal_max: 12600
     }
     const voltageSources = []
+
+    const configEnvelope = (msg) => ({
+        status: 'ok',
+        msg,
+        settings: clone(stubState.settings),
+        options: clone(stubState.options),
+        config: clone(stubState.config)
+    })
+
+    const optionsEnvelope = (msg) => ({
+        status: 'ok',
+        msg,
+        options: clone(stubState.options)
+    })
+
+    const hardwareEnvelope = (msg) => ({
+        status: 'ok',
+        msg,
+        hardware: clone(hardwareState)
+    })
+
+    const parseMultipartField = (body, name) => {
+        const match = body.match(new RegExp(`name="${name}"\\r\\n\\r\\n([\\s\\S]*?)\\r\\n`))
+        return match ? match[1] : ''
+    }
 
     function countVoltageSourcesFromHardware(hardware) {
         let count = 0
@@ -223,12 +246,10 @@ export function devMockPlugin() {
                 const url = req.url || '/'
                 const method = (req.method || 'GET').toUpperCase()
 
-                // Add delay for lazy-loaded page group modules to simulate network latency
                 if (method === 'GET' && (url.includes('general-group.js') || url.includes('advanced-group.js'))) {
                     return setTimeout(() => next(), MODULE_LOAD_DELAY_MS)
                 }
 
-                // Utilities to collect request body (json or text)
                 const readBody = () => new Promise((resolve) => {
                     let data = ''
                     req.on('data', (chunk) => {
@@ -241,7 +262,6 @@ export function devMockPlugin() {
                     return sendJSON(res, stubState.config)
                 }
                 if (method === 'GET' && url === '/config') {
-                    // Reset the networks scan delay counter whenever config is fetched
                     networkQueryCount = 0
                     if (stubState.settings['module-type'] === 'RX') {
                         stubState.settings.voltage_source_count = voltageSources.length
@@ -261,29 +281,34 @@ export function devMockPlugin() {
                     })
                 }
                 if (method === 'POST' && (url === '/options' || url === '/options.json')) {
-                    return readBody().then(() => sendText(res, 'Options saved'))
+                    return readBody().then((body) => {
+                        try {
+                            const data = JSON.parse(body || '{}')
+                            stubState.options = {...stubState.options, ...data}
+                        } catch (_e) {
+                        }
+                        return sendJSON(res, optionsEnvelope('Options updated'))
+                    })
                 }
                 if (method === 'POST' && url === '/config') {
                     return readBody().then((body) => {
                         try {
                             const data = JSON.parse(body || '{}')
                             const pwm = stubState.config.pwm
-                            stubState.config = {...data, pwm}
+                            stubState.config = {...stubState.config, ...data, pwm}
                             if (data.pwm) {
                                 let i = 0
                                 stubState.config.pwm.forEach((item) => {
                                     item.config = data.pwm[i++]
                                 })
                             }
-                        } catch (e) {
-                            // ignore parse errors in mock
+                        } catch (_e) {
                         }
-                        return sendText(res, 'Config saved')
+                        return sendJSON(res, configEnvelope('Configuration updated'))
                     })
                 }
                 if (method === 'GET' && url === '/cw') {
                     cwGetRequestCount++
-                    // Fail every third request to test error handling
                     if (cwGetRequestCount % 3 === 0) {
                         return sendDelayed(PAGE_LOAD_DELAY_MS, () => sendStatus(res, 500))
                     }
@@ -314,8 +339,8 @@ export function devMockPlugin() {
                         msg: 'Forced firmware update started.'
                     }))
                 }
-                if (method === 'POST' && (url === '/reset?lr1121' || url === '/reset')) {
-                    return sendText(res, 'LR1121 reset requested. Rebooting...')
+                if (method === 'POST' && (url === '/reset?lr1121' || url.startsWith('/reset'))) {
+                    return sendJSON(res, {status: 'ok', msg: 'Reset requested. Rebooting...'})
                 }
                 if (method === 'GET' && url === '/lr1121.json') {
                     return sendDelayed(PAGE_LOAD_DELAY_MS, () => sendJSON(res, {
@@ -335,11 +360,11 @@ export function devMockPlugin() {
                         try {
                             const data = JSON.parse(body || '{}')
                             Object.assign(hardwareState, data)
+                            stubState.settings.custom_hardware = !!data.customised || stubState.settings.custom_hardware
                             syncVoltageSourcesFromHardware(hardwareState)
-                        } catch (e) {
-                            // ignore parse errors in mock
+                        } catch (_e) {
                         }
-                        return sendText(res, 'Hardware saved')
+                        return sendJSON(res, hardwareEnvelope('Hardware saved'))
                     })
                 }
                 if (method === 'POST' && url === '/reboot') {
@@ -348,11 +373,46 @@ export function devMockPlugin() {
                 if (method === 'POST' && url === '/binding') {
                     return sendText(res, 'Binding')
                 }
-                if (method === 'POST' && url === '/sethome') {
-                    return sendText(res, 'Home set')
+                if (method === 'POST' && (url === '/sethome' || url.startsWith('/sethome?'))) {
+                    return readBody().then((body) => {
+                        const network = parseMultipartField(body, 'network')
+                        const password = parseMultipartField(body, 'password')
+                        const interval = parseMultipartField(body, 'wifi-on-interval')
+                        const saveHomeNetwork = url.includes('?save')
+                        if (network) {
+                            stubState.settings.ssid = network
+                        }
+                        stubState.settings.mode = 'STA'
+                        if (saveHomeNetwork) {
+                            stubState.options['wifi-ssid'] = network
+                            stubState.options['wifi-password'] = password
+                            stubState.options['wifi-on-interval'] = interval === '' ? undefined : Number.parseInt(interval, 10)
+                            stubState.options.customised = true
+                        }
+                        return sendJSON(res, saveHomeNetwork ? optionsEnvelope('Home set') : {status: 'ok', msg: 'Home set'})
+                    })
+                }
+                if (method === 'POST' && url === '/connect') {
+                    stubState.settings.mode = 'STA'
+                    return sendJSON(res, {status: 'ok', msg: `Connecting to network '${stubState.settings.ssid}', connect to http://elrs.local from a browser on that network`})
+                }
+                if (method === 'POST' && url === '/access') {
+                    stubState.settings.mode = 'AP'
+                    return sendJSON(res, {status: 'ok', msg: 'Access Point starting, please connect to access point \"ExpressLRS\"'})
+                }
+                if (method === 'POST' && url === '/forget') {
+                    return readBody().then((body) => {
+                        const interval = parseMultipartField(body, 'wifi-on-interval')
+                        stubState.options['wifi-ssid'] = ''
+                        stubState.options['wifi-password'] = ''
+                        stubState.options['wifi-on-interval'] = interval === '' ? undefined : Number.parseInt(interval, 10)
+                        stubState.options.customised = true
+                        stubState.settings.mode = 'AP'
+                        return sendJSON(res, optionsEnvelope('Home network forgotten, please reconnect to the access point'))
+                    })
                 }
                 if (method === 'POST' && url === '/import') {
-                    return sendText(res, 'Import complete')
+                    return sendJSON(res, configEnvelope('Import complete'))
                 }
                 if (method === 'GET' && url === '/import') {
                     return sendText(res, JSON.stringify(stubState))

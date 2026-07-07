@@ -94,6 +94,12 @@ static bool target_complete = false;
 static bool force_update = false;
 static uint32_t totalSize;
 
+static const char *GetConfigUidType(const JsonObject json);
+static int8_t wifi_GetClientRssi();
+#if defined(TARGET_RX)
+static uint8_t getDefinedVoltageSourceCount();
+#endif
+
 static const char VERSION[] = {LATEST_VERSION, 0};
 
 void setWifiUpdateMode()
@@ -154,15 +160,208 @@ static void sendTextResponse(AsyncWebServerRequest *request, const String &msg, 
   request->send(response);
 }
 
-void sendJsonStatusResponse(AsyncWebServerRequest *request, const char *status, const String &msg)
+template <typename PopulateBody>
+static void sendJsonResponse(AsyncWebServerRequest *request, const char *status, const String &msg, PopulateBody populateBody)
 {
   auto *response = new AsyncJsonResponse();
   JsonObject root = response->getRoot().to<JsonObject>();
   root["status"] = status;
   root["msg"] = msg;
+  populateBody(root);
   response->setLength();
   response->addHeader("Connection", "close");
   request->send(response);
+}
+
+void sendJsonStatusResponse(AsyncWebServerRequest *request, const char *status, const String &msg)
+{
+  sendJsonResponse(request, status, msg, [](JsonObject){});
+}
+
+static void appendOptionsJson(JsonObject root)
+{
+  JsonDocument options;
+  deserializeJson(options, getOptions());
+  root["options"] = options;
+}
+
+static void appendHardwareJson(JsonObject root)
+{
+  JsonDocument hardware;
+  deserializeJson(hardware, getHardware());
+  root["hardware"] = hardware;
+}
+
+static void populateConfigurationResponse(JsonObject root, bool exportMode)
+{
+  if (!exportMode)
+  {
+    appendOptionsJson(root);
+  }
+
+  const auto cfg = root["config"].to<JsonObject>();
+  const auto uid = cfg["uid"].to<JsonArray>();
+  copyArray(UID, UID_LEN, uid);
+
+#if defined(TARGET_TX)
+  int button_count = 0;
+  if (GPIO_PIN_BUTTON != UNDEF_PIN)
+    button_count = 1;
+  if (GPIO_PIN_BUTTON2 != UNDEF_PIN)
+    button_count = 2;
+  for (int button=0 ; button<button_count ; button++)
+  {
+    const tx_button_color_t *buttonColor = config.GetButtonActions(button);
+    const auto btn = cfg["button-actions"][button].to<JsonObject>();
+    if (hardware_int(button == 0 ? HARDWARE_button_led_index : HARDWARE_button2_led_index) != -1) {
+      btn["color"] = buttonColor->val.color;
+    }
+    for (int pos=0 ; pos<button_GetActionCnt() ; pos++)
+    {
+      const auto action = btn["action"][pos].to<JsonObject>();
+      action["is-long-press"] = buttonColor->val.actions[pos].pressType ? true : false;
+      action["count"] = buttonColor->val.actions[pos].count;
+      action["action"] = buttonColor->val.actions[pos].action;
+    }
+  }
+  if (exportMode)
+  {
+    cfg["fan-mode"] = config.GetFanMode();
+    cfg["power-fan-threshold"] = config.GetPowerFanThreshold();
+    cfg["motion-mode"] = config.GetMotionMode();
+
+    const auto vtxAdmin = cfg["vtx-admin"].to<JsonObject>();
+    vtxAdmin["band"] = config.GetVtxBand();
+    vtxAdmin["channel"] = config.GetVtxChannel();
+    vtxAdmin["pitmode"] = config.GetVtxPitmode();
+    vtxAdmin["power"] = config.GetVtxPower();
+
+    const auto backpack = cfg["backpack"].to<JsonObject>();
+    backpack["disabled"] = config.GetBackpackDisable();
+    backpack["dvr-start-delay"] = config.GetDvrStartDelay();
+    backpack["dvr-stop-delay"] = config.GetDvrStopDelay();
+    backpack["dvr-aux-channel"] = config.GetDvrAux();
+    backpack["telemetry-mode"] = config.GetBackpackTlmMode();
+
+    for (int model = 0 ; model < CONFIG_TX_MODEL_CNT ; model++)
+    {
+      const model_config_t &modelConfig = config.GetModelConfig(model);
+      String strModel(model);
+      const auto modelJson = cfg["model"][strModel].to<JsonObject>();
+      modelJson["packet-rate"] = modelConfig.rate;
+      modelJson["telemetry-ratio"] = modelConfig.tlm;
+      modelJson["switch-mode"] = modelConfig.switchMode;
+      modelJson["link-mode"] = modelConfig.linkMode;
+      modelJson["model-match"] = modelConfig.modelMatch;
+      modelJson["tx-antenna"] = modelConfig.txAntenna;
+      modelJson["ptr-start-chan"] = modelConfig.ptrStartChannel;
+      modelJson["ptr-enable-chan"] = modelConfig.ptrEnableChannel;
+      const auto power = cfg["power"].to<JsonObject>();
+      power["max-power"] = modelConfig.power;
+      power["dynamic-power"] = modelConfig.dynamicPower;
+      power["boost-channel"] = modelConfig.boostChannel;
+    }
+  }
+#endif /* TARGET_TX */
+
+  if (!exportMode)
+  {
+    const auto settings = root["settings"].to<JsonObject>();
+    #if defined(TARGET_RX)
+    cfg["serial-protocol"] = config.GetSerialProtocol();
+    #if defined(PLATFORM_ESP32)
+    if ((GPIO_PIN_SERIAL1_RX != UNDEF_PIN && GPIO_PIN_SERIAL1_TX != UNDEF_PIN) || GPIO_PIN_PWM_OUTPUTS_COUNT > 0)
+    {
+      cfg["serial1-protocol"] = config.GetSerial1Protocol();
+    }
+    #endif
+    cfg["sbus-failsafe"] = config.GetFailsafeMode();
+    cfg["modelid"] = config.GetModelId();
+    cfg["force-tlm"] = config.GetForceTlmOff();
+    cfg["vbind"] = config.GetBindStorage();
+    for (int ch=0; ch<GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
+    {
+      const auto channel = cfg["pwm"][ch].to<JsonObject>();
+      channel["config"] = config.GetPwmChannel(ch)->raw;
+      channel["pin"] = GPIO_PIN_PWM_OUTPUTS[ch];
+      uint8_t features = 0;
+      auto pin = GPIO_PIN_PWM_OUTPUTS[ch];
+      if (!OPT_PWM_OUT_ONLY)
+      {
+        if (pin == U0TXD_GPIO_NUM) features |= 1;
+        else if (pin == U0RXD_GPIO_NUM) features |= 2;
+        else if (pin == GPIO_PIN_SCL) features |= 4;
+        else if (pin == GPIO_PIN_SDA) features |= 8;
+        else if (GPIO_PIN_SCL == UNDEF_PIN || GPIO_PIN_SDA == UNDEF_PIN) features |= 12;
+      }
+      #if defined(PLATFORM_ESP32)
+      if (pin != 0) features |= 16;
+      if (!OPT_PWM_OUT_ONLY)
+      {
+        if (pin == GPIO_PIN_SERIAL1_RX) features |= 32;
+        else if (pin == GPIO_PIN_SERIAL1_TX) features |= 64;
+        else if ((GPIO_PIN_SERIAL1_RX == UNDEF_PIN || GPIO_PIN_SERIAL1_TX == UNDEF_PIN) &&
+                 (!(features & 1) && !(features & 2))) features |= 96;
+      }
+      #endif
+      channel["features"] = features;
+    }
+    if (GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX != UNDEF_PIN)
+    {
+        settings["has_serial_pins"] = true;
+    }
+    #endif
+    settings["product_name"] = product_name;
+    settings["lua_name"] = device_name;
+    settings["uidtype"] = GetConfigUidType(root);
+    settings["ssid"] = station_ssid;
+    settings["mode"] = wifiMode == WIFI_STA ? "STA" : "AP";
+    settings["wifi_dbm"] = wifi_GetClientRssi();
+    settings["custom_hardware"] = hardware_flag(HARDWARE_customised);
+    settings["target"] = &target_name[4];
+    settings["version"] = VERSION;
+    settings["git-commit"] = commit;
+#if defined(TARGET_TX)
+    settings["module-type"] = "TX";
+#endif
+#if defined(TARGET_RX)
+    settings["module-type"] = "RX";
+    settings["voltage_source_count"] = getDefinedVoltageSourceCount();
+#endif
+#if defined(RADIO_SX128X)
+    settings["radio-type"] = "SX128X";
+    settings["has_low_band"] = false;
+    settings["has_high_band"] = true;
+    settings["reg_domain_high"] = FHSSconfig->domain;
+#elif defined(RADIO_SX127X)
+    settings["radio-type"] = "SX127X";
+    settings["has_low_band"] = true;
+    settings["has_high_band"] = false;
+    settings["reg_domain_low"] = FHSSconfig->domain;
+#elif defined(RADIO_LR1121)
+    settings["radio-type"] = "LR1121";
+    settings["has_low_band"] = POWER_OUTPUT_VALUES_COUNT != 0;
+    settings["has_high_band"] = POWER_OUTPUT_VALUES_DUAL_COUNT != 0;
+    settings["reg_domain_low"] = FHSSconfig->domain;
+    settings["reg_domain_high"] = FHSSconfigDualBand->domain;
+#endif
+  }
+}
+
+static String buildAccessPointMessage()
+{
+  return String("Access Point starting, please connect to access point '") + wifi_ap_ssid + "' with password '" + wifi_ap_password + "'";
+}
+
+static String buildStationConnectMessage()
+{
+  return String("Connecting to network '") + station_ssid + "', connect to http://" +
+    wifi_hostname + ".local from a browser on that network";
+}
+
+static int parseWifiAutoOnIntervalMillis(const String &onInterval)
+{
+  return (onInterval.isEmpty() ? -1 : onInterval.toInt()) * 1000;
 }
 
 static void WebUpdateSendContent(AsyncWebServerRequest *request)
@@ -219,7 +418,13 @@ static void getFile(AsyncWebServerRequest *request)
   if (request->url() == "/options.json") {
     request->send(200, "application/json", getOptions());
   } else if (request->url() == "/hardware.json") {
-    request->send(200, "application/json", getHardware());
+    if (request->method() == HTTP_POST) {
+      sendJsonResponse(request, "ok", "Hardware saved", [](JsonObject root) {
+        appendHardwareJson(root);
+      });
+    } else {
+      request->send(200, "application/json", getHardware());
+    }
   } else {
     request->send(LittleFS, request->url().c_str(), "text/plain", true);
   }
@@ -250,7 +455,7 @@ static void HandleReset(AsyncWebServerRequest *request)
   if (request->hasArg("model") || request->hasArg("config")) {
     config.SetDefaults(true);
   }
-  sendTextResponse(request, "Reset complete, rebooting...");
+  sendJsonStatusResponse(request, "ok", "Reset complete, rebooting...");
   scheduleRebootTime(100);
 }
 
@@ -267,7 +472,9 @@ static void UpdateSettings(AsyncWebServerRequest *request, JsonVariant &json)
   String options;
   serializeJson(json, options);
   setOptions(options);
-  request->send(200);
+  sendJsonResponse(request, "ok", "Options updated", [](JsonObject root) {
+    appendOptionsJson(root);
+  });
 }
 
 static const char *GetConfigUidType(const JsonObject json)
@@ -391,163 +598,8 @@ static void GetConfiguration(AsyncWebServerRequest *request)
 {
   const bool exportMode = request->hasArg("export");
   auto *response = new AsyncJsonResponse();
-  const auto json = response->getRoot();
-
-  if (!exportMode)
-  {
-    JsonDocument options;
-    deserializeJson(options, getOptions());
-    json["options"] = options;
-  }
-
-  const auto cfg = json["config"].to<JsonObject>();
-  const auto uid = cfg["uid"].to<JsonArray>();
-  copyArray(UID, UID_LEN, uid);
-
-#if defined(TARGET_TX)
-  int button_count = 0;
-  if (GPIO_PIN_BUTTON != UNDEF_PIN)
-    button_count = 1;
-  if (GPIO_PIN_BUTTON2 != UNDEF_PIN)
-    button_count = 2;
-  for (int button=0 ; button<button_count ; button++)
-  {
-    const tx_button_color_t *buttonColor = config.GetButtonActions(button);
-    const auto btn = cfg["button-actions"][button].to<JsonObject>();
-    if (hardware_int(button == 0 ? HARDWARE_button_led_index : HARDWARE_button2_led_index) != -1) {
-      btn["color"] = buttonColor->val.color;
-    }
-    for (int pos=0 ; pos<button_GetActionCnt() ; pos++)
-    {
-      const auto action = btn["action"][pos].to<JsonObject>();
-      action["is-long-press"] = buttonColor->val.actions[pos].pressType ? true : false;
-      action["count"] = buttonColor->val.actions[pos].count;
-      action["action"] = buttonColor->val.actions[pos].action;
-    }
-  }
-  if (exportMode)
-  {
-    cfg["fan-mode"] = config.GetFanMode();
-    cfg["power-fan-threshold"] = config.GetPowerFanThreshold();
-    cfg["motion-mode"] = config.GetMotionMode();
-
-    const auto vtxAdmin = cfg["vtx-admin"].to<JsonObject>();
-    vtxAdmin["band"] = config.GetVtxBand();
-    vtxAdmin["channel"] = config.GetVtxChannel();
-    vtxAdmin["pitmode"] = config.GetVtxPitmode();
-    vtxAdmin["power"] = config.GetVtxPower();
-
-    const auto backpack = cfg["backpack"].to<JsonObject>();
-    backpack["disabled"] = config.GetBackpackDisable();
-    backpack["dvr-start-delay"] = config.GetDvrStartDelay();
-    backpack["dvr-stop-delay"] = config.GetDvrStopDelay();
-    backpack["dvr-aux-channel"] = config.GetDvrAux();
-    backpack["telemetry-mode"] = config.GetBackpackTlmMode();
-
-    for (int model = 0 ; model < CONFIG_TX_MODEL_CNT ; model++)
-    {
-      const model_config_t &modelConfig = config.GetModelConfig(model);
-      String strModel(model);
-      const auto modelJson = cfg["model"][strModel].to<JsonObject>();
-      modelJson["packet-rate"] = modelConfig.rate;
-      modelJson["telemetry-ratio"] = modelConfig.tlm;
-      modelJson["switch-mode"] = modelConfig.switchMode;
-      modelJson["link-mode"] = modelConfig.linkMode;
-      modelJson["model-match"] = modelConfig.modelMatch;
-      modelJson["tx-antenna"] = modelConfig.txAntenna;
-      modelJson["ptr-start-chan"] = modelConfig.ptrStartChannel;
-      modelJson["ptr-enable-chan"] = modelConfig.ptrEnableChannel;
-      const auto power = cfg["power"].to<JsonObject>();
-      power["max-power"] = modelConfig.power;
-      power["dynamic-power"] = modelConfig.dynamicPower;
-      power["boost-channel"] = modelConfig.boostChannel;
-    }
-  }
-#endif /* TARGET_TX */
-
-  if (!exportMode)
-  {
-    const auto settings = json["settings"].to<JsonObject>();
-    #if defined(TARGET_RX)
-    cfg["serial-protocol"] = config.GetSerialProtocol();
-    #if defined(PLATFORM_ESP32)
-    if ((GPIO_PIN_SERIAL1_RX != UNDEF_PIN && GPIO_PIN_SERIAL1_TX != UNDEF_PIN) || GPIO_PIN_PWM_OUTPUTS_COUNT > 0)
-    {
-      cfg["serial1-protocol"] = config.GetSerial1Protocol();
-    }
-    #endif
-    cfg["sbus-failsafe"] = config.GetFailsafeMode();
-    cfg["modelid"] = config.GetModelId();
-    cfg["force-tlm"] = config.GetForceTlmOff();
-    cfg["vbind"] = config.GetBindStorage();
-    for (int ch=0; ch<GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
-    {
-      const auto channel = cfg["pwm"][ch].to<JsonObject>();
-      channel["config"] = config.GetPwmChannel(ch)->raw;
-      channel["pin"] = GPIO_PIN_PWM_OUTPUTS[ch];
-      uint8_t features = 0;
-      auto pin = GPIO_PIN_PWM_OUTPUTS[ch];
-      if (!OPT_PWM_OUT_ONLY)
-      {
-        if (pin == U0TXD_GPIO_NUM) features |= 1;  // SerialTX supported
-        else if (pin == U0RXD_GPIO_NUM) features |= 2;  // SerialRX supported
-        else if (pin == GPIO_PIN_SCL) features |= 4;  // I2C SCL supported (only on this pin)
-        else if (pin == GPIO_PIN_SDA) features |= 8;  // I2C SDA supported (only on this pin)
-        else if (GPIO_PIN_SCL == UNDEF_PIN || GPIO_PIN_SDA == UNDEF_PIN) features |= 12; // Both I2C SCL/SDA supported (on any pin)
-      }
-      #if defined(PLATFORM_ESP32)
-      if (pin != 0) features |= 16; // DShot supported on all pins but GPIO0
-      if (!OPT_PWM_OUT_ONLY)
-      {
-        if (pin == GPIO_PIN_SERIAL1_RX) features |= 32;  // SERIAL1 RX supported (only on this pin)
-        else if (pin == GPIO_PIN_SERIAL1_TX) features |= 64;  // SERIAL1 TX supported (only on this pin)
-        else if ((GPIO_PIN_SERIAL1_RX == UNDEF_PIN || GPIO_PIN_SERIAL1_TX == UNDEF_PIN) &&
-                 (!(features & 1) && !(features & 2))) features |= 96; // Both Serial1 RX/TX supported (on any pin if not already featured for Serial 1)
-      }
-      #endif
-      channel["features"] = features;
-    }
-    if (GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN && GPIO_PIN_RCSIGNAL_TX != UNDEF_PIN)
-    {
-        settings["has_serial_pins"] = true;
-    }
-    #endif
-    settings["product_name"] = product_name;
-    settings["lua_name"] = device_name;
-    settings["uidtype"] = GetConfigUidType(json);
-    settings["ssid"] = station_ssid;
-    settings["mode"] = wifiMode == WIFI_STA ? "STA" : "AP";
-    settings["wifi_dbm"] = wifi_GetClientRssi();
-    settings["custom_hardware"] = hardware_flag(HARDWARE_customised);
-    settings["target"] = &target_name[4];
-    settings["version"] = VERSION;
-    settings["git-commit"] = commit;
-#if defined(TARGET_TX)
-    settings["module-type"] = "TX";
-#endif
-#if defined(TARGET_RX)
-    settings["module-type"] = "RX";
-    settings["voltage_source_count"] = getDefinedVoltageSourceCount();
-#endif
-#if defined(RADIO_SX128X)
-    settings["radio-type"] = "SX128X";
-    settings["has_low_band"] = false;
-    settings["has_high_band"] = true;
-    settings["reg_domain_high"] = FHSSconfig->domain;
-#elif defined(RADIO_SX127X)
-    settings["radio-type"] = "SX127X";
-    settings["has_low_band"] = true;
-    settings["has_high_band"] = false;
-    settings["reg_domain_low"] = FHSSconfig->domain;
-#elif defined(RADIO_LR1121)
-    settings["radio-type"] = "LR1121";
-    settings["has_low_band"] = POWER_OUTPUT_VALUES_COUNT != 0;
-    settings["has_high_band"] = POWER_OUTPUT_VALUES_DUAL_COUNT != 0;
-    settings["reg_domain_low"] = FHSSconfig->domain;
-    settings["reg_domain_high"] = FHSSconfigDualBand->domain;
-#endif
-  }
-
+  JsonObject root = response->getRoot().to<JsonObject>();
+  populateConfigurationResponse(root, exportMode);
   response->setLength();
   request->send(response);
 }
@@ -571,7 +623,9 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
     }
   }
   config.Commit();
-  request->send(200, "text/plain", "Import/update complete");
+  sendJsonResponse(request, "ok", "Configuration updated", [](JsonObject root) {
+    populateConfigurationResponse(root, false);
+  });
 }
 
 static void ImportConfiguration(AsyncWebServerRequest *request, JsonVariant &json)
@@ -698,12 +752,13 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
     {
       pwmChannel.val.mode = som50Hz;
     }
-    //DBGLN("PWMch(%u)=%u", channel, val);
     config.SetPwmChannelRaw(channel, pwmChannel.raw);
   }
 
   config.Commit();
-  request->send(200, "text/plain", "Configuration updated");
+  sendJsonResponse(request, "ok", "Configuration updated", [](JsonObject root) {
+    populateConfigurationResponse(root, false);
+  });
 }
 #endif
 
@@ -754,56 +809,6 @@ static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
   }
 }
 
-static void sendResponse(AsyncWebServerRequest *request, const String &msg, WiFiMode_t mode) {
-  sendTextResponse(request, msg);
-  changeTime = millis();
-  changeMode = mode;
-}
-
-static void WebUpdateAccessPoint(AsyncWebServerRequest *request)
-{
-  DBGLN("Starting Access Point");
-  String msg = String("Access Point starting, please connect to access point '") + wifi_ap_ssid + "' with password '" + wifi_ap_password + "'";
-  sendResponse(request, msg, WIFI_AP);
-}
-
-static void WebUpdateConnect(AsyncWebServerRequest *request)
-{
-  DBGLN("Connecting to network");
-  String msg = String("Connecting to network '") + station_ssid + "', connect to http://" +
-    wifi_hostname + ".local from a browser on that network";
-  sendResponse(request, msg, WIFI_STA);
-}
-
-static void WebUpdateSetHome(AsyncWebServerRequest *request)
-{
-  String ssid = request->arg("network");
-  String password = request->arg("password");
-  String onInterval = request->arg("wifi-on-interval");
-
-  DBGLN("Setting network %s", ssid.c_str());
-  copyStationCredentials(ssid.c_str(), password.c_str());
-  if (request->hasArg("save")) {
-    strlcpy(firmwareOptions.home_wifi_ssid, ssid.c_str(), sizeof(firmwareOptions.home_wifi_ssid));
-    strlcpy(firmwareOptions.home_wifi_password, password.c_str(), sizeof(firmwareOptions.home_wifi_password));
-    firmwareOptions.wifi_auto_on_interval = (onInterval.isEmpty() ? -1 : onInterval.toInt()) * 1000;
-    saveOptions();
-  }
-  WebUpdateConnect(request);
-}
-
-static void WebUpdateForget(AsyncWebServerRequest *request)
-{
-  DBGLN("Forget network");
-  String onInterval = request->arg("wifi-on-interval");
-  firmwareOptions.home_wifi_ssid[0] = 0;
-  firmwareOptions.home_wifi_password[0] = 0;
-  firmwareOptions.wifi_auto_on_interval = (onInterval.isEmpty() ? -1 : onInterval.toInt()) * 1000;
-  saveOptions();
-  copyStationCredentials("", "");
-  String msg = String("Home network forgotten, please connect to access point '") + wifi_ap_ssid + "' with password '" + wifi_ap_password + "'";
-  sendResponse(request, msg, WIFI_AP);
-}
 
 static void WebUpdateHandleNotFound(AsyncWebServerRequest *request)
 {
@@ -962,6 +967,59 @@ static void WebUdpControl(AsyncWebServerRequest *request)
   }
 }
 #endif
+
+static void sendResponse(AsyncWebServerRequest *request, const String &msg, WiFiMode_t mode, bool includeOptions = false) {
+  sendJsonResponse(request, "ok", msg, [includeOptions](JsonObject root) {
+    if (includeOptions)
+    {
+      appendOptionsJson(root);
+    }
+  });
+  changeTime = millis();
+  changeMode = mode;
+}
+
+static void WebUpdateAccessPoint(AsyncWebServerRequest *request)
+{
+  DBGLN("Starting Access Point");
+  sendResponse(request, buildAccessPointMessage(), WIFI_AP);
+}
+
+static void WebUpdateConnect(AsyncWebServerRequest *request)
+{
+  DBGLN("Connecting to network");
+  sendResponse(request, buildStationConnectMessage(), WIFI_STA);
+}
+
+static void WebUpdateSetHome(AsyncWebServerRequest *request)
+{
+  String ssid = request->arg("network");
+  String password = request->arg("password");
+  String onInterval = request->arg("wifi-on-interval");
+
+  DBGLN("Setting network %s", ssid.c_str());
+  copyStationCredentials(ssid.c_str(), password.c_str());
+  const bool saveHomeNetwork = request->hasArg("save");
+  if (saveHomeNetwork) {
+    strlcpy(firmwareOptions.home_wifi_ssid, ssid.c_str(), sizeof(firmwareOptions.home_wifi_ssid));
+    strlcpy(firmwareOptions.home_wifi_password, password.c_str(), sizeof(firmwareOptions.home_wifi_password));
+    firmwareOptions.wifi_auto_on_interval = parseWifiAutoOnIntervalMillis(onInterval);
+    saveOptions();
+  }
+  sendResponse(request, buildStationConnectMessage(), WIFI_STA, saveHomeNetwork);
+}
+
+static void WebUpdateForget(AsyncWebServerRequest *request)
+{
+  DBGLN("Forget network");
+  String onInterval = request->arg("wifi-on-interval");
+  firmwareOptions.home_wifi_ssid[0] = 0;
+  firmwareOptions.home_wifi_password[0] = 0;
+  firmwareOptions.wifi_auto_on_interval = parseWifiAutoOnIntervalMillis(onInterval);
+  saveOptions();
+  copyStationCredentials("", "");
+  sendResponse(request, buildAccessPointMessage(), WIFI_AP, true);
+}
 
 static size_t firmwareOffset = 0;
 static size_t getFirmwareChunk(uint8_t *data, size_t len, size_t pos)

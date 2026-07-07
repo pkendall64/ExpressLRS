@@ -1,6 +1,7 @@
 import {html, LitElement, nothing} from 'lit'
 import {customElement, state} from 'lit/decorators.js'
 import {loadJSON, postWithFeedback, saveJSONWithReboot} from '../utils/feedback.js'
+import {applyStatePatch} from '../utils/state.js'
 import '../components/filedrag.js'
 import HARDWARE_SCHEMA from '../utils/hardware-schema.js'
 import {_arrayInput, _floatInput, _intInput, _uintInput} from "../utils/libs.js"
@@ -169,8 +170,10 @@ export class HardwareLayout extends LitElement {
     _submitConfig() {
         const body = this.currentHardwareJson
         // Use shared helper that prompts for reboot on success
-        saveJSONWithReboot('Upload Succeeded', 'Upload Failed', '/hardware.json', {...JSON.parse(body), "customised": true}, () => {
+        saveJSONWithReboot('Upload Succeeded', 'Upload Failed', '/hardware.json', {...JSON.parse(body), "customised": true}, (response) => {
+            applyStatePatch(response)
             this.loadedHardwareJson = body
+            return response?.msg
         })
         return false
     }

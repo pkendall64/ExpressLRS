@@ -94,41 +94,65 @@ export function post(url, data, { headers = {}, timeoutMs = 0, onprogress, onloa
   xhr.send(payload)
   return xhr
 }
-
-// Helper to post JSON and then show reboot prompt on success
-export function saveJSONWithReboot(title, errorTitle, url, changes, successCB) {
-  post(url, changes, {
-    onload: async () => {
-      let message
-      if (successCB) message = successCB()
-      const res = await showConfirm(title, message || 'Reboot to take effect', 'Reboot', 'Close')
-      if (res === 'confirm') {
-        // fire-and-forget reboot
-        const r = new XMLHttpRequest()
-        r.open('POST', '/reboot')
-        r.setRequestHeader('Content-Type', 'application/json')
-        r.send()
+export function postJSON(url, data, { headers = {}, timeoutMs = 0, onprogress, onabort, ontimeout } = {}) {
+  return new Promise((resolve, reject) => {
+    post(url, data, {
+      headers,
+      timeoutMs,
+      onprogress,
+      onabort,
+      ontimeout,
+      onload: (xhr) => {
+        try {
+          resolve(xhr.responseText ? JSON.parse(xhr.responseText) : {})
+        } catch (_error) {
+          reject(new Error('Invalid response'))
+        }
+      },
+      onerror: (xhr) => {
+        try {
+          const response = xhr.responseText ? JSON.parse(xhr.responseText) : {}
+          reject(new Error(response.msg || xhr.responseText || 'Request failed'))
+        } catch (_error) {
+          reject(new Error(xhr.responseText || 'Request failed'))
+        }
       }
-    },
-    onerror: async (xhr) => {
-      await showAlert('error', errorTitle, xhr.responseText || 'Request failed')
-    }
+    })
   })
 }
 
+
+// Helper to post JSON and then show reboot prompt on success
+export async function saveJSONWithReboot(title, errorTitle, url, changes, successCB) {
+  try {
+    const response = await postJSON(url, changes)
+    const message = successCB ? successCB(response) : undefined
+    const res = await showConfirm(title, message || response.msg || 'Reboot to take effect', 'Reboot', 'Close')
+    if (res === 'confirm') {
+      // fire-and-forget reboot
+      const r = new XMLHttpRequest()
+      r.open('POST', '/reboot')
+      r.setRequestHeader('Content-Type', 'application/json')
+      r.send()
+    }
+    return response
+  } catch (error) {
+    await showAlert('error', errorTitle, error?.message || 'Request failed')
+  }
+}
+
 export function postWithFeedback(title, errorMsg, url, getdata, success) {
-  return function (e) {
+  return async function (e) {
     e.stopPropagation()
     e.preventDefault()
-    post(url, getdata ? getdata() : null, {
-      onload: async (xhr) => {
-        if (success) success()
-        await showAlert('info', title, xhr.responseText)
-      },
-      onerror: async () => {
-        await showAlert('error', title, errorMsg)
-      }
-    })
+    try {
+      const response = await postJSON(url, getdata ? getdata() : null)
+      if (success) success(response)
+      await showAlert('info', title, response.msg || title)
+      return response
+    } catch (error) {
+      await showAlert('error', title, error?.message || errorMsg)
+    }
   }
 }
 

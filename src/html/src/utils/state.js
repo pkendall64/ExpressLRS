@@ -1,5 +1,5 @@
 import {State} from "@lit-app/state"
-import {loadJSON, post, saveJSONWithReboot, showAlert} from "./feedback.js"
+import {loadJSON, postJSON, saveJSONWithReboot, showAlert} from "./feedback.js"
 
 class ElrsState extends State {
     config = {}
@@ -15,6 +15,22 @@ export function setHardwareState(hardware) {
         custom_hardware: !!hardware.customised
     }
 }
+export function applyStatePatch(data) {
+    if (!data || typeof data !== 'object') return
+    if (data.settings) {
+        elrsState.settings = {...elrsState.settings, ...data.settings}
+    }
+    if (data.options) {
+        elrsState.options = {...data.options}
+    }
+    if (data.config) {
+        elrsState.config = {...data.config}
+    }
+    if (data.hardware) {
+        setHardwareState(data.hardware)
+    }
+}
+
 
 export async function loadHardware(force = false) {
     if (!force && Object.keys(elrsState.hardware || {}).length > 0) {
@@ -70,47 +86,41 @@ export function formatWifiRssi() {
 export function saveConfig(changes, successCB) {
     const currentPWM = elrsState.config.pwm
     if (changes.pwm) {
-        // update pwm settings
         for (let i = 0; i < currentPWM.length; i++) {
             currentPWM[i].config = changes.pwm[i]
         }
     } else if (currentPWM) {
-        // preserve original pwm settings
         changes.pwm = []
         for (let i = 0; i < currentPWM.length; i++) {
             changes.pwm.push(currentPWM[i].config)
         }
     }
     const newConfig = {...elrsState.config, ...changes}
-    saveJSONWithReboot('Configuration Update Succeeded', 'Configuration Update Failed', '/config', newConfig, () => {
-        elrsState.config = {...newConfig, pwm: currentPWM}
-        if (successCB) successCB()
+    return saveJSONWithReboot('Configuration Update Succeeded', 'Configuration Update Failed', '/config', newConfig, (response) => {
+        applyStatePatch(response)
+        if (successCB) successCB(response)
     })
 }
 
 export function saveOptions(changes, successCB) {
     const newOptions = {...elrsState.options, ...changes, customised: true}
-    saveJSONWithReboot('Configuration Update Succeeded', 'Configuration Update Failed', '/options.json', newOptions, () => {
-        elrsState.options = newOptions
-        if (successCB) successCB()
+    return saveJSONWithReboot('Configuration Update Succeeded', 'Configuration Update Failed', '/options.json', newOptions, (response) => {
+        applyStatePatch(response)
+        if (successCB) successCB(response)
     })
 }
 
 export async function saveOptionsAndConfig(changes, successCB) {
     const newOptions = {...elrsState.options, ...changes.options, customised: true}
-    await new Promise((resolve, reject) => {
-        post('/options.json', newOptions, {
-            onload: () => resolve(),
-            onerror: (xhr) => reject(new Error(xhr.responseText || 'Request failed'))
+    try {
+        const optionsResponse = await postJSON('/options.json', newOptions)
+        applyStatePatch(optionsResponse)
+        await saveConfig(changes.config, (configResponse) => {
+            if (successCB) successCB(configResponse)
         })
-    }).then(() => {
-        saveConfig(changes.config, () => {
-            elrsState.options = newOptions
-            if (successCB) successCB()
-        })
-    }).catch(async (error) => {
+    } catch (error) {
         await showAlert('error', 'Configuration Update Failed', error?.message || 'Request failed')
-    })
+    }
 }
 
 export let elrsState = new ElrsState()

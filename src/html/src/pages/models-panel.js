@@ -1,6 +1,7 @@
 import {html, LitElement} from "lit"
 import {customElement} from "lit/decorators.js"
 import {saveJSONWithReboot} from "../utils/feedback.js"
+import {applyStatePatch} from "../utils/state.js"
 
 @customElement('models-panel')
 class ModelsPanel extends LitElement {
@@ -35,7 +36,10 @@ class ModelsPanel extends LitElement {
             'An error occurred while uploading model configuration file',
             '/import',
             x.target.result,
-            () => { return 'Model configuration updated, reboot for them to take effect' }
+            (response) => {
+                applyStatePatch(response)
+                return 'Model configuration updated, reboot for them to take effect'
+            }
         )
         reader.readAsText(files[0])
     }

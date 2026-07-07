@@ -674,10 +674,11 @@ class VoltageCalibrationPanel extends LitElement {
             'Voltage Calibration Failed',
             '/hardware.json',
             nextHardware,
-            () => {
-                setHardwareState(nextHardware)
-                this.sources = getVoltageSourcesFromHardware(nextHardware)
+            (response) => {
+                setHardwareState(response?.hardware || nextHardware)
+                this.sources = getVoltageSourcesFromHardware(response?.hardware || nextHardware)
                 this._resetWizard()
+                return response?.msg
             }
         )
     }
