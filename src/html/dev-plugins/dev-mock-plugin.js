@@ -253,9 +253,12 @@ export function devMockPlugin() {
                 if (method === 'GET' && (url === '/networks.json' || url.startsWith('/networks.json'))) {
                     networkQueryCount++
                     if (networkQueryCount <= 3) {
-                        return sendStatus(res, 204)
+                        return sendJSON(res, {status: 'scanning', networks: []})
                     }
-                    return sendJSON(res, ['ExpressLRS TX', 'MockHomeWiFi', 'OfficeNet'])
+                    return sendJSON(res, {
+                        status: 'ready',
+                        networks: ['ExpressLRS TX', 'MockHomeWiFi', 'OfficeNet']
+                    })
                 }
                 if (method === 'POST' && (url === '/options' || url === '/options.json')) {
                     return readBody().then(() => sendText(res, 'Options saved'))

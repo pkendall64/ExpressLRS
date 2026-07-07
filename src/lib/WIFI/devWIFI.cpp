@@ -696,24 +696,36 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
 }
 #endif
 
+static void sendNetworkScanResponse(AsyncWebServerRequest *request, const char *status, int numNetworks = -1)
+{
+  auto *response = new AsyncJsonResponse();
+  JsonObject root = response->getRoot().to<JsonObject>();
+  root["status"] = status;
+  JsonArray networks = root["networks"].to<JsonArray>();
+
+  if (numNetworks >= 0)
+  {
+    std::set<String> seenNetworks;
+    for (int i = 0; i < numNetworks; i++)
+    {
+      String ssid = WiFi.SSID(i);
+      DBGLN("found %s", ssid.c_str());
+      if (ssid.length() > 0 && seenNetworks.insert(ssid).second)
+      {
+        networks.add(ssid);
+      }
+    }
+  }
+
+  response->setLength();
+  request->send(response);
+}
 static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
 {
   int numNetworks = WiFi.scanComplete();
   if (numNetworks >= 0 && millis() - lastScanTimeMS < STALE_WIFI_SCAN) {
     DBGLN("Found %d networks", numNetworks);
-    std::set<String> vs;
-    String s="[";
-    for(int i=0 ; i<numNetworks ; i++) {
-      String w = WiFi.SSID(i);
-      DBGLN("found %s", w.c_str());
-      if (vs.find(w)==vs.end() && w.length()>0) {
-        if (!vs.empty()) s += ",";
-        s += "\"" + w + "\"";
-        vs.insert(w);
-      }
-    }
-    s+="]";
-    request->send(200, "application/json", s);
+    sendNetworkScanResponse(request, "ready", numNetworks);
   } else {
     if (WiFi.scanComplete() != WIFI_SCAN_RUNNING)
     {
@@ -727,7 +739,7 @@ static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
       #endif
       lastScanTimeMS = millis();
     }
-    request->send(204, "application/json", "[]");
+    sendNetworkScanResponse(request, "scanning");
   }
 }
 
