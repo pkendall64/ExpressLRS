@@ -10,13 +10,13 @@
 
 #include "common.h"
 #include "logging.h"
+#include "wifi_common.h"
 
 #if defined(TARGET_TX)
-#include "wifiJoystick.h"
+#include "wifi_joystick.h"
 #endif
 
 extern LR1121Hal hal;
-extern void sendJsonStatusResponse(AsyncWebServerRequest *request, const char *status, const String &msg);
 
 static void WebUploadLR1121ResponseHandler(AsyncWebServerRequest *request)
 {
@@ -88,13 +88,13 @@ static void GetLR1121Status(AsyncWebServerRequest *request)
     {
         ReadStatusForRadio(json["radio2"].to<JsonObject>(), SX12XX_Radio_2);
     }
-    response->setLength();
-    request->send(response);
+    finalizeJsonResponse(request, response);
 }
 
 void addLR1121Handlers(AsyncWebServer &server)
 {
     server.on("/lr1121.json", HTTP_GET, GetLR1121Status);
     server.on("/lr1121", HTTP_POST, WebUploadLR1121ResponseHandler, WebUploadLR1121DataHandler);
+    server.on("/lr1121", HTTP_OPTIONS, corsPreflightResponse);
 }
 #endif

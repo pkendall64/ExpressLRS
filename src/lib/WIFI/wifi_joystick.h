@@ -3,6 +3,7 @@
 #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
 
 #include <WiFiUdp.h>
+#include <ESPAsyncWebServer.h>
 
 #define JOYSTICK_PORT 11000
 #define JOYSTICK_DEFAULT_UPDATE_INTERVAL 10000
@@ -58,6 +59,7 @@ public:
     static void UpdateValues();
     static void StartSending(const IPAddress& ip, int32_t updateInterval, uint8_t newChannelCount);
     static void StopSending() { active = false; }
+    static void RegisterHttpHandlers(AsyncWebServer &server);
     static void Loop(unsigned long now);
 private:
     static WiFiUDP *udp;

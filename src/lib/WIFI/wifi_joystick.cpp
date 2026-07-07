@@ -1,8 +1,8 @@
-#include "device.h"
-
-#include "wifiJoystick.h"
+#include "wifi_joystick.h"
 
 #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
+#include "wifi_common.h"
+
 
 #include "handset.h"
 #include "crsf_protocol.h"
@@ -17,7 +17,7 @@ extern SX127xDriver Radio;
 extern SX1280Driver Radio;
 #endif
 
-WiFiUDP *WifiJoystick::udp = NULL;
+WiFiUDP *WifiJoystick::udp = nullptr;
 IPAddress WifiJoystick::remoteIP;
 uint8_t WifiJoystick::channelCount = JOYSTICK_DEFAULT_CHANNEL_COUNT;
 bool WifiJoystick::active = false;
@@ -48,7 +48,7 @@ void WifiJoystick::StopJoystickService()
     {
         udp->stop();
         delete udp;
-        udp = NULL;
+        udp = nullptr;
     }
 }
 
@@ -87,6 +87,23 @@ void WifiJoystick::StartSending(const IPAddress& ip, int32_t updateInterval, uin
     failedCount = 0;
 }
 
+void WifiJoystick::RegisterHttpHandlers(AsyncWebServer &server)
+{
+    server.on("/udpcontrol", HTTP_POST, [](AsyncWebServerRequest *request) {
+        const String &action = request->arg("action");
+        if (action.equals("joystick_begin"))
+        {
+            WifiJoystick::StartSending(request->client()->remoteIP(),
+                request->arg("interval").toInt(), request->arg("channels").toInt());
+            sendTextResponse(request, "ok");
+        }
+        else if (action.equals("joystick_end"))
+        {
+            WifiJoystick::StopSending();
+            sendTextResponse(request, "ok");
+        }
+    });
+}
 
 void WifiJoystick::Loop(unsigned long now)
 {
@@ -130,7 +147,7 @@ void WifiJoystick::UpdateValues()
     }
 
     udp->beginPacket(remoteIP, JOYSTICK_PORT);
-    udp->write(WifiJoystick::FRAME_CHANNELS);
+    udp->write(FRAME_CHANNELS);
     udp->write(channelCount);
     for (uint8_t i = 0; i < channelCount; i++)
     {

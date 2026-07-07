@@ -55,7 +55,6 @@ FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
 
 uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]; // Buffer for current stubbon sender packet (mavlink only)
 
-extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
 bool NextPacketIsDataUl = false;  // if true the next packet will contain the uplink data (instead of channels)
 char backpackVersion[32] = "";

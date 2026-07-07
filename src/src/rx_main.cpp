@@ -109,7 +109,6 @@ RXOTAConnector otaConnector;
 bool crsfBatterySensorDetected = false;
 bool crsfBaroSensorDetected = false;
 
-extern bool webserverPreventAutoStart;
 bool pwmSerialDefined = false;
 uint32_t serialBaud;
 

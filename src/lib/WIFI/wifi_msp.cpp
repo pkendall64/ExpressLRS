@@ -1,6 +1,6 @@
 #if defined(TARGET_RX)
 
-#include "TcpMspConnector.h"
+#include "wifi_msp.h"
 #include "logging.h"
 
 #include "CRSFRouter.h"
