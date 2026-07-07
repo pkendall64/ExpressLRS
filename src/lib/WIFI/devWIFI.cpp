@@ -154,6 +154,17 @@ static void sendTextResponse(AsyncWebServerRequest *request, const String &msg, 
   request->send(response);
 }
 
+void sendJsonStatusResponse(AsyncWebServerRequest *request, const char *status, const String &msg)
+{
+  auto *response = new AsyncJsonResponse();
+  JsonObject root = response->getRoot().to<JsonObject>();
+  root["status"] = status;
+  root["msg"] = msg;
+  response->setLength();
+  response->addHeader("Connection", "close");
+  request->send(response);
+}
+
 static void WebUpdateSendContent(AsyncWebServerRequest *request)
 {
   for (size_t i=0 ; i<WEB_ASSETS_COUNT ; i++) {
@@ -830,36 +841,36 @@ static void WebUploadResponseHandler(AsyncWebServerRequest *request) {
     String msg;
     if (!Update.hasError() && Update.end()) {
       DBGLN("Update complete, rebooting");
-      msg = String("{\"status\": \"ok\", \"msg\": \"Update complete. ");
+      msg = "Update complete. ";
       #if defined(TARGET_RX)
-        msg += "Please wait for the LED to resume blinking before disconnecting power.\"}";
+        msg += "Please wait for the LED to resume blinking before disconnecting power.";
       #else
-        msg += "Please wait for a few seconds while the device reboots.\"}";
+        msg += "Please wait for a few seconds while the device reboots.";
       #endif
       scheduleRebootTime(200);
+      sendJsonStatusResponse(request, "ok", msg);
+      return;
+    }
+
+    StreamString p = StreamString();
+    if (Update.hasError()) {
+      Update.printError(p);
     } else {
-      StreamString p = StreamString();
-      if (Update.hasError()) {
-        Update.printError(p);
-      } else {
-        p.println("Not enough data uploaded!");
-      }
-      p.trim();
-      DBGLN("Failed to upload firmware: %s", p.c_str());
-      msg = String("{\"status\": \"error\", \"msg\": \"") + p + "\"}";
+      p.println("Not enough data uploaded!");
     }
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", msg);
-    response->addHeader("Connection", "close");
-    request->send(response);
-  } else {
-    String message = String("{\"status\": \"mismatch\", \"msg\": \"<b>Current target:</b> ") + (const char *)&target_name[4] + ".<br>";
-    if (target_found.length() != 0) {
-      message += "<b>Uploaded image:</b> " + target_found + ".<br/>";
-    }
-    message += "<br/>It looks like you are flashing firmware with a different name to the current  firmware.  This sometimes happens because the hardware was flashed from the factory with an early version that has a different name. Or it may have even changed between major releases.";
-    message += "<br/><br/>Please double check you are uploading the correct target, then proceed with 'Flash Anyway'.\"}";
-    request->send(200, "application/json", message);
+    p.trim();
+    DBGLN("Failed to upload firmware: %s", p.c_str());
+    sendJsonStatusResponse(request, "error", p);
+    return;
   }
+
+  String message = String("<b>Current target:</b> ") + (const char *)&target_name[4] + ".<br>";
+  if (target_found.length() != 0) {
+    message += "<b>Uploaded image:</b> " + target_found + ".<br/>";
+  }
+  message += "<br/>It looks like you are flashing firmware with a different name to the current  firmware.  This sometimes happens because the hardware was flashed from the factory with an early version that has a different name. Or it may have even changed between major releases.";
+  message += "<br/><br/>Please double check you are uploading the correct target, then proceed with 'Flash Anyway'.";
+  sendJsonStatusResponse(request, "mismatch", message);
 }
 
 static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
@@ -930,7 +941,7 @@ static void WebUploadForceUpdateHandler(AsyncWebServerRequest *request) {
     #if defined(PLATFORM_ESP32)
       Update.abort();
     #endif
-    request->send(200, "application/json", "{\"status\": \"ok\", \"msg\": \"Update cancelled\"}");
+    sendJsonStatusResponse(request, "ok", "Update cancelled");
   }
 }
 
@@ -1023,14 +1034,18 @@ static void HandleContinuousWave(AsyncWebServerRequest *request) {
     deferExecutionMillis(50, [radio](){ Radio.cwRepeat(radio); });
 #endif
 #endif
-  } else {
-    int radios = (GPIO_PIN_NSS_2 == UNDEF_PIN) ? 1 : 2;
-    request->send(200, "application/json", String("{\"radios\": ") + radios + ", \"center\": "+ FHSSconfig->freq_center +
-#if defined(RADIO_LR1121)
-            ", \"center2\": "+ FHSSconfigDualBand->freq_center +
-#endif
-            "}");
+    return;
   }
+
+  auto *response = new AsyncJsonResponse();
+  JsonObject root = response->getRoot().to<JsonObject>();
+  root["radios"] = (GPIO_PIN_NSS_2 == UNDEF_PIN) ? 1 : 2;
+  root["center"] = FHSSconfig->freq_center;
+#if defined(RADIO_LR1121)
+  root["center2"] = FHSSconfigDualBand->freq_center;
+#endif
+  response->setLength();
+  request->send(response);
 }
 
 static bool initialize()

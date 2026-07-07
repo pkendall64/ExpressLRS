@@ -16,15 +16,14 @@
 #endif
 
 extern LR1121Hal hal;
+extern void sendJsonStatusResponse(AsyncWebServerRequest *request, const char *status, const String &msg);
 
 static void WebUploadLR1121ResponseHandler(AsyncWebServerRequest *request)
 {
     const int uploadError = Radio.EndUpdate();
 
-    String msg;
     if (uploadError == 0)
     {
-        msg = String(R"({"status": "ok", "msg": "Update complete. Refresh page to see new version information."})");
         // add tag file for lr1121 custom firmware
         if (!LittleFS.exists("/lr1121.txt"))
         {
@@ -32,24 +31,21 @@ static void WebUploadLR1121ResponseHandler(AsyncWebServerRequest *request)
             tagFile.close();
         }
         DBGLN("Update complete");
+        sendJsonStatusResponse(request, "ok", "Update complete. Refresh page to see new version information.");
+        return;
+    }
+
+    StreamString p;
+    if (uploadError == -1)
+    {
+        p.print("Not enough data uploaded!");
     }
     else
     {
-        StreamString p;
-        if (uploadError == -1)
-        {
-            p.print("Not enough data uploaded!");
-        }
-        else
-        {
-            p.print("Update failed, refresh and try again.");
-        }
-        DBGLN("Failed to upload firmware: %s", p.c_str());
-        msg = String(R"({"status": "error", "msg": ")") + p + R"("})";
+        p.print("Update failed, refresh and try again.");
     }
-    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", msg);
-    response->addHeader("Connection", "close");
-    request->send(response);
+    DBGLN("Failed to upload firmware: %s", p.c_str());
+    sendJsonStatusResponse(request, "error", p);
 }
 
 static void WebUploadLR1121DataHandler(const AsyncWebServerRequest *request, const String& filename, const size_t index, uint8_t *data, const size_t len, bool final)
