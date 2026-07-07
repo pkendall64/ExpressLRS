@@ -1,7 +1,7 @@
 import {html, LitElement} from "lit"
 import {customElement, query, state} from "lit/decorators.js"
 import {elrsState} from "../utils/state.js"
-import {postWithFeedback} from "../utils/feedback.js"
+import {loadJSON, postWithFeedback} from "../utils/feedback.js"
 import {autocomplete} from "../utils/autocomplete.js"
 
 @customElement('wifi-panel')
@@ -19,6 +19,7 @@ class WifiPanel extends LitElement {
     @state() accessor passwordVisible = false
 
     running = false
+    static NETWORK_SCAN_RETRY_MS = 2000
 
     constructor() {
         super()
@@ -180,29 +181,21 @@ class WifiPanel extends LitElement {
         }
     }
 
-    _getNetworks() {
-        const self = this
-        const xmlhttp = new XMLHttpRequest()
-        xmlhttp.onload = function () {
-            if (self.running) {
-                if (this.status === 204) {
-                    setTimeout(self._getNetworks, 2000)
-                } else {
-                    const data = JSON.parse(this.responseText)
-                    if (data.length > 0) {
-                        self.showLoader = false
-                        autocomplete(self.network, data)
-                    }
-                }
+    async _getNetworks() {
+        try {
+            const data = await loadJSON('/networks.json', 'Failed to load WiFi networks')
+            if (!this.running) return
+            if (data.status !== 'ready') {
+                setTimeout(this._getNetworks, WifiPanel.NETWORK_SCAN_RETRY_MS)
+                return
+            }
+            this.showLoader = false
+            autocomplete(this.network, data.networks ?? [])
+        } catch (_error) {
+            if (this.running) {
+                setTimeout(this._getNetworks, WifiPanel.NETWORK_SCAN_RETRY_MS)
             }
         }
-        xmlhttp.onerror = function () {
-            if (self.running) {
-                setTimeout(self._getNetworks, 2000)
-            }
-        }
-        xmlhttp.open('GET', 'networks.json', true)
-        xmlhttp.send()
     }
 
     checkChanged() {
