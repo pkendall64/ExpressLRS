@@ -88,7 +88,7 @@ static constexpr uint32_t STALE_WIFI_SCAN = 20000;
 static uint32_t lastScanTimeMS = 0;
 
 static bool target_seen = false;
-static uint8_t target_pos = 0;
+static size_t target_pos = 0;
 static String target_found;
 static bool target_complete = false;
 static String target_path_pattern;
@@ -827,6 +827,21 @@ static bool matchesUploadedPattern(const String &pattern, size_t &patternPos, ui
   patternPos = value == (uint8_t)pattern[0] ? 1 : 0;
   return false;
 }
+
+static bool matchesUploadedPattern(const uint8_t *pattern, size_t patternLength, size_t &patternPos, uint8_t value)
+{
+  if (patternLength == 0)
+  {
+    return false;
+  }
+  if (value == pattern[patternPos])
+  {
+    ++patternPos;
+    return patternPos >= patternLength;
+  }
+  patternPos = value == pattern[0] ? 1 : 0;
+  return false;
+}
 static void WebUploadResponseHandler(AsyncWebServerRequest *request) {
   if (target_seen || Update.hasError()) {
     String msg;
@@ -915,20 +930,12 @@ static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& f
               target_found += (char)data[i];
             }
           }
-          if (matchesUploadedPattern(target_path_pattern, target_path_pattern_pos, data[i]) ||
-              matchesUploadedPattern(target_path_pattern_compact, target_path_pattern_compact_pos, data[i])) {
+          if ((target_path[0] &&
+               (matchesUploadedPattern(target_path_pattern, target_path_pattern_pos, data[i]) ||
+                matchesUploadedPattern(target_path_pattern_compact, target_path_pattern_compact_pos, data[i]))) ||
+              (!target_path[0] && matchesUploadedPattern(target_name, target_name_size, target_pos, data[i]))) {
             target_seen = true;
             break;
-          }
-          if (data[i] == target_name[target_pos]) {
-            ++target_pos;
-            if (target_pos >= target_name_size) {
-              target_seen = true;
-              break;
-            }
-          }
-          else {
-            target_pos = 0; // Startover
           }
         }
       }

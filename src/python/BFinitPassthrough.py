@@ -9,6 +9,8 @@ from elrs_helpers import ElrsUploadResult
 
 SCRIPT_DEBUG = False
 
+TARGET_INFO_PREFIX = "ELRS_TARGET_INFO:"
+
 
 class PassthroughEnabled(Exception):
     pass
@@ -112,14 +114,31 @@ def bf_passthrough_init(port, requestedBaudrate):
 
 
 def _parse_detected_target(line):
-    detected_target, _, detected_target_path = line.partition('|')
-    return detected_target, detected_target_path
+    payload = line
+    if TARGET_INFO_PREFIX in payload:
+        detected_target_path = payload.split(TARGET_INFO_PREFIX, 1)[1]
+        return "", detected_target_path
+    return payload, ""
 
 
 def _format_detected_target(detected_target, detected_target_path):
     if detected_target_path:
         return f"{detected_target}|{detected_target_path}"
     return detected_target
+
+
+def _read_detected_target(rl):
+    fallback_target = ("", "")
+    for _ in range(4):
+        line = rl.read_line().strip().upper()
+        if line == "":
+            continue
+        detected_target = _parse_detected_target(line)
+        if fallback_target == ("", ""):
+            fallback_target = detected_target
+        if TARGET_INFO_PREFIX in line:
+            return detected_target
+    return fallback_target
 
 
 def reset_to_bootloader(port, baud, target, target_path, action, accept=None, chip_type='ESP82') -> int:
@@ -136,22 +155,25 @@ def reset_to_bootloader(port, baud, target, target_path, action, accept=None, ch
     time.sleep(0.2)
     rl.write(BootloaderInitSeq)
     s.flush()
-    rx_target = rl.read_line().strip().upper()
-    detected_target, detected_target_path = _parse_detected_target(rx_target)
+    detected_target, detected_target_path = _read_detected_target(rl)
     detected = _format_detected_target(detected_target, detected_target_path)
     if target is not None:
         flash_target = re.sub("_VIA_.*", "", target.upper())
         flash_target_path = target_path.upper() if target_path else None
         accept_target = accept.upper() if accept else None
         ignore_incorrect_target = action == "uploadforce"
-        target_matches = detected_target == flash_target or detected_target == accept_target
-        target_path_matches = flash_target_path is not None and detected_target_path == flash_target_path
+        if flash_target_path is not None:
+            target_matches = detected_target_path == flash_target_path
+            if not target_matches and detected_target_path == "" and accept_target is not None:
+                target_matches = detected_target == accept_target
+        else:
+            target_matches = detected_target == flash_target or detected_target == accept_target
         expected = flash_target if flash_target_path is None else f"{flash_target}|{flash_target_path}"
         if detected_target == "":
             dbg_print("Cannot detect RX target, blindly flashing!")
         elif ignore_incorrect_target:
             dbg_print(f"Force flashing {expected}, detected {detected}")
-        elif not target_matches and not target_path_matches:
+        elif not target_matches:
             if query_yes_no("\n\n\nWrong target selected! your RX is '%s', trying to flash '%s', continue? Y/N\n" % (detected, expected)):
                 dbg_print("Ok, flashing anyway!")
             else:
