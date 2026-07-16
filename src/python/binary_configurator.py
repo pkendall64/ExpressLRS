@@ -270,6 +270,7 @@ def main():
                     shutil.copyfileobj(f_in, f_out)
 
         if args.flash:
+            args.target_path = args.target
             args.target = config.get('firmware')
             args.accept = config.get('prior_target_name')
             args.platform = config.get('platform')

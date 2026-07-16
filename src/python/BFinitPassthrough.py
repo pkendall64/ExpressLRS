@@ -111,7 +111,18 @@ def bf_passthrough_init(port, requestedBaudrate):
     dbg_print("======== PASSTHROUGH DONE ========")
 
 
-def reset_to_bootloader(port, baud, target, action, accept=None, chip_type='ESP82') -> int:
+def _parse_detected_target(line):
+    detected_target, _, detected_target_path = line.partition('|')
+    return detected_target, detected_target_path
+
+
+def _format_detected_target(detected_target, detected_target_path):
+    if detected_target_path:
+        return f"{detected_target}|{detected_target_path}"
+    return detected_target
+
+
+def reset_to_bootloader(port, baud, target, target_path, action, accept=None, chip_type='ESP82') -> int:
     dbg_print("======== RESET TO BOOTLOADER ========")
     s = serial.Serial(port=port, baudrate=baud,
         bytesize=8, parity='N', stopbits=1,
@@ -126,21 +137,28 @@ def reset_to_bootloader(port, baud, target, action, accept=None, chip_type='ESP8
     rl.write(BootloaderInitSeq)
     s.flush()
     rx_target = rl.read_line().strip().upper()
+    detected_target, detected_target_path = _parse_detected_target(rx_target)
+    detected = _format_detected_target(detected_target, detected_target_path)
     if target is not None:
         flash_target = re.sub("_VIA_.*", "", target.upper())
+        flash_target_path = target_path.upper() if target_path else None
+        accept_target = accept.upper() if accept else None
         ignore_incorrect_target = action == "uploadforce"
-        if rx_target == "":
+        target_matches = detected_target == flash_target or detected_target == accept_target
+        target_path_matches = flash_target_path is not None and detected_target_path == flash_target_path
+        expected = flash_target if flash_target_path is None else f"{flash_target}|{flash_target_path}"
+        if detected_target == "":
             dbg_print("Cannot detect RX target, blindly flashing!")
         elif ignore_incorrect_target:
-            dbg_print(f"Force flashing {flash_target}, detected {rx_target}")
-        elif rx_target != flash_target and rx_target != accept:
-            if query_yes_no("\n\n\nWrong target selected! your RX is '%s', trying to flash '%s', continue? Y/N\n" % (rx_target, flash_target)):
+            dbg_print(f"Force flashing {expected}, detected {detected}")
+        elif not target_matches and not target_path_matches:
+            if query_yes_no("\n\n\nWrong target selected! your RX is '%s', trying to flash '%s', continue? Y/N\n" % (detected, expected)):
                 dbg_print("Ok, flashing anyway!")
             else:
-                dbg_print("Wrong target selected your RX is '%s', trying to flash '%s'" % (rx_target, flash_target))
+                dbg_print("Wrong target selected your RX is '%s', trying to flash '%s'" % (detected, expected))
                 return ElrsUploadResult.ErrorMismatch
         elif flash_target != "":
-            dbg_print("Verified RX target '%s'" % (flash_target))
+            dbg_print("Verified RX target '%s'" % (expected))
     time.sleep(.5)
     s.close()
 
@@ -152,7 +170,7 @@ def init_passthrough(source, target, env) -> int:
         bf_passthrough_init(env['UPLOAD_PORT'], env['UPLOAD_SPEED'])
     except PassthroughEnabled as err:
         dbg_print(str(err))
-    return reset_to_bootloader(env['UPLOAD_PORT'], env['UPLOAD_SPEED'], env['PIOENV'], source[0])
+    return reset_to_bootloader(env['UPLOAD_PORT'], env['UPLOAD_SPEED'], env['PIOENV'], env.GetProjectOption('board_config', None), source[0])
 
 def main(custom_args = None):
     parser = argparse.ArgumentParser(
@@ -171,6 +189,8 @@ def main(custom_args = None):
         help="Upload action: upload (default), or uploadforce to flash even on target mismatch")
     parser.add_argument("--accept", type=str, default=None,
         help="Acceptable target to auto-overwrite")
+    parser.add_argument("--target-path", type=str, default=None,
+        help="The selected targets.json path for the firmware being uploaded")
 
     args = parser.parse_args(custom_args)
 
@@ -184,7 +204,7 @@ def main(custom_args = None):
         dbg_print(str(err))
 
     if args.reset_to_bl:
-        returncode = reset_to_bootloader(args.port, args.baud, args.target, args.action, args.accept, args.type)
+        returncode = reset_to_bootloader(args.port, args.baud, args.target, args.target_path, args.action, args.accept, args.type)
 
     return returncode
 

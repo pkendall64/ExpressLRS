@@ -2170,7 +2170,13 @@ struct bootloader {
 
 void reset_into_bootloader(void)
 {
-    SERIAL_PROTOCOL_TX.println((const char *)&target_name[4]);
+    SERIAL_PROTOCOL_TX.print((const char *)&target_name[4]);
+    if (target_path[0])
+    {
+        SERIAL_PROTOCOL_TX.print('|');
+        SERIAL_PROTOCOL_TX.print(target_path);
+    }
+    SERIAL_PROTOCOL_TX.println();
     SERIAL_PROTOCOL_TX.flush();
 #if defined(PLATFORM_ESP8266)
     delay(100);

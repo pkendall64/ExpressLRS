@@ -91,6 +91,10 @@ static bool target_seen = false;
 static uint8_t target_pos = 0;
 static String target_found;
 static bool target_complete = false;
+static String target_path_pattern;
+static String target_path_pattern_compact;
+static size_t target_path_pattern_pos = 0;
+static size_t target_path_pattern_compact_pos = 0;
 static bool force_update = false;
 static uint32_t totalSize;
 
@@ -808,6 +812,21 @@ static void corsPreflightResponse(AsyncWebServerRequest *request) {
   request->send(response);
 }
 
+
+static bool matchesUploadedPattern(const String &pattern, size_t &patternPos, uint8_t value)
+{
+  if (pattern.length() == 0)
+  {
+    return false;
+  }
+  if (value == (uint8_t)pattern[patternPos])
+  {
+    ++patternPos;
+    return patternPos >= pattern.length();
+  }
+  patternPos = value == (uint8_t)pattern[0] ? 1 : 0;
+  return false;
+}
 static void WebUploadResponseHandler(AsyncWebServerRequest *request) {
   if (target_seen || Update.hasError()) {
     String msg;
@@ -867,6 +886,15 @@ static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& f
     target_found.clear();
     target_complete = false;
     target_pos = 0;
+    target_path_pattern_pos = 0;
+    target_path_pattern_compact_pos = 0;
+    target_path_pattern = "";
+    target_path_pattern_compact = "";
+    if (target_path[0])
+    {
+      target_path_pattern = String("\"target_path\": \"") + target_path + "\"";
+      target_path_pattern_compact = String("\"target_path\":\"") + target_path + "\"";
+    }
     totalSize = 0;
   }
   if (len) {
@@ -887,10 +915,16 @@ static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& f
               target_found += (char)data[i];
             }
           }
+          if (matchesUploadedPattern(target_path_pattern, target_path_pattern_pos, data[i]) ||
+              matchesUploadedPattern(target_path_pattern_compact, target_path_pattern_compact_pos, data[i])) {
+            target_seen = true;
+            break;
+          }
           if (data[i] == target_name[target_pos]) {
             ++target_pos;
             if (target_pos >= target_name_size) {
               target_seen = true;
+              break;
             }
           }
           else {

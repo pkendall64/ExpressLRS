@@ -61,7 +61,12 @@ def upload_esp8266_bf(args, options):
     mode = 'upload'
     if args.force == True:
         mode = 'uploadforce'
-    retval = BFinitPassthrough.main(['-p', args.port, '-b', str(args.baud), '-r', options.firmware, '-a', mode, '--accept', args.accept])
+    passthrough_args = ['-p', args.port, '-b', str(args.baud), '-r', options.firmware, '-a', mode]
+    if getattr(args, 'accept', None):
+        passthrough_args.extend(['--accept', args.accept])
+    if getattr(args, 'target_path', None):
+        passthrough_args.extend(['--target-path', args.target_path])
+    retval = BFinitPassthrough.main(passthrough_args)
     if retval != ElrsUploadResult.Success:
         return retval
     try:
@@ -108,7 +113,12 @@ def upload_esp32_bf(args, options):
     mode = 'upload'
     if args.force == True:
         mode = 'uploadforce'
-    retval = BFinitPassthrough.main(['-p', args.port, '-b', str(args.baud), '-r', options.firmware, '-a', mode])
+    passthrough_args = ['-p', args.port, '-b', str(args.baud), '-r', options.firmware, '-a', mode]
+    if getattr(args, 'accept', None):
+        passthrough_args.extend(['--accept', args.accept])
+    if getattr(args, 'target_path', None):
+        passthrough_args.extend(['--target-path', args.target_path])
+    retval = BFinitPassthrough.main(passthrough_args)
     if retval != ElrsUploadResult.Success:
         return retval
     try:
