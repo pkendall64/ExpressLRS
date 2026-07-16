@@ -43,16 +43,68 @@ def upload_wifi(args, options, upload_addr):
     else:
         return upload_via_esp8266_backpack.do_upload(args.file.name, wifi_mode, upload_addr, {})
 
-def upload_esp8266_uart(args):
+def _uart_upload_mode(args):
+    return 'uploadforce' if args.force == True else 'upload'
+
+def _reset_receiver_for_uart(args, options):
+    if options.deviceType != DeviceType.RX:
+        return ElrsUploadResult.Success
+    return BFinitPassthrough.reset_to_bootloader(
+        args.port,
+        args.baud,
+        options.firmware,
+        getattr(args, 'target_path', None),
+        _uart_upload_mode(args),
+        getattr(args, 'accept', None),
+        getattr(args, 'platform', 'ESP82'),
+    )
+
+def _detect_esp32_uart_mode(args):
+    try:
+        esp = esptool.cmds.detect_chip(args.port, args.baud, "no_reset")
+        return 'stub' if esp.IS_STUB else 'rom'
+    except Exception:
+        return None
+
+def _esp32_full_flash_cmd(args, before):
+    dir = os.path.dirname(args.file.name)
+    cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', before, '--after', 'hard_reset', 'write_flash']
+    if args.erase:
+        cmd.append('--erase-all')
+    start_addr = '0x0000' if args.platform.startswith('esp32-') else '0x1000'
+    cmd.extend(['-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', start_addr, os.path.join(dir, 'bootloader.bin'), '0x8000', os.path.join(dir, 'partitions.bin'), '0xe000', os.path.join(dir, 'boot_app0.bin'), '0x10000', args.file.name])
+    return cmd
+
+def _esp32_app_flash_cmd(args):
+    cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash']
+    cmd.extend(['-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', '0x10000', args.file.name])
+    return cmd
+
+def upload_esp8266_uart(args, options):
     if args.port == None:
         args.port = serials_find.get_serial_port()
+    retval = _reset_receiver_for_uart(args, options)
+    if retval != ElrsUploadResult.Success:
+        return retval
+    before = 'no_reset' if options.deviceType == DeviceType.RX else 'default_reset'
     try:
-        cmd = ['--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--after', 'soft_reset', 'write_flash']
-        if args.erase: cmd.append('--erase-all')
+        cmd = ['--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--before', before, '--after', 'soft_reset', 'write_flash']
+        if args.erase:
+            cmd.append('--erase-all')
         cmd.extend(['0x0000', args.file.name])
         esptool.main(cmd)
-    except:
-        return ElrsUploadResult.ErrorGeneral
+    except Exception:
+        if before == 'default_reset':
+            return ElrsUploadResult.ErrorGeneral
+        try:
+            print("UART reset command did not enter bootloader, falling back to default reset.")
+            cmd = ['--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--before', 'default_reset', '--after', 'soft_reset', 'write_flash']
+            if args.erase:
+                cmd.append('--erase-all')
+            cmd.extend(['0x0000', args.file.name])
+            esptool.main(cmd)
+        except Exception:
+            return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
 def upload_esp8266_bf(args, options):
@@ -78,17 +130,29 @@ def upload_esp8266_bf(args, options):
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
-def upload_esp32_uart(args):
+def upload_esp32_uart(args, options):
     if args.port == None:
         args.port = serials_find.get_serial_port()
+    retval = _reset_receiver_for_uart(args, options)
+    if retval != ElrsUploadResult.Success:
+        return retval
     try:
-        dir = os.path.dirname(args.file.name)
-        cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--after', 'hard_reset', 'write_flash']
-        if args.erase: cmd.append('--erase-all')
-        start_addr = '0x0000' if args.platform.startswith('esp32-') else '0x1000'
-        cmd.extend(['-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', start_addr, os.path.join(dir, 'bootloader.bin'), '0x8000', os.path.join(dir, 'partitions.bin'), '0xe000', os.path.join(dir, 'boot_app0.bin'), '0x10000', args.file.name])
-        esptool.main(cmd)
-    except:
+        if options.deviceType != DeviceType.RX:
+            esptool.main(_esp32_full_flash_cmd(args, 'default_reset'))
+            return ElrsUploadResult.Success
+
+        mode = _detect_esp32_uart_mode(args)
+        if mode == 'stub':
+            if args.erase:
+                print("ESP32 serial update mode only supports flashing the main firmware image. Use ROM bootloader mode for erase-all.")
+                return ElrsUploadResult.ErrorGeneral
+            esptool.main(_esp32_app_flash_cmd(args))
+        elif mode == 'rom':
+            esptool.main(_esp32_full_flash_cmd(args, 'no_reset'))
+        else:
+            print("Could not detect ESP32 serial-update mode, falling back to ROM bootloader reset.")
+            esptool.main(_esp32_full_flash_cmd(args, 'default_reset'))
+    except Exception:
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
@@ -146,27 +210,27 @@ def upload(options: FirmwareOptions, args):
             if args.flash == UploadMethod.betaflight:
                 return upload_esp8266_bf(args, options)
             elif args.flash == UploadMethod.uart:
-                return upload_esp8266_uart(args)
+                return upload_esp8266_uart(args, options)
             elif args.flash == UploadMethod.wifi:
                 return upload_wifi(args, options, ['elrs_rx', 'elrs_rx.local'])
         elif options.mcuType == MCUType.ESP32:
             if args.flash == UploadMethod.betaflight:
                 return upload_esp32_bf(args, options)
             elif args.flash == UploadMethod.uart:
-                return upload_esp32_uart(args)
+                return upload_esp32_uart(args, options)
             elif args.flash == UploadMethod.wifi:
                 return upload_wifi(args, options, ['elrs_rx', 'elrs_rx.local'])
     else:
         if options.mcuType == MCUType.ESP8266:
             if args.flash == UploadMethod.uart:
-                return upload_esp8266_uart(args)
+                return upload_esp8266_uart(args, options)
             elif args.flash == UploadMethod.wifi:
                 return upload_wifi(args, options, ['elrs_tx', 'elrs_tx.local'])
         elif options.mcuType == MCUType.ESP32:
             if args.flash == UploadMethod.edgetx:
                 return upload_esp32_etx(args)
             elif args.flash == UploadMethod.uart:
-                return upload_esp32_uart(args)
+                return upload_esp32_uart(args, options)
             elif args.flash == UploadMethod.wifi:
                 return upload_wifi(args, options, ['elrs_tx', 'elrs_tx.local'])
     print("Invalid upload method for firmware")
