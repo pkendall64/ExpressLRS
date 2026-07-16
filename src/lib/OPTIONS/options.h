@@ -51,7 +51,9 @@ constexpr size_t ELRSOPTS_PRODUCTNAME_SIZE = 128;
 constexpr size_t ELRSOPTS_DEVICENAME_SIZE = 16;
 constexpr size_t ELRSOPTS_OPTIONS_SIZE = 512;
 constexpr size_t ELRSOPTS_HARDWARE_SIZE = 2048;
+constexpr size_t ELRSOPTS_TARGETPATH_SIZE = 128;
 
+extern char target_path[];
 extern char device_name[];
 extern firmware_options_t firmwareOptions;
 extern bool options_init();

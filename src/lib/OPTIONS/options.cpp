@@ -36,6 +36,7 @@ firmware_options_t firmwareOptions;
 #endif
 
 char product_name[ELRSOPTS_PRODUCTNAME_SIZE+1];
+char target_path[ELRSOPTS_TARGETPATH_SIZE+1];
 char device_name[ELRSOPTS_DEVICENAME_SIZE+1];
 uint32_t logo_image;
 
@@ -88,6 +89,10 @@ void saveOptions(Stream &stream, bool customised)
     doc["domain"] = firmwareOptions.domain;
     doc["customised"] = customised;
     doc["flash-discriminator"] = firmwareOptions.flash_discriminator;
+    if (target_path[0])
+    {
+        doc["target_path"] = target_path;
+    }
 
     serializeJson(doc, stream);
     builtinOptions.clear();
@@ -202,6 +207,12 @@ static void options_LoadFromFlashOrFile(EspFlashStream &strmFlash)
     #endif
     firmwareOptions.domain = doc["domain"] | 0;
     firmwareOptions.flash_discriminator = doc["flash-discriminator"] | 0U;
+    const char *loadedTargetPath = doc["target_path"] | "";
+    if (!loadedTargetPath[0] && hasFlash)
+    {
+        loadedTargetPath = flashDoc["target_path"] | "";
+    }
+    strlcpy(target_path, loadedTargetPath, sizeof(target_path));
 
     builtinOptions.clear();
     saveOptions(builtinOptions, doc["customised"] | false);

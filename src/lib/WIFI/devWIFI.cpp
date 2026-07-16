@@ -1109,6 +1109,10 @@ static void startMDNS()
     MDNS.addServiceTxt(service, "product", (const char *)product_name);
     MDNS.addServiceTxt(service, "version", VERSION);
     MDNS.addServiceTxt(service, "options", options.c_str());
+    if (target_path[0])
+    {
+      MDNS.addServiceTxt(service, "target_path", target_path);
+    }
     MDNS.addServiceTxt(service, "type", "rx");
     // If the probe result fails because there is another device on the network with the same name
     // use our unique instance name as the hostname. A better way to do this would be to use
@@ -1128,6 +1132,10 @@ static void startMDNS()
     MDNS.addServiceTxt("http", "tcp", "product", (const char *)product_name);
     MDNS.addServiceTxt("http", "tcp", "version", VERSION);
     MDNS.addServiceTxt("http", "tcp", "options", options.c_str());
+    if (target_path[0])
+    {
+      MDNS.addServiceTxt("http", "tcp", "target_path", (const char *)target_path);
+    }
   #if defined(TARGET_TX)
     MDNS.addServiceTxt("http", "tcp", "type", "tx");
   #else
