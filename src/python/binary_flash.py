@@ -43,57 +43,105 @@ def upload_wifi(args, options, upload_addr):
     else:
         return upload_via_esp8266_backpack.do_upload(args.file.name, wifi_mode, upload_addr, {})
 
+ESP_BOOTLOADER_BAUD = 115200
+UART_BOOTLOADER_BAUD = 420000
+
+def _run_esptool(cmd):
+    esptool.main(cmd)
+
+def _loader_name(loader):
+    return "stub" if getattr(loader, "IS_STUB", False) else "rom"
+
 def _uart_upload_mode(args):
     return 'uploadforce' if args.force == True else 'upload'
 
-def _reset_receiver_for_uart(args, options):
+def _reset_receiver_for_uart(args, options, baud):
     if options.deviceType != DeviceType.RX:
         return ElrsUploadResult.Success
-    return BFinitPassthrough.reset_to_bootloader(
+    retval = BFinitPassthrough.reset_to_bootloader(
         args.port,
-        args.baud,
+        baud,
         options.firmware,
         getattr(args, 'target_path', None),
         _uart_upload_mode(args),
         getattr(args, 'accept', None),
         getattr(args, 'platform', 'ESP82'),
     )
+    return retval
 
-def _detect_esp32_uart_mode(args):
+def _detect_uart_loader(args, baud):
     try:
-        esp = esptool.cmds.detect_chip(args.port, args.baud, "no_reset")
-        return 'stub' if esp.IS_STUB else 'rom'
-    except Exception:
+        loader = esptool.detect_chip(args.port, baud, "no_reset")
+        return loader
+    except Exception as err:
         return None
 
-def _esp32_full_flash_cmd(args, before):
+def _probe_existing_loader(args, *bauds):
+    for baud in bauds:
+        loader = _detect_uart_loader(args, baud)
+        if loader is not None:
+            return loader, baud
+    return None, None
+
+def _esptool_sync_baud(args):
+    return min(ESP_BOOTLOADER_BAUD, args.baud)
+
+def _try_bf_passthrough_reset(args, options):
+    try:
+        BFinitPassthrough.bf_passthrough_init(args.port, UART_BOOTLOADER_BAUD)
+    except BFinitPassthrough.PassthroughEnabled as err:
+        return None
+    except BFinitPassthrough.PassthroughFailed as err:
+        return ElrsUploadResult.ErrorGeneral
+
+    retval = _reset_receiver_for_uart(args, options, UART_BOOTLOADER_BAUD)
+    return retval
+
+def _esp32_full_flash_cmd(args, before, baud):
     dir = os.path.dirname(args.file.name)
-    cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', before, '--after', 'hard_reset', 'write_flash']
+    cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(baud), '--before', before, '--after', 'hard_reset', 'write_flash']
     if args.erase:
         cmd.append('--erase-all')
     start_addr = '0x0000' if args.platform.startswith('esp32-') else '0x1000'
     cmd.extend(['-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', start_addr, os.path.join(dir, 'bootloader.bin'), '0x8000', os.path.join(dir, 'partitions.bin'), '0xe000', os.path.join(dir, 'boot_app0.bin'), '0x10000', args.file.name])
     return cmd
 
-def _esp32_app_flash_cmd(args):
-    cmd = ['--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash']
+def _esp32_app_flash_cmd(args, baud):
+    cmd = ['--passthrough', '--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash']
     cmd.extend(['-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', '0x10000', args.file.name])
     return cmd
 
 def upload_esp8266_uart(args, options):
     if args.port == None:
         args.port = serials_find.get_serial_port()
-    retval = _reset_receiver_for_uart(args, options)
-    if retval != ElrsUploadResult.Success:
-        return retval
-    before = 'no_reset' if options.deviceType == DeviceType.RX else 'default_reset'
+
+    flash_baud = args.baud
+    before = 'default_reset'
+    if options.deviceType == DeviceType.RX:
+        loader, loader_baud = _probe_existing_loader(args, _esptool_sync_baud(args))
+        if loader is not None:
+            before = 'no_reset'
+        else:
+            retval = _try_bf_passthrough_reset(args, options)
+            if retval == ElrsUploadResult.Success:
+                flash_baud = UART_BOOTLOADER_BAUD
+                before = 'no_reset'
+            elif retval is not None:
+                return retval
+            else:
+                retval = _reset_receiver_for_uart(args, options, UART_BOOTLOADER_BAUD)
+                if retval != ElrsUploadResult.Success:
+                    return retval
+                flash_baud = UART_BOOTLOADER_BAUD
+                before = 'no_reset'
+
     try:
-        cmd = ['--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--before', before, '--after', 'soft_reset', 'write_flash']
+        cmd = ['--chip', 'esp8266', '--port', args.port, '--baud', str(flash_baud), '--before', before, '--after', 'soft_reset', 'write_flash']
         if args.erase:
             cmd.append('--erase-all')
         cmd.extend(['0x0000', args.file.name])
-        esptool.main(cmd)
-    except Exception:
+        _run_esptool(cmd)
+    except Exception as err:
         if before == 'default_reset':
             return ElrsUploadResult.ErrorGeneral
         try:
@@ -102,8 +150,8 @@ def upload_esp8266_uart(args, options):
             if args.erase:
                 cmd.append('--erase-all')
             cmd.extend(['0x0000', args.file.name])
-            esptool.main(cmd)
-        except Exception:
+            _run_esptool(cmd)
+        except Exception as fallback_err:
             return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
@@ -133,26 +181,46 @@ def upload_esp8266_bf(args, options):
 def upload_esp32_uart(args, options):
     if args.port == None:
         args.port = serials_find.get_serial_port()
-    retval = _reset_receiver_for_uart(args, options)
-    if retval != ElrsUploadResult.Success:
-        return retval
+
+    if options.deviceType != DeviceType.RX:
+        try:
+            _run_esptool(_esp32_full_flash_cmd(args, 'default_reset', args.baud))
+        except Exception as err:
+            return ElrsUploadResult.ErrorGeneral
+        return ElrsUploadResult.Success
+
+    flash_baud = args.baud
+    loader, loader_baud = _probe_existing_loader(args, _esptool_sync_baud(args))
+
     try:
-        if options.deviceType != DeviceType.RX:
-            esptool.main(_esp32_full_flash_cmd(args, 'default_reset'))
+        if loader is not None:
+            if loader.IS_STUB:
+                if args.erase:
+                    print("ESP32 serial update mode only supports flashing the main firmware image. Use ROM bootloader mode for erase-all.")
+                    return ElrsUploadResult.ErrorGeneral
+                _run_esptool(_esp32_app_flash_cmd(args, flash_baud))
+            else:
+                _run_esptool(_esp32_full_flash_cmd(args, 'no_reset', flash_baud))
             return ElrsUploadResult.Success
 
-        mode = _detect_esp32_uart_mode(args)
-        if mode == 'stub':
+        retval = _try_bf_passthrough_reset(args, options)
+        if retval == ElrsUploadResult.Success:
             if args.erase:
                 print("ESP32 serial update mode only supports flashing the main firmware image. Use ROM bootloader mode for erase-all.")
                 return ElrsUploadResult.ErrorGeneral
-            esptool.main(_esp32_app_flash_cmd(args))
-        elif mode == 'rom':
-            esptool.main(_esp32_full_flash_cmd(args, 'no_reset'))
-        else:
-            print("Could not detect ESP32 serial-update mode, falling back to ROM bootloader reset.")
-            esptool.main(_esp32_full_flash_cmd(args, 'default_reset'))
-    except Exception:
+            _run_esptool(_esp32_app_flash_cmd(args, UART_BOOTLOADER_BAUD))
+            return ElrsUploadResult.Success
+        if retval is not None:
+            return retval
+
+        retval = _reset_receiver_for_uart(args, options, UART_BOOTLOADER_BAUD)
+        if retval != ElrsUploadResult.Success:
+            return retval
+        if args.erase:
+            print("ESP32 serial update mode only supports flashing the main firmware image. Use ROM bootloader mode for erase-all.")
+            return ElrsUploadResult.ErrorGeneral
+        _run_esptool(_esp32_app_flash_cmd(args, UART_BOOTLOADER_BAUD))
+    except Exception as err:
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 

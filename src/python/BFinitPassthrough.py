@@ -123,14 +123,23 @@ def _parse_detected_target(line):
 
 def _format_detected_target(detected_target, detected_target_path):
     if detected_target_path:
-        return f"{detected_target}|{detected_target_path}"
+        return detected_target_path
     return detected_target
 
 
-def _read_detected_target(rl):
+def _extract_detected_target_from_bytes(data):
+    marker = TARGET_INFO_PREFIX.encode()
+    marker_offset = data.find(marker)
+    if marker_offset >= 0:
+        end = data.find(b'\n', marker_offset)
+        if end < 0:
+            end = len(data)
+        line = data[marker_offset:end].decode('ascii', errors='ignore').strip()
+        return _parse_detected_target(line)
+
     fallback_target = ("", "")
-    for _ in range(4):
-        line = rl.read_line().strip().upper()
+    for raw_line in data.splitlines():
+        line = raw_line.decode('ascii', errors='ignore').strip()
         if line == "":
             continue
         detected_target = _parse_detected_target(line)
@@ -139,6 +148,20 @@ def _read_detected_target(rl):
         if TARGET_INFO_PREFIX in line:
             return detected_target
     return fallback_target
+
+def _collect_reset_response(rl, timeout=1.5):
+    buf = bytearray(rl.buf)
+    rl.buf = bytearray()
+    start = time.time()
+    while (time.time() - start) < timeout:
+        waiting = min(2048, rl.serial.in_waiting)
+        data = rl.serial.read(waiting)
+        if data:
+            buf.extend(data)
+            start = time.time()
+        else:
+            time.sleep(0.01)
+    return bytes(buf)
 
 
 def reset_to_bootloader(port, baud, target, target_path, action, accept=None, chip_type='ESP82') -> int:
@@ -150,25 +173,25 @@ def reset_to_bootloader(port, baud, target, target_path, action, accept=None, ch
     rl.clear()
     BootloaderInitSeq = bootloader.get_init_seq(chip_type)
     dbg_print("  * Using full duplex (CRSF)")
-    #this is the training sequ for the ROM bootloader, we send it here so it doesn't auto-neg to the wrong baudrate by the BootloaderInitSeq that we send to reset ELRS
-    rl.write(b'\x07\x07\x12\x20' + 32 * b'\x55')
-    time.sleep(0.2)
     rl.write(BootloaderInitSeq)
-    s.flush()
-    detected_target, detected_target_path = _read_detected_target(rl)
+    time.sleep(0.3)
+    detected_target, detected_target_path = _extract_detected_target_from_bytes(_collect_reset_response(rl))
     detected = _format_detected_target(detected_target, detected_target_path)
     if target is not None:
         flash_target = re.sub("_VIA_.*", "", target.upper())
-        flash_target_path = target_path.upper() if target_path else None
+        flash_target_path = target_path if target_path else None
         accept_target = accept.upper() if accept else None
         ignore_incorrect_target = action == "uploadforce"
+        detected_target_cmp = detected_target.upper()
+        detected_target_path_cmp = detected_target_path.casefold()
+        flash_target_path_cmp = flash_target_path.casefold() if flash_target_path else None
         if flash_target_path is not None:
-            target_matches = detected_target_path == flash_target_path
+            target_matches = detected_target_path_cmp == flash_target_path_cmp
             if not target_matches and detected_target_path == "" and accept_target is not None:
-                target_matches = detected_target == accept_target
+                target_matches = detected_target_cmp == accept_target
         else:
-            target_matches = detected_target == flash_target or detected_target == accept_target
-        expected = flash_target if flash_target_path is None else f"{flash_target}|{flash_target_path}"
+            target_matches = detected_target_cmp == flash_target or detected_target_cmp == accept_target
+        expected = flash_target_path if flash_target_path is not None else flash_target
         if detected_target == "":
             dbg_print("Cannot detect RX target, blindly flashing!")
         elif ignore_incorrect_target:
