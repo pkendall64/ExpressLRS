@@ -114,10 +114,15 @@ def bf_passthrough_init(port, requestedBaudrate):
 
 
 def _parse_detected_target(line):
-    payload = line
+    payload = line.strip()
     if TARGET_INFO_PREFIX in payload:
-        detected_target_path = payload.split(TARGET_INFO_PREFIX, 1)[1]
-        return "", detected_target_path
+        payload = payload.split(TARGET_INFO_PREFIX, 1)[1].strip()
+        detected_target, separator, detected_target_path = payload.partition('|')
+        if separator:
+            return detected_target.strip(), detected_target_path.strip()
+        if '.' in payload:
+            return "", payload
+        return payload, ""
     return payload, ""
 
 
@@ -127,27 +132,36 @@ def _format_detected_target(detected_target, detected_target_path):
     return detected_target
 
 
-def _extract_detected_target_from_bytes(data):
-    marker = TARGET_INFO_PREFIX.encode()
-    marker_offset = data.find(marker)
-    if marker_offset >= 0:
-        end = data.find(b'\n', marker_offset)
-        if end < 0:
-            end = len(data)
-        line = data[marker_offset:end].decode('ascii', errors='ignore').strip()
-        return _parse_detected_target(line)
+def _looks_like_target_name(candidate):
+    return bool(re.fullmatch(r'[A-Z0-9]+(?:_[A-Z0-9]+)+', candidate)) and (candidate.endswith('_RX') or candidate.endswith('_TX') or '_RX_' in candidate or '_TX_' in candidate)
 
-    fallback_target = ("", "")
-    for raw_line in data.splitlines():
-        line = raw_line.decode('ascii', errors='ignore').strip()
+
+def _extract_legacy_target_from_text(text):
+    for candidate in re.findall(r'[A-Z0-9]+(?:_[A-Z0-9]+)+', text.upper()):
+        if _looks_like_target_name(candidate):
+            return candidate
+    return ""
+
+
+def _extract_detected_target_from_bytes(data):
+    text = data.decode('ascii', errors='ignore')
+
+    fallback_target = ""
+    fallback_target_path = ""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
         if line == "":
             continue
-        detected_target = _parse_detected_target(line)
-        if fallback_target == ("", ""):
-            fallback_target = detected_target
-        if TARGET_INFO_PREFIX in line:
-            return detected_target
-    return fallback_target
+        detected_target, detected_target_path = _parse_detected_target(line)
+        if fallback_target == "" and _looks_like_target_name(detected_target.upper()):
+            fallback_target = detected_target.upper()
+        if fallback_target_path == "" and detected_target_path:
+            fallback_target_path = detected_target_path
+
+    if fallback_target == "":
+        fallback_target = _extract_legacy_target_from_text(text)
+
+    return fallback_target, fallback_target_path
 
 def _collect_reset_response(rl, timeout=1.5):
     buf = bytearray(rl.buf)
@@ -175,8 +189,13 @@ def reset_to_bootloader(port, baud, target, target_path, action, accept=None, ch
     dbg_print("  * Using full duplex (CRSF)")
     rl.write(BootloaderInitSeq)
     time.sleep(0.3)
-    detected_target, detected_target_path = _extract_detected_target_from_bytes(_collect_reset_response(rl))
+    reset_response = _collect_reset_response(rl)
+    reset_response_text = reset_response.decode('ascii', errors='ignore').replace('\r', '\\r').replace('\n', '\\n')
+    dbg_print(f"  * RX reset response: {reset_response_text}")
+    detected_target, detected_target_path = _extract_detected_target_from_bytes(reset_response)
     detected = _format_detected_target(detected_target, detected_target_path)
+    dbg_print(f"  * Whole-response legacy target scan='{_extract_legacy_target_from_text(reset_response.decode('ascii', errors='ignore'))}'")
+    dbg_print(f"  * Parsed detected target_name='{detected_target}', target_path='{detected_target_path}'")
     if target is not None:
         flash_target = re.sub("_VIA_.*", "", target.upper())
         flash_target_path = target_path if target_path else None
@@ -185,14 +204,18 @@ def reset_to_bootloader(port, baud, target, target_path, action, accept=None, ch
         detected_target_cmp = detected_target.upper()
         detected_target_path_cmp = detected_target_path.casefold()
         flash_target_path_cmp = flash_target_path.casefold() if flash_target_path else None
+        dbg_print(f"  * Flash target_name='{flash_target}', target_path='{flash_target_path}', accept='{accept_target}'")
         if flash_target_path is not None:
             target_matches = detected_target_path_cmp == flash_target_path_cmp
-            if not target_matches and detected_target_path == "" and accept_target is not None:
-                target_matches = detected_target_cmp == accept_target
+            dbg_print(f"  * Path match: detected='{detected_target_path_cmp}' expected='{flash_target_path_cmp}' => {target_matches}")
+            if not target_matches and detected_target_path == "":
+                target_matches = detected_target_cmp == flash_target or detected_target_cmp == accept_target
+                dbg_print(f"  * Legacy fallback match: detected='{detected_target_cmp}' against firmware='{flash_target}' accept='{accept_target}' => {target_matches}")
         else:
             target_matches = detected_target_cmp == flash_target or detected_target_cmp == accept_target
+            dbg_print(f"  * Legacy match: detected='{detected_target_cmp}' against firmware='{flash_target}' accept='{accept_target}' => {target_matches}")
         expected = flash_target_path if flash_target_path is not None else flash_target
-        if detected_target == "":
+        if detected == "":
             dbg_print("Cannot detect RX target, blindly flashing!")
         elif ignore_incorrect_target:
             dbg_print(f"Force flashing {expected}, detected {detected}")

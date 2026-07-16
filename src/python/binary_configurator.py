@@ -5,12 +5,11 @@ from random import randint
 import argparse
 import json
 from json import JSONEncoder
-import mmap
 import hashlib
 from enum import Enum
+import re
 import shutil
 
-import firmware
 from firmware import DeviceType, FirmwareOptions, MCUType, TXType
 import UnifiedConfiguration
 import binary_flash
@@ -67,48 +66,30 @@ def domain_number(domain):
     elif domain == RegulatoryDomain.us_433_wide:
         return 7
 
-def patch_unified(args, options):
-    json_flags = {}
-    if args.phrase is not None:
-        json_flags['uid'] = [x for x in generateUID(args.phrase)]
-    if args.ssid is not None:
-        json_flags['wifi-ssid'] = args.ssid
-    if args.password is not None and args.ssid is not None:
-        json_flags['wifi-password'] = args.password
-    if args.auto_wifi is not None:
-        json_flags['wifi-on-interval'] = args.auto_wifi
-
-    if args.tlm_report is not None:
-        json_flags['tlm-interval'] = args.tlm_report
-    if args.fan_min_runtime is not None:
-        json_flags['fan-runtime'] = args.fan_min_runtime
+def build_options_json(args):
+    json_flags = {
+        'uid': [x for x in generateUID(args.phrase)] if args.phrase is not None else None,
+        'wifi-ssid': args.ssid,
+        'wifi-password': args.password if args.password is not None and args.ssid is not None else None,
+        'wifi-on-interval': args.auto_wifi,
+        'tlm-interval': args.tlm_report,
+        'fan-runtime': args.fan_min_runtime,
+        'lock-on-first-connection': args.lock_on_first_connection,
+        'domain': domain_number(args.domain) if args.domain is not None else None,
+        'flash-discriminator': randint(1,2**32-1),
+        'target-id': args.target,
+    }
 
     if args.airport_baud is not None:
         json_flags['is-airport'] = True
-        if options.deviceType is DeviceType.RX:
+        if '.rx_' in args.target:
             json_flags['rcvr-uart-baud'] = args.airport_baud
         else:
             json_flags['airport-uart-baud'] = args.airport_baud
     elif args.rx_baud is not None:
         json_flags['rcvr-uart-baud'] = args.rx_baud
 
-    if args.lock_on_first_connection is not None:
-        json_flags['lock-on-first-connection'] = args.lock_on_first_connection
-
-    if args.domain is not None:
-        json_flags['domain'] = domain_number(args.domain)
-
-    json_flags['flash-discriminator'] = randint(1,2**32-1)
-    json_flags['target-id'] = args.target
-
-    UnifiedConfiguration.doConfiguration(
-        args.file,
-        JSONEncoder().encode(json_flags),
-        args.target,
-        None,
-        options.luaName,
-        args.rx_as_tx
-    )
+    return {k: v for k, v in json_flags.items() if v is not None}
 
 def length_check(l, f):
     def x(s):
@@ -120,6 +101,7 @@ def length_check(l, f):
 
 def ask_for_firmware(args):
     moduletype = 'tx' if args.tx else 'rx'
+    target_firmware = re.sub('_VIA_.*', '', getattr(args, 'firmware', '').upper())
     with open('hardware/targets.json') as f:
         targets = json.load(f)
         products = []
@@ -133,6 +115,8 @@ def ask_for_firmware(args):
         else:
             i = 0
             for k in jmespath.search(f'*.["{moduletype}_2400","{moduletype}_900","{moduletype}_dual"][].*[]', targets):
+                if target_firmware and k.get('firmware', '').upper() != target_firmware:
+                    continue
                 i += 1
                 products.append(k)
                 print(f"{i}) {k['product_name']}")
@@ -147,6 +131,38 @@ def ask_for_firmware(args):
                                 if targets[v][t][m]['product_name'] == config['product_name']:
                                     target = f'{v}.{t}.{m}'
     return target, config
+
+
+def build_firmware_options(config, target_path):
+    return FirmwareOptions(
+        MCUType.ESP32 if config['platform'].startswith('esp32') else MCUType.ESP8266,
+        DeviceType.RX if '.rx_' in target_path else DeviceType.TX,
+        config['lua_name'] if 'lua_name' in config else '',
+        config['stlink']['bootloader'] if 'stlink' in config else '',
+        config['stlink']['offset'] if 'stlink' in config else 0,
+        config['firmware']
+    )
+
+
+def configure_firmware_file(file, args, config, target_name=None, device_name=None):
+    options = build_firmware_options(config, args.target)
+    defines = JSONEncoder().encode(getattr(args, 'options_json', {}))
+    UnifiedConfiguration.doConfiguration(
+        file,
+        defines,
+        args.target,
+        target_name,
+        device_name,
+        args.rx_as_tx
+    )
+    return options
+
+
+def prepare_flash_args(args, config):
+    args.target_path = args.target
+    args.target = config.get('firmware')
+    args.accept = config.get('prior_target_name')
+    args.platform = config.get('platform')
 
 class readable_dir(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
@@ -248,19 +264,10 @@ def main():
     else:
         args.target, config = ask_for_firmware(args)
 
-    with args.file as f:
-        mm = mmap.mmap(f.fileno(), 0)
+    args.options_json = build_options_json(args)
 
-        pos = firmware.get_hardware(mm)
-        options = FirmwareOptions(
-            MCUType.ESP32 if config['platform'].startswith('esp32') else MCUType.ESP8266,
-            DeviceType.RX if '.rx_' in args.target else DeviceType.TX,
-            config['lua_name'] if 'lua_name' in config else '',
-            config['stlink']['bootloader'] if 'stlink' in config else '',
-            config['stlink']['offset'] if 'stlink' in config else 0,
-            config['firmware']
-        )
-        patch_unified(args, options)
+    with args.file as f:
+        options = configure_firmware_file(f, args, config, None, None)
         args.file.close()
 
         if options.mcuType == MCUType.ESP8266:
@@ -270,10 +277,7 @@ def main():
                     shutil.copyfileobj(f_in, f_out)
 
         if args.flash:
-            args.target_path = args.target
-            args.target = config.get('firmware')
-            args.accept = config.get('prior_target_name')
-            args.platform = config.get('platform')
+            prepare_flash_args(args, config)
             return binary_flash.upload(options, args)
         elif 'upload_methods' in config and 'stock' in config['upload_methods']:
             shutil.copy(args.file.name, 'firmware.elrs')

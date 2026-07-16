@@ -80,7 +80,7 @@ def appendToFirmware(firmware_file, product_name, lua_name, defines, config, lay
 # Second return value is if the user has enabled autoupload in the json file
 def getDefaultProductForTarget(target_name: str) -> tuple[str, bool]:
     if target_name is None or target_name == '':
-        return ''
+        return '', False
 
     # remove the "_via_WIFI" etc method
     target_wo_method = re.sub('_via_.*', '', target_name)
@@ -236,7 +236,7 @@ def appendConfiguration(source, target, env):
     target_name = env.get('PIOENV', '')
     device_name = env.get('DEVICE_NAME', None)
     config = env.GetProjectOption('board_config', None)
-    if 'Unified_' not in target_name and config is None:
+    if 'Unified_' not in target_name or "_UART" in target_name:
         return
 
     defines = json.JSONEncoder().encode(env['OPTIONS_JSON'])

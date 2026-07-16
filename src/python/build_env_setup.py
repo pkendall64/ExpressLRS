@@ -4,9 +4,9 @@ import shutil
 import upload_via_esp8266_backpack
 import esp_compress
 import elrs_helpers
-import BFinitPassthrough
 import ETXinitPassthrough
 import UnifiedConfiguration
+import pio_upload
 
 def add_target_uploadoption(name: str, desc: str) -> None:
     # Add an upload target 'uploadforce' that forces update if target mismatch
@@ -23,67 +23,29 @@ def get_version(env):
     return '%s (%s) %s' % (env.get('GIT_VERSION'), env.get('GIT_SHA'), env.get('REG_DOMAIN'))
 
 platform = env.get('PIOPLATFORM', '')
-stm = platform in ['ststm32']
-
 target_name = env['PIOENV'].upper()
+is_wifi_upload = "_WIFI" in target_name
+is_pio_upload = "_UART" in target_name or "_BETAFLIGHTPASSTHROUGH" in target_name
+
 print("PLATFORM : '%s'" % platform)
 print("BUILD ENV: '%s'" % target_name)
 print("build version: %s\n\n" % get_version(env))
 
-if platform in ['espressif8266']:
-    if "_WIFI" in target_name:
+if platform in ['espressif8266', 'espressif32']:
+    if is_wifi_upload:
         env.Replace(UPLOAD_PROTOCOL="custom")
         env.Replace(UPLOADCMD=upload_via_esp8266_backpack.on_upload)
-    elif "_UART" in target_name:
+    elif is_pio_upload:
         env.Replace(
-            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
-            UPLOAD_SPEED=460800,
-            UPLOADERFLAGS=[
-                "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
-                "-c", "esp8266", "--before", "default_reset", "--after", "soft_reset", "write_flash"
-            ]
+            UPLOAD_PROTOCOL="custom",
+            UPLOADCMD=pio_upload.upload_via_pio
         )
-    elif "_BETAFLIGHTPASSTHROUGH" in target_name:
-        env.Replace(
-            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
-            UPLOAD_SPEED=420000,
-            UPLOADERFLAGS=[
-                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
-                "-c", "esp8266", "--before", "no_reset", "--after", "soft_reset", "write_flash"
-            ]
-        )
-        env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
 
-elif platform in ['espressif32']:
-    if "_WIFI" in target_name:
-        env.Replace(UPLOAD_PROTOCOL="custom")
-        env.Replace(UPLOADCMD=upload_via_esp8266_backpack.on_upload)
-    elif "_UART" in target_name:
-        env.Replace(
-            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
-            UPLOAD_SPEED=460800
-        )
-    if "_ETX" in target_name:
-        env.Replace(UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py")
-        env.AddPreAction("upload", ETXinitPassthrough.init_passthrough)
-    elif "_BETAFLIGHTPASSTHROUGH" in target_name:
-        if "ESP32S3" in target_name:
-            chip = "esp32-s3"
-        elif "ESP32C3" in target_name:
-            chip = "esp32-c3"
-        else:
-            chip = "esp32"
-        env.Replace(
-            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
-            UPLOAD_SPEED=420000,
-            UPLOADERFLAGS=[
-                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
-                "-c", chip, "--before", "no_reset", "--after", "hard_reset", "write_flash"
-            ]
-        )
-        env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
+if platform in ['espressif32'] and "_ETX" in target_name:
+    env.Replace(UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py")
+    env.AddPreAction("upload", ETXinitPassthrough.init_passthrough)
 
-if "_WIFI" in target_name:
+if is_wifi_upload:
     add_target_uploadoption("uploadconfirm", "Do not upload, just send confirm")
     if "_TX_" in target_name:
         env.SetDefault(UPLOAD_PORT="elrs_tx.local")
@@ -97,7 +59,7 @@ if platform != 'native':
 try:
     os.remove(env['PROJECT_BUILD_DIR'] + '/' + env['PIOENV'] +'/'+ env['PROGNAME'] + '.bin')
 except FileNotFoundError:
-    None
+    pass
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", UnifiedConfiguration.appendConfiguration)
 if platform in ['espressif8266'] and "_WIFI" in target_name:
     env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", esp_compress.compressFirmware)
