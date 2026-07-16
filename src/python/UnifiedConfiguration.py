@@ -145,29 +145,40 @@ def is_pio_upload():
     except Exception:
         return False
 
-def interactiveProductSelect(targets: dict, target_name: str) -> dict:
+def interactiveProductSelect(targets: dict, target_name: str):
     products = []
     target_wo_method = re.sub('_via_.*', '', target_name)
-    for k in jmespath.search(f'*.*.*[][]|[?firmware==`{target_wo_method}`]', targets):
-        products.append(k)
+
+    def appendMatchingProducts(node, path):
+        if isinstance(node, dict):
+            if node.get('firmware') == target_wo_method and 'product_name' in node:
+                products.append((node, '.'.join(path)))
+                return
+            for key, value in node.items():
+                appendMatchingProducts(value, path + [key])
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                appendMatchingProducts(value, path + [str(i)])
+
+    appendMatchingProducts(targets, [])
 
     if len(products) == 0:
         return None
 
     # Sort the list by product name, case insensitive, and print the list
-    products = sorted(products, key=lambda p: p['product_name'].casefold())
+    products = sorted(products, key=lambda p: p[0]['product_name'].casefold())
     # Find a default if this target has been build before
     default_prod, autoupload = getDefaultProductForTarget(target_name)
     # Make sure default_conf is a valid product name, set to '0' if not or default_prod is blank
-    default_prod = default_prod if any(p['product_name'] == default_prod for p in products) else '0'
+    default_prod = default_prod if any(p[0]['product_name'] == default_prod for p in products) else '0'
 
     if (default_prod != '0') and is_pio_upload() and autoupload:
         print(f'Upload using default product "{default_prod}" (use Clean to clear default)')
         choice = default_prod
     else:
         print(f'0) Leave bare (no configuration)')
-        for i, p in enumerate(products):
-            print(f"{i+1}) {p['product_name']}")
+        for i, product in enumerate(products):
+            print(f"{i+1}) {product[0]['product_name']}")
         print(f'default) {default_prod}')
         print('Choose a configuration to load into the firmware file')
 
@@ -178,30 +189,38 @@ def interactiveProductSelect(targets: dict, target_name: str) -> dict:
             return None
 
     # First see if choice is a valid product name from the list
-    config = next((p for p in products if p['product_name'] == choice), None)
+    selected = next((p for p in products if p[0]['product_name'] == choice), None)
     # else choice is an integer
-    config = config if config else products[int(choice)-1]
+    selected = selected if selected else products[int(choice)-1]
 
-    return config
+    return selected
 
-def doConfiguration(file, defines, config, target_name, device_name, rx_as_tx):
+def doConfiguration(file, defines, target_path, target_name, device_name, rx_as_tx):
     product_name = "Unified"
     lua_name = "Unified"
     layout = None
+    config = None
 
     targets = {}
     with open('hardware/targets.json') as f:
         targets = json.load(f)
 
-    if config is not None:
-        config ='.'.join(map(lambda s: f'"{s}"', config.split('.')))
+    if target_path is not None:
+        config = '.'.join(map(lambda s: f'"{s}"', target_path.split('.')))
         config = jmespath.search(config, targets)
     elif not sys.stdin.isatty():
         print('Not running in an interactive shell, leaving the firmware "bare".\n')
         print('The current compile options (user defines) have been included.')
         print('You will be able to configure the hardware via the web UI on the device.')
     else:
-        config = interactiveProductSelect(targets, target_name)
+        selected = interactiveProductSelect(targets, target_name)
+        if selected is not None:
+            config, target_path = selected
+
+    if target_path is not None:
+        defines_obj = json.loads(defines)
+        defines_obj['target_path'] = target_path
+        defines = json.JSONEncoder().encode(defines_obj)
 
     if config is not None:
         product_name = config['product_name']
