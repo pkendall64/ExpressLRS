@@ -6,9 +6,30 @@
 
 #if defined(TARGET_TX)
 
-TxConfig::TxConfig() :
-    BindphraseConfigurable(), m_model(m_config.model_config)
+
+TxConfig::TxConfig()
+    : BindphraseConfigurable()
+    , m_modelId(0xFF)
 {
+    SetDefaultModelConfig(&m_model);
+}
+
+void TxConfig::LoadModel(uint8_t modelId)
+{
+    SetDefaultModelConfig(&m_model);
+
+    TX_MODEL_KEY_DECLARE(modelKey, modelId);
+    uint32_t value = 0;
+    if (nvs_get_u32(handle, TX_MODEL_KEY(modelKey), &value) == ESP_OK)
+        U32_to_Model(value, &m_model);
+
+    const uint32_t raw = Model_to_U32(&m_model);
+    NormalizeModelConfig(&m_model);
+    if (Model_to_U32(&m_model) != raw)
+    {
+        nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(&m_model));
+        nvs_commit(handle);
+    }
 }
 
 void TxConfig::Load()
@@ -76,21 +97,8 @@ void TxConfig::Load()
         if (nvs_get_u8(handle, TX_NVS_KEY_BACKPACKTLMEN, &value8) == ESP_OK)
             m_config.backpackTlmMode = value8;
 
-        for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
-        {
-            TX_MODEL_KEY_DECLARE(modelKey, i);
-            if (nvs_get_u32(handle, TX_MODEL_KEY(modelKey), &value) == ESP_OK)
-            {
-                U32_to_Model(value, &m_config.model_config[i]);
-
-                if (!isSupportedRFRate(m_config.model_config[i].rate))
-                {
-                    // validate the currently selected rate is supported by the hardware and choose an appropriate default if not
-                    m_config.model_config[i].rate = enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ);
-                    nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(&m_config.model_config[i]));
-                }
-            }
-        }
+        m_modelId = 0;
+        LoadModel(m_modelId);
         return;
     }
 
@@ -103,20 +111,18 @@ void TxConfig::Load()
     SetDefaults(true);
 }
 
-
 uint32_t
 TxConfig::Commit()
 {
     if (!m_modified)
     {
         DBGLN("No changes");
-        // No changes
         return 0;
     }
-    TX_MODEL_KEY_DECLARE(modelKey, m_modelId);
-    if (m_modified & EVENT_CONFIG_MODEL_CHANGED)
+    if ((m_modified & EVENT_CONFIG_MODEL_CHANGED) && m_modelId < CONFIG_TX_MODEL_CNT)
     {
-        nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(m_model));
+        TX_MODEL_KEY_DECLARE(modelKey, m_modelId);
+        nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(&m_model));
     }
     if (m_modified & EVENT_CONFIG_VTX_CHANGED)
     {
@@ -133,9 +139,7 @@ TxConfig::Commit()
         nvs_set_u8(handle, TX_NVS_KEY_FANTHRESH, m_config.powerFanThreshold);
     }
     if (m_modified & EVENT_CONFIG_MOTION_CHANGED)
-    {
         nvs_set_u32(handle, TX_NVS_KEY_MOTION, m_config.motionMode);
-    }
     if (m_modified & EVENT_CONFIG_MAIN_CHANGED)
     {
         nvs_set_u8(handle, TX_NVS_KEY_BACKPACKDISABLE, m_config.backpackDisable);
@@ -150,9 +154,8 @@ TxConfig::Commit()
         nvs_set_u32(handle, TX_NVS_KEY_BUTTON2, m_config.buttonColors[1].raw);
     }
     if (m_modified & EVENT_CONFIG_VERSION_CHANGED)
-    {
         nvs_set_u32(handle, TX_NVS_KEY_VERSION, m_config.version);
-    }
+
     nvs_commit(handle);
     uint32_t changes = m_modified;
     m_modified = 0;
@@ -165,7 +168,7 @@ TxConfig::SetRate(uint8_t rate)
 {
     if (GetRate() != rate)
     {
-        m_model->rate = rate;
+        m_model.rate = rate;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -175,7 +178,7 @@ TxConfig::SetTlm(uint8_t tlm)
 {
     if (GetTlm() != tlm)
     {
-        m_model->tlm = tlm;
+        m_model.tlm = tlm;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -185,7 +188,7 @@ TxConfig::SetPower(uint8_t power)
 {
     if (GetPower() != power)
     {
-        m_model->power = power;
+        m_model.power = power;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -195,7 +198,7 @@ TxConfig::SetDynamicPower(bool dynamicPower)
 {
     if (GetDynamicPower() != dynamicPower)
     {
-        m_model->dynamicPower = dynamicPower;
+        m_model.dynamicPower = dynamicPower;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -205,7 +208,7 @@ TxConfig::SetBoostChannel(uint8_t boostChannel)
 {
     if (GetBoostChannel() != boostChannel)
     {
-        m_model->boostChannel = boostChannel;
+        m_model.boostChannel = boostChannel;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -215,7 +218,7 @@ TxConfig::SetSwitchMode(uint8_t switchMode)
 {
     if (GetSwitchMode() != switchMode)
     {
-        m_model->switchMode = switchMode;
+        m_model.switchMode = switchMode;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -225,7 +228,7 @@ TxConfig::SetAntennaMode(uint8_t txAntenna)
 {
     if (GetAntennaMode() != txAntenna)
     {
-        m_model->txAntenna = txAntenna;
+        m_model.txAntenna = txAntenna;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -235,12 +238,12 @@ TxConfig::SetLinkMode(uint8_t linkMode)
 {
     if (GetLinkMode() != linkMode)
     {
-        m_model->linkMode = linkMode;
+        m_model.linkMode = linkMode;
 
         if (linkMode == TX_MAVLINK_MODE)
         {
-            m_model->tlm = TLM_RATIO_1_2;
-            m_model->switchMode = smHybridOr16ch; // Force Hybrid / 16ch/2 switch modes for mavlink
+            m_model.tlm = TLM_RATIO_1_2;
+            m_model.switchMode = smHybridOr16ch; // Force Hybrid / 16ch/2 switch modes for mavlink
         }
         m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
@@ -251,7 +254,7 @@ TxConfig::SetModelMatch(bool modelMatch)
 {
     if (GetModelMatch() != modelMatch)
     {
-        m_model->modelMatch = modelMatch;
+        m_model.modelMatch = modelMatch;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -389,8 +392,8 @@ TxConfig::SetButtonActions(uint8_t button, tx_button_color_t *action)
 void
 TxConfig::SetPTRStartChannel(uint8_t ptrStartChannel)
 {
-    if (ptrStartChannel != m_model->ptrStartChannel) {
-        m_model->ptrStartChannel = ptrStartChannel;
+    if (ptrStartChannel != m_model.ptrStartChannel) {
+        m_model.ptrStartChannel = ptrStartChannel;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -398,8 +401,8 @@ TxConfig::SetPTRStartChannel(uint8_t ptrStartChannel)
 void
 TxConfig::SetPTREnableChannel(uint8_t ptrEnableChannel)
 {
-    if (ptrEnableChannel != m_model->ptrEnableChannel) {
-        m_model->ptrEnableChannel = ptrEnableChannel;
+    if (ptrEnableChannel != m_model.ptrEnableChannel) {
+        m_model.ptrEnableChannel = ptrEnableChannel;
         m_modified |= EVENT_CONFIG_MODEL_CHANGED;
     }
 }
@@ -407,17 +410,14 @@ TxConfig::SetPTREnableChannel(uint8_t ptrEnableChannel)
 void
 TxConfig::SetDefaults(bool commit)
 {
-    // Reset everything to 0/false and then just set anything that zero is not appropriate
     memset(&m_config, 0, sizeof(m_config));
 
     m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
     m_config.powerFanThreshold = PWR_250mW;
-    m_modified = ALL_CHANGED;
 
-    // Set defaults for button 1
     tx_button_color_t default_actions1 = {
         .val = {
-            .color = 226,   // R:255 G:0 B:182
+            .color = 226,
             .actions = {
                 {false, 2, ACTION_BIND},
                 {true, 0, ACTION_INCREASE_POWER}
@@ -426,10 +426,9 @@ TxConfig::SetDefaults(bool commit)
     };
     m_config.buttonColors[0].raw = default_actions1.raw;
 
-    // Set defaults for button 2
     tx_button_color_t default_actions2 = {
         .val = {
-            .color = 3,     // R:0 G:0 B:255
+            .color = 3,
             .actions = {
                 {false, 1, ACTION_GOTO_VTX_CHANNEL},
                 {true, 0, ACTION_SEND_VTX}
@@ -438,65 +437,50 @@ TxConfig::SetDefaults(bool commit)
     };
     m_config.buttonColors[1].raw = default_actions2.raw;
 
-    for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
-    {
-        SetModelId(i);
-        #if defined(RADIO_SX127X)
-            SetRate(enumRatetoIndexSafe(RATE_LORA_900_200HZ));
-        #elif defined(RADIO_LR1121)
-            SetRate(enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ));
-        #elif defined(RADIO_SX128X)
-            SetRate(enumRatetoIndexSafe(RATE_LORA_2G4_250HZ));
-        #endif
-        SetPower(POWERMGNT::getDefaultPower());
-#if defined(PLATFORM_ESP32)
-        // ESP32 nvs needs to commit every model
-        if (commit)
-        {
-            m_modified |= EVENT_CONFIG_MODEL_CHANGED;
-            Commit();
-        }
-#endif
-    }
+    SetDefaultModelConfig(&m_model);
+    m_modelId = 0;
 
-#if !defined(PLATFORM_ESP32)
-    // ESP8266 just needs one commit
     if (commit)
     {
+        for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
+        {
+            TX_MODEL_KEY_DECLARE(modelKey, i);
+            nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(&m_model));
+        }
+        m_modified = ALL_CHANGED;
         Commit();
     }
-#endif
-
-    SetModelId(0);
-    m_modified = 0;
+    else
+    {
+        m_modified = 0;
+    }
 }
 
-/**
- * Sets ModelId used for subsequent per-model config gets
- * Returns: true if the model has changed
- **/
+model_config_t const &TxConfig::GetModelConfig(uint8_t model)
+{
+    SetModelId(model);
+    return m_model;
+}
+
 bool
 TxConfig::SetModelId(uint8_t modelId)
 {
-    model_config_t *newModel = &m_config.model_config[modelId];
-    if (newModel != m_model)
-    {
-        m_model = newModel;
-        m_modelId = modelId;
-        return true;
-    }
+    if (modelId >= CONFIG_TX_MODEL_CNT || modelId == m_modelId)
+        return false;
 
-    return false;
+    if (m_modelId < CONFIG_TX_MODEL_CNT && (m_modified & EVENT_CONFIG_MODEL_CHANGED))
+        Commit();
+
+    LoadModel(modelId);
+    m_modelId = modelId;
+    return true;
 }
 
 void TxConfig::SetUID(uint8_t uid[UID_LEN])
 {
-    // The UID is only stored in the options.json, not in nvs/eeprom like on the RX
-    // Emulate the setting as a config setting to have the same access method as the RX
     firmwareOptions.hasUID = OtaUidIsBound(uid);
     memcpy(firmwareOptions.uid, uid, UID_LEN);
     saveOptions();
 }
 
 #endif
-

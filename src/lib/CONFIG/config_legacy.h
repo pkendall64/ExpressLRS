@@ -97,6 +97,55 @@ typedef struct {
     uint8_t         dvrStopDelay:3;
 } v7_tx_config_t;
 
+// V8
+typedef struct {
+    uint32_t    rate:5,
+                tlm:4,
+                power:3,
+                switchMode:2,
+                boostChannel:3,
+                dynamicPower:1,
+                modelMatch:1,
+                txAntenna:2,
+                ptrStartChannel:4,
+                ptrEnableChannel:5,
+                linkMode:2;
+} v8_model_config_t;
+
+typedef struct {
+    uint8_t     pressType:1,
+                count:3,
+                action:4;
+} v8_button_action_t;
+
+typedef union {
+    struct {
+        uint8_t color;
+        v8_button_action_t actions[2];
+        uint8_t unused;
+    } val;
+    uint32_t raw;
+} v8_tx_button_color_t;
+
+typedef struct {
+    uint32_t        version;
+    uint8_t         vtxBand;
+    uint8_t         vtxChannel;
+    uint8_t         vtxPower;
+    uint8_t         vtxPitmode;
+    uint8_t         powerFanThreshold:4;
+    v8_model_config_t model_config[64];
+    uint8_t         fanMode;
+    uint8_t         motionMode:2,
+                    dvrStopDelay:3,
+                    backpackDisable:1,
+                    backpackTlmMode:2;
+    uint8_t         dvrStartDelay:3,
+                    dvrAux:5;
+    v8_tx_button_color_t buttonColors[2];
+} v8_tx_config_t;
+
+
 /***
  * RX config
  ***/

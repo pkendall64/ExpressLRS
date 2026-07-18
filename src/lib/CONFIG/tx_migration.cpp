@@ -147,6 +147,27 @@ static void ModelV7toV8(v7_model_config_t const * const v7, model_config_t * con
     v8->linkMode = v7->linkMode;
 }
 
+static void WriteModelToNvs(nvs_handle handle, uint8_t modelId, model_config_t const *model)
+{
+    TX_MODEL_KEY_DECLARE(modelKey, modelId);
+    nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(model));
+}
+
+static void ModelV8toCurrent(v8_model_config_t const * const v8, model_config_t * const current)
+{
+    current->rate = v8->rate;
+    current->tlm = v8->tlm;
+    current->power = v8->power;
+    current->switchMode = v8->switchMode;
+    current->boostChannel = v8->boostChannel;
+    current->dynamicPower = v8->dynamicPower;
+    current->modelMatch = v8->modelMatch;
+    current->txAntenna = v8->txAntenna;
+    current->ptrStartChannel = v8->ptrStartChannel;
+    current->ptrEnableChannel = v8->ptrEnableChannel;
+    current->linkMode = v8->linkMode;
+}
+
 bool TxConfig::MigrateLegacyConfig()
 {
     uint32_t legacyVersion = 0;
@@ -162,6 +183,8 @@ bool TxConfig::MigrateLegacyConfig()
 
         uint32_t value = 0;
         uint8_t value8 = 0;
+        const model_config_t defaultModel = m_model;
+        model_config_t activeModel = defaultModel;
 
         if (nvs_get_u32(handle, TX_NVS_KEY_VTX, &value) == ESP_OK)
         {
@@ -199,29 +222,33 @@ bool TxConfig::MigrateLegacyConfig()
 
         for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
         {
+            model_config_t current = defaultModel;
             TX_MODEL_KEY_DECLARE(modelKey, i);
-            if (nvs_get_u32(handle, TX_MODEL_KEY(modelKey), &value) != ESP_OK)
-                continue;
-
-            if (legacyVersion == 6)
+            if (nvs_get_u32(handle, TX_MODEL_KEY(modelKey), &value) == ESP_OK)
             {
-                v6_model_config_t v6Model;
-                v7_model_config_t v7Model;
-                U32_to_Model(value, &v6Model);
-                ModelV6toV7(&v6Model, &v7Model);
-                ModelV7toV8(&v7Model, &m_config.model_config[i]);
+                if (legacyVersion == 6)
+                {
+                    v6_model_config_t v6Model;
+                    v7_model_config_t v7Model;
+                    U32_to_Model(value, &v6Model);
+                    ModelV6toV7(&v6Model, &v7Model);
+                    ModelV7toV8(&v7Model, &current);
+                }
+                else
+                {
+                    v7_model_config_t v7Model;
+                    U32_to_Model(value, &v7Model);
+                    ModelV7toV8(&v7Model, &current);
+                }
             }
-            else
-            {
-                v7_model_config_t v7Model;
-                U32_to_Model(value, &v7Model);
-                ModelV7toV8(&v7Model, &m_config.model_config[i]);
-            }
-
-            if (!isSupportedRFRate(m_config.model_config[i].rate))
-                m_config.model_config[i].rate = enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ);
+            NormalizeModelConfig(&current);
+            WriteModelToNvs(handle, i, &current);
+            if (i == 0)
+                activeModel = current;
         }
 
+        m_model = activeModel;
+        m_modelId = 0;
         m_modified = ALL_CHANGED;
         m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
         return true;
@@ -242,10 +269,38 @@ bool TxConfig::MigrateLegacyConfig()
 
     if (legacyVersion == TX_CONFIG_VERSION)
     {
-        if (!ReadLegacyTxStorageBytes(0, &m_config, sizeof(m_config)))
+        v8_tx_config_t v8Config;
+        if (!ReadLegacyTxStorageBytes(0, &v8Config, sizeof(v8Config)))
             return false;
-        m_modified = ALL_CHANGED;
+
         m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
+        m_config.vtxBand = v8Config.vtxBand;
+        m_config.vtxChannel = v8Config.vtxChannel;
+        m_config.vtxPower = v8Config.vtxPower;
+        m_config.vtxPitmode = v8Config.vtxPitmode;
+        m_config.powerFanThreshold = v8Config.powerFanThreshold;
+        m_config.fanMode = v8Config.fanMode;
+        m_config.motionMode = v8Config.motionMode;
+        m_config.dvrStopDelay = v8Config.dvrStopDelay;
+        m_config.backpackDisable = v8Config.backpackDisable;
+        m_config.backpackTlmMode = v8Config.backpackTlmMode;
+        m_config.dvrStartDelay = v8Config.dvrStartDelay;
+        m_config.dvrAux = v8Config.dvrAux;
+        m_config.buttonColors[0].raw = v8Config.buttonColors[0].raw;
+        m_config.buttonColors[1].raw = v8Config.buttonColors[1].raw;
+
+        for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
+        {
+            model_config_t current{};
+            ModelV8toCurrent(&v8Config.model_config[i], &current);
+            NormalizeModelConfig(&current);
+            WriteModelToNvs(handle, i, &current);
+            if (i == 0)
+                m_model = current;
+        }
+
+        m_modelId = 0;
+        m_modified = ALL_CHANGED;
         return true;
     }
     if (legacyVersion == 5)
@@ -293,25 +348,29 @@ void TxConfig::UpgradeEepromV5ToV6()
     LAZY(dvrStopDelay);
     #undef LAZY
 
-    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
+    m_config.vtxBand = v7Config.vtxBand;
+    m_config.vtxChannel = v7Config.vtxChannel;
+    m_config.vtxPower = v7Config.vtxPower;
+    m_config.vtxPitmode = v7Config.vtxPitmode;
+    m_config.powerFanThreshold = v7Config.powerFanThreshold;
+    m_config.fanMode = v7Config.fanMode;
+    m_config.motionMode = v7Config.motionMode;
+    m_config.dvrAux = v7Config.dvrAux;
+    m_config.dvrStartDelay = v7Config.dvrStartDelay;
+    m_config.dvrStopDelay = v7Config.dvrStopDelay;
+
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
+    {
         ModelV6toV7(&v6Config.model_config[i], &v7Config.model_config[i]);
+        model_config_t current{};
+        ModelV7toV8(&v7Config.model_config[i], &current);
+        NormalizeModelConfig(&current);
+        WriteModelToNvs(handle, i, &current);
+        if (i == 0)
+            m_model = current;
+    }
 
-    #define LAZY(member) m_config.member = v7Config.member
-    LAZY(vtxBand);
-    LAZY(vtxChannel);
-    LAZY(vtxPower);
-    LAZY(vtxPitmode);
-    LAZY(powerFanThreshold);
-    LAZY(fanMode);
-    LAZY(motionMode);
-    LAZY(dvrAux);
-    LAZY(dvrStartDelay);
-    LAZY(dvrStopDelay);
-    #undef LAZY
-
-    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
-        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
-
+    m_modelId = 0;
     m_modified = ALL_CHANGED;
     m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
 }
@@ -336,25 +395,29 @@ void TxConfig::UpgradeEepromV6ToV7()
     LAZY(dvrStopDelay);
     #undef LAZY
 
-    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
+    m_config.vtxBand = v7Config.vtxBand;
+    m_config.vtxChannel = v7Config.vtxChannel;
+    m_config.vtxPower = v7Config.vtxPower;
+    m_config.vtxPitmode = v7Config.vtxPitmode;
+    m_config.powerFanThreshold = v7Config.powerFanThreshold;
+    m_config.fanMode = v7Config.fanMode;
+    m_config.motionMode = v7Config.motionMode;
+    m_config.dvrAux = v7Config.dvrAux;
+    m_config.dvrStartDelay = v7Config.dvrStartDelay;
+    m_config.dvrStopDelay = v7Config.dvrStopDelay;
+
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
+    {
         ModelV6toV7(&v6Config.model_config[i], &v7Config.model_config[i]);
+        model_config_t current{};
+        ModelV7toV8(&v7Config.model_config[i], &current);
+        NormalizeModelConfig(&current);
+        WriteModelToNvs(handle, i, &current);
+        if (i == 0)
+            m_model = current;
+    }
 
-    #define LAZY(member) m_config.member = v7Config.member
-    LAZY(vtxBand);
-    LAZY(vtxChannel);
-    LAZY(vtxPower);
-    LAZY(vtxPitmode);
-    LAZY(powerFanThreshold);
-    LAZY(fanMode);
-    LAZY(motionMode);
-    LAZY(dvrAux);
-    LAZY(dvrStartDelay);
-    LAZY(dvrStopDelay);
-    #undef LAZY
-
-    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
-        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
-
+    m_modelId = 0;
     m_modified = ALL_CHANGED;
     m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
 }
@@ -364,22 +427,28 @@ void TxConfig::UpgradeEepromV7ToV8()
     v7_tx_config_t v7Config;
     ReadLegacyTxStorageBytes(0, &v7Config, sizeof(v7Config));
 
-    #define LAZY(member) m_config.member = v7Config.member
-    LAZY(vtxBand);
-    LAZY(vtxChannel);
-    LAZY(vtxPower);
-    LAZY(vtxPitmode);
-    LAZY(powerFanThreshold);
-    LAZY(fanMode);
-    LAZY(motionMode);
-    LAZY(dvrAux);
-    LAZY(dvrStartDelay);
-    LAZY(dvrStopDelay);
-    #undef LAZY
+    m_config.vtxBand = v7Config.vtxBand;
+    m_config.vtxChannel = v7Config.vtxChannel;
+    m_config.vtxPower = v7Config.vtxPower;
+    m_config.vtxPitmode = v7Config.vtxPitmode;
+    m_config.powerFanThreshold = v7Config.powerFanThreshold;
+    m_config.fanMode = v7Config.fanMode;
+    m_config.motionMode = v7Config.motionMode;
+    m_config.dvrAux = v7Config.dvrAux;
+    m_config.dvrStartDelay = v7Config.dvrStartDelay;
+    m_config.dvrStopDelay = v7Config.dvrStopDelay;
 
-    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
-        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; ++i)
+    {
+        model_config_t current{};
+        ModelV7toV8(&v7Config.model_config[i], &current);
+        NormalizeModelConfig(&current);
+        WriteModelToNvs(handle, i, &current);
+        if (i == 0)
+            m_model = current;
+    }
 
+    m_modelId = 0;
     m_modified = ALL_CHANGED;
     m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "config.h"
+#include "POWERMGNT.h"
+#include "helpers.h"
 
 #if defined(TARGET_TX)
 
@@ -33,6 +35,26 @@ template<class T> static inline uint32_t Model_to_U32(T const * const model)
 
     converter.val.model = *model;
     return converter.u32;
+}
+
+static inline void SetDefaultModelConfig(model_config_t *model)
+{
+    memset(model, 0, sizeof(*model));
+#if defined(RADIO_SX127X)
+    model->rate = enumRatetoIndexSafe(RATE_LORA_900_200HZ);
+#elif defined(RADIO_LR1121)
+    model->rate = enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ);
+#elif defined(RADIO_SX128X)
+    model->rate = enumRatetoIndexSafe(RATE_LORA_2G4_250HZ);
+#endif
+    model->power = POWERMGNT::getDefaultPower();
+}
+
+static inline void NormalizeModelConfig(model_config_t *model)
+{
+    if (isSupportedRFRate(model->rate))
+        return;
+    model->rate = enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ);
 }
 
 #if defined(PLATFORM_ESP32)

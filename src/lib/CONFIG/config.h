@@ -112,7 +112,6 @@ typedef struct {
     uint8_t         vtxPower;   // 0=Do not set, else power number
     uint8_t         vtxPitmode; // Off/On/AUX1^/AUX1v/etc
     uint8_t         powerFanThreshold:4; // Power level to enable fan if present
-    model_config_t  model_config[CONFIG_TX_MODEL_CNT];
     uint8_t         fanMode;            // some value used by thermal?
     uint8_t         motionMode:2,       // bool, but space for 2 more modes
                     dvrStopDelay:3,
@@ -134,16 +133,17 @@ public:
     uint32_t Commit();
 
     // Getters
-    uint8_t GetRate() const { return m_model->rate; }
-    uint8_t GetTlm() const { return m_model->tlm; }
-    uint8_t GetPower() const { return m_model->power; }
-    bool GetDynamicPower() const { return m_model->dynamicPower; }
-    uint8_t GetBoostChannel() const { return m_model->boostChannel; }
-    uint8_t GetSwitchMode() const { return m_model->switchMode; }
-    uint8_t GetAntennaMode() const { return m_model->txAntenna; }
-    uint8_t GetLinkMode() const { return m_model->linkMode; }
-    bool GetModelMatch() const { return m_model->modelMatch; }
+    uint8_t GetRate() const { return m_model.rate; }
+    uint8_t GetTlm() const { return m_model.tlm; }
+    uint8_t GetPower() const { return m_model.power; }
+    bool GetDynamicPower() const { return m_model.dynamicPower; }
+    uint8_t GetBoostChannel() const { return m_model.boostChannel; }
+    uint8_t GetSwitchMode() const { return m_model.switchMode; }
+    uint8_t GetAntennaMode() const { return m_model.txAntenna; }
+    uint8_t GetLinkMode() const { return m_model.linkMode; }
+    bool GetModelMatch() const { return m_model.modelMatch; }
     bool     IsModified() const { return m_modified != 0; }
+    uint8_t  GetModelId() const { return m_modelId; }
     uint8_t  GetVtxBand() const { return m_config.vtxBand; }
     uint8_t  GetVtxChannel() const { return m_config.vtxChannel; }
     uint8_t  GetVtxPower() const { return m_config.vtxPower; }
@@ -157,9 +157,9 @@ public:
     bool     GetBackpackDisable() const { return m_config.backpackDisable; }
     uint8_t  GetBackpackTlmMode() const { return m_config.backpackTlmMode; }
     tx_button_color_t const *GetButtonActions(uint8_t button) const { return &m_config.buttonColors[button]; }
-    model_config_t const &GetModelConfig(uint8_t model) const { return m_config.model_config[model]; }
-    uint8_t GetPTRStartChannel() const { return m_model->ptrStartChannel; }
-    uint8_t GetPTREnableChannel() const { return m_model->ptrEnableChannel; }
+    model_config_t const &GetModelConfig(uint8_t model);
+    uint8_t GetPTRStartChannel() const { return m_model.ptrStartChannel; }
+    uint8_t GetPTREnableChannel() const { return m_model.ptrEnableChannel; }
 
     // Setters
     void SetRate(uint8_t rate);
@@ -198,11 +198,12 @@ private:
     void UpgradeEepromV5ToV6();
     void UpgradeEepromV6ToV7();
     void UpgradeEepromV7ToV8();
-    tx_config_t m_config;
-    uint32_t     m_modified;
-    model_config_t *m_model;
-    uint8_t     m_modelId;
-    nvs_handle  handle;
+    void LoadModel(uint8_t modelId);
+    tx_config_t   m_config;
+    uint32_t      m_modified;
+    model_config_t m_model;
+    uint8_t       m_modelId;
+    nvs_handle    handle;
 };
 
 extern TxConfig config;

@@ -424,6 +424,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
     backpack["dvr-aux-channel"] = config.GetDvrAux();
     backpack["telemetry-mode"] = config.GetBackpackTlmMode();
 
+    const uint8_t activeModel = config.GetModelId();
     for (int model = 0 ; model < CONFIG_TX_MODEL_CNT ; model++)
     {
       const model_config_t &modelConfig = config.GetModelConfig(model);
@@ -442,6 +443,7 @@ static void GetConfiguration(AsyncWebServerRequest *request)
       power["dynamic-power"] = modelConfig.dynamicPower;
       power["boost-channel"] = modelConfig.boostChannel;
     }
+    config.SetModelId(activeModel);
   }
 #endif /* TARGET_TX */
 
