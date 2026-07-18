@@ -42,7 +42,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 
 /// define some libs to use ///
 MSP msp;
-ELRS_EEPROM eeprom;
 TxConfig config;
 Stream *TxUSB;
 
@@ -791,7 +790,7 @@ void ModelUpdateReq()
 
 static void ConfigChangeCommit()
 {
-  // Write the uncommitted eeprom values (may block for a while)
+  // Write the uncommitted config values (may block for a while)
   uint32_t changes = config.Commit();
   // Change params after the blocking finishes as a rate change will change the radio freq
   ChangeRadioParams();
@@ -1430,9 +1429,8 @@ void setup()
 
     handset->registerCallbacks(UARTconnected, firmwareOptions.is_airport ? nullptr : UARTdisconnected);
 
-    eeprom.Begin(); // Init the eeprom
-    config.SetStorageProvider(&eeprom); // Pass pointer to the Config class for access to storage
-    config.Load(); // Load the stored values from eeprom
+    // Init config storage and load the stored values
+    config.Load();
 
     Radio.currFreq = FHSSgetInitialFreq(); //set frequency first or an error will occur!!!
     #if defined(RADIO_SX127X)

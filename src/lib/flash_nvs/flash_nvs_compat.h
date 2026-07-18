@@ -31,6 +31,11 @@ enum
 
 esp_err_t flash_nvs_set_config(const flash_nvs_config_t *config);
 
+#if defined(PLATFORM_ESP8266) && !defined(TARGET_NATIVE)
+esp_err_t flash_nvs_set_esp8266_default_config(void);
+bool flash_nvs_has_store(void);
+#endif
+
 esp_err_t nvs_flash_init(void);
 esp_err_t nvs_flash_erase(void);
 

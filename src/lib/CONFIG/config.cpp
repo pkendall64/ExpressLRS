@@ -74,6 +74,43 @@ template<class T> static const uint32_t Model_to_U32(T const * const model)
     return converter.u32;
 }
 
+#if defined(PLATFORM_ESP32)
+typedef const char *tx_nvs_key_t;
+static constexpr tx_nvs_key_t TX_NVS_KEY_VERSION = "tx_version";
+static constexpr tx_nvs_key_t TX_NVS_KEY_VTX = "vtx";
+static constexpr tx_nvs_key_t TX_NVS_KEY_FANTHRESH = "fanthresh";
+static constexpr tx_nvs_key_t TX_NVS_KEY_FAN = "fan";
+static constexpr tx_nvs_key_t TX_NVS_KEY_MOTION = "motion";
+static constexpr tx_nvs_key_t TX_NVS_KEY_DVRAUX = "dvraux";
+static constexpr tx_nvs_key_t TX_NVS_KEY_DVRSTARTDELAY = "dvrstartdelay";
+static constexpr tx_nvs_key_t TX_NVS_KEY_DVRSTOPDELAY = "dvrstopdelay";
+static constexpr tx_nvs_key_t TX_NVS_KEY_BUTTON1 = "button1";
+static constexpr tx_nvs_key_t TX_NVS_KEY_BUTTON2 = "button2";
+static constexpr tx_nvs_key_t TX_NVS_KEY_BACKPACKDISABLE = "backpackdisable";
+static constexpr tx_nvs_key_t TX_NVS_KEY_BACKPACKTLMEN = "backpacktlmen";
+#define TX_MODEL_KEY_DECLARE(name, idx) char name[10] = "model"; itoa((idx), name + 5, 10)
+#define TX_MODEL_KEY(name) name
+#else
+typedef nvs_key_t tx_nvs_key_t;
+enum : tx_nvs_key_t {
+    TX_NVS_KEY_VERSION = 1,
+    TX_NVS_KEY_VTX = 2,
+    TX_NVS_KEY_FANTHRESH = 3,
+    TX_NVS_KEY_FAN = 4,
+    TX_NVS_KEY_MOTION = 5,
+    TX_NVS_KEY_DVRAUX = 6,
+    TX_NVS_KEY_DVRSTARTDELAY = 7,
+    TX_NVS_KEY_DVRSTOPDELAY = 8,
+    TX_NVS_KEY_BUTTON1 = 9,
+    TX_NVS_KEY_BUTTON2 = 10,
+    TX_NVS_KEY_BACKPACKDISABLE = 11,
+    TX_NVS_KEY_BACKPACKTLMEN = 12,
+    TX_NVS_KEY_MODEL_BASE = 0x100,
+};
+#define TX_MODEL_KEY_DECLARE(name, idx) const tx_nvs_key_t name = TX_NVS_KEY_MODEL_BASE + static_cast<tx_nvs_key_t>(idx)
+#define TX_MODEL_KEY(name) name
+#endif
+
 static uint8_t RateV6toV7(uint8_t rateV6)
 {
 #if defined(RADIO_SX127X) || defined(RADIO_LR1121)
@@ -169,28 +206,96 @@ TxConfig::TxConfig() :
 {
 }
 
-#if defined(PLATFORM_ESP32)
 void TxConfig::Load()
 {
     m_modified = 0;
+
+#if defined(PLATFORM_ESP8266)
+    bool migrateLegacy = false;
+    ELRS_EEPROM legacy;
+
+
+    // If NVS is not initialized yet, try to migrate the legacy EEPROM copy first
+    flash_nvs_set_esp8266_default_config();
+    if (!flash_nvs_has_store())
+    {
+        legacy.Begin();
+
+        uint32_t legacyVersion = 0;
+        legacy.Get(0, legacyVersion);
+        if ((legacyVersion & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC)
+            legacyVersion &= ~CONFIG_MAGIC_MASK;
+        else
+            legacyVersion = 0;
+
+        DBGLN("Config version %u", legacyVersion);
+
+        if (legacyVersion == TX_CONFIG_VERSION)
+        {
+            legacy.Get(0, m_config);
+            m_modified = ALL_CHANGED;
+            migrateLegacy = true;
+        }
+        else if (legacyVersion == 5)
+        {
+            SetDefaults(false);
+            UpgradeEepromV5ToV6(legacy);
+            migrateLegacy = true;
+        }
+        else if (legacyVersion == 6)
+        {
+            SetDefaults(false);
+            UpgradeEepromV6ToV7(legacy);
+            migrateLegacy = true;
+        }
+        else if (legacyVersion == 7)
+        {
+            SetDefaults(false);
+            UpgradeEepromV7ToV8(legacy);
+            migrateLegacy = true;
+        }
+    }
+#endif
+
 
     // Initialize NVS
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
-        ESP_ERROR_CHECK(nvs_flash_erase());
+        nvs_flash_erase();
         err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK( err );
-    ESP_ERROR_CHECK(nvs_open("ELRS", NVS_READWRITE, &handle));
+    if (err != ESP_OK)
+    {
+        ERRLN("TxConfig NVS init failed");
+        SetDefaults(false);
+        return;
+    }
+    if (nvs_open("ELRS", NVS_READWRITE, &handle) != ESP_OK)
+    {
+        ERRLN("TxConfig NVS open failed");
+        SetDefaults(false);
+        return;
+    }
+
+#if defined(PLATFORM_ESP8266)
+    if (migrateLegacy)
+    {
+        Commit();
+        return;
+    }
+#endif
+
 
     // Try to load the version and make sure it is a TX config
     uint32_t version = 0;
-    if (nvs_get_u32(handle, "tx_version", &version) == ESP_OK && ((version & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC))
-        version = version & ~CONFIG_MAGIC_MASK;
+    if (nvs_get_u32(handle, TX_NVS_KEY_VERSION, &version) == ESP_OK && ((version & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC))
+        version &= ~CONFIG_MAGIC_MASK;
+
     DBGLN("Config version %u", version);
 
     // Can't upgrade from version <5, or when flashing a previous version, just use defaults.
+
     if (version < 5 || version > TX_CONFIG_VERSION)
     {
         SetDefaults(true);
@@ -201,8 +306,9 @@ void TxConfig::Load()
 
     uint32_t value;
     uint8_t value8;
+
     // vtx (v5)
-    if (nvs_get_u32(handle, "vtx", &value) == ESP_OK)
+    if (nvs_get_u32(handle, TX_NVS_KEY_VTX, &value) == ESP_OK)
     {
         m_config.vtxBand = value >> 24;
         m_config.vtxChannel = value >> 16;
@@ -210,24 +316,26 @@ void TxConfig::Load()
         m_config.vtxPitmode = value;
     }
 
+
     // fanthresh (v5)
-    if (nvs_get_u8(handle, "fanthresh", &value8) == ESP_OK)
+    if (nvs_get_u8(handle, TX_NVS_KEY_FANTHRESH, &value8) == ESP_OK)
         m_config.powerFanThreshold = value8;
 
+
     // Both of these were added to config v5 without incrementing the version
-    if (nvs_get_u32(handle, "fan", &value) == ESP_OK)
+    if (nvs_get_u32(handle, TX_NVS_KEY_FAN, &value) == ESP_OK)
         m_config.fanMode = value;
-    if (nvs_get_u32(handle, "motion", &value) == ESP_OK)
+    if (nvs_get_u32(handle, TX_NVS_KEY_MOTION, &value) == ESP_OK)
         m_config.motionMode = value;
 
     if (version >= 6)
     {
         // dvr (v6)
-        if (nvs_get_u8(handle, "dvraux", &value8) == ESP_OK)
+        if (nvs_get_u8(handle, TX_NVS_KEY_DVRAUX, &value8) == ESP_OK)
             m_config.dvrAux = value8;
-        if (nvs_get_u8(handle, "dvrstartdelay", &value8) == ESP_OK)
+        if (nvs_get_u8(handle, TX_NVS_KEY_DVRSTARTDELAY, &value8) == ESP_OK)
             m_config.dvrStartDelay = value8;
-        if (nvs_get_u8(handle, "dvrstopdelay", &value8) == ESP_OK)
+        if (nvs_get_u8(handle, TX_NVS_KEY_DVRSTOPDELAY, &value8) == ESP_OK)
             m_config.dvrStopDelay = value8;
     }
     else
@@ -236,25 +344,27 @@ void TxConfig::Load()
         m_modified |= EVENT_CONFIG_MAIN_CHANGED;
     }
 
-    if (version >= 7) {
+    if (version >= 7)
+    {
         // load button actions
-        if (nvs_get_u32(handle, "button1", &value) == ESP_OK)
+        if (nvs_get_u32(handle, TX_NVS_KEY_BUTTON1, &value) == ESP_OK)
             m_config.buttonColors[0].raw = value;
-        if (nvs_get_u32(handle, "button2", &value) == ESP_OK)
+        if (nvs_get_u32(handle, TX_NVS_KEY_BUTTON2, &value) == ESP_OK)
             m_config.buttonColors[1].raw = value;
+
         // backpackdisable was actually added after 7, but if not found will default to 0 (enabled)
-        if (nvs_get_u8(handle, "backpackdisable", &value8) == ESP_OK)
+        if (nvs_get_u8(handle, TX_NVS_KEY_BACKPACKDISABLE, &value8) == ESP_OK)
             m_config.backpackDisable = value8;
-        if (nvs_get_u8(handle, "backpacktlmen", &value8) == ESP_OK)
+        if (nvs_get_u8(handle, TX_NVS_KEY_BACKPACKTLMEN, &value8) == ESP_OK)
             m_config.backpackTlmMode = value8;
     }
 
-    for(unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
     {
-        char model[10] = "model";
-        itoa(i, model+5, 10);
-        if (nvs_get_u32(handle, model, &value) == ESP_OK)
+        TX_MODEL_KEY_DECLARE(modelKey, i);
+        if (nvs_get_u32(handle, TX_MODEL_KEY(modelKey), &value) == ESP_OK)
         {
+
             // Chaining update, last calls nvs_set_u32, all others set `value`
             if (version == 6)
             {
@@ -273,7 +383,7 @@ void TxConfig::Load()
                 U32_to_Model(value, &v7model);
                 model_config_t * const newModel = &m_config.model_config[i];
                 ModelV7toV8(&v7model, newModel);
-                nvs_set_u32(handle, model, Model_to_U32(newModel));
+                nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(newModel));
             }
 
             if (version == TX_CONFIG_VERSION)
@@ -281,13 +391,14 @@ void TxConfig::Load()
                 U32_to_Model(value, &m_config.model_config[i]);
             }
 
-            // validate the currently selected rate is supported by the hardware and choose an appropriate default if not
-            if (!isSupportedRFRate(m_config.model_config[i].rate)) {
+            if (!isSupportedRFRate(m_config.model_config[i].rate))
+            {
+                // validate the currently selected rate is supported by the hardware and choose an appropriate default if not
                 m_config.model_config[i].rate = enumRatetoIndexSafe(POWER_OUTPUT_VALUES_COUNT == 0 ? RATE_LORA_2G4_250HZ : RATE_LORA_900_200HZ);
-                nvs_set_u32(handle, model, Model_to_U32(&m_config.model_config[i]));
+                nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(&m_config.model_config[i]));
             }
         }
-    } // for each model
+    }
 
     if (version != TX_CONFIG_VERSION)
     {
@@ -295,75 +406,18 @@ void TxConfig::Load()
         Commit();
     }
 }
-#else  // ESP8266
-void TxConfig::Load()
-{
-    m_modified = 0;
-    m_eeprom->Get(0, m_config);
 
-    uint32_t version = 0;
-    if ((m_config.version & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC)
-        version = m_config.version & ~CONFIG_MAGIC_MASK;
-    DBGLN("Config version %u", version);
-
-    // If version is current, all done
-    if (version == TX_CONFIG_VERSION)
-        return;
-
-    // Can't upgrade from version <5, or when flashing a previous version, just use defaults.
-    if (version < 5 || version > TX_CONFIG_VERSION)
-    {
-        SetDefaults(true);
-        return;
-    }
-
-    // Upgrade EEPROM, starting with defaults
-    SetDefaults(false);
-
-    if (version == 5)
-    {
-        UpgradeEepromV5ToV6();
-        version = 6;
-    }
-
-    if (version == 6)
-    {
-        UpgradeEepromV6ToV7();
-        version = 7;
-    }
-
-    if (version == 7)
-    {
-        UpgradeEepromV7ToV8();
-    }
-}
-
-void TxConfig::UpgradeEepromV5ToV6()
+#if defined(PLATFORM_ESP8266)
+void TxConfig::UpgradeEepromV5ToV6(ELRS_EEPROM &eeprom)
 {
     v5_tx_config_t v5Config;
-    v6_tx_config_t v6Config = { 0 }; // default the new fields to 0
+    v6_tx_config_t v6Config = { 0 };
+    v7_tx_config_t v7Config = { 0 };
 
-    // Populate the prev version struct from eeprom
-    m_eeprom->Get(0, v5Config);
-
-    // Copy prev values to current config struct
-    // This only workse because v5 and v6 are the same up to the new fields
-    // which have already been set to 0
+    eeprom.Get(0, v5Config);
     memcpy(&v6Config, &v5Config, sizeof(v5Config));
     v6Config.version = 6U | TX_CONFIG_MAGIC;
-    m_eeprom->Put(0, v6Config);
-    m_eeprom->Commit();
-}
 
-void TxConfig::UpgradeEepromV6ToV7()
-{
-    v6_tx_config_t v6Config;
-    v7_tx_config_t v7Config = { 0 }; // default the new fields to 0
-
-    // Populate the prev version struct from eeprom
-    m_eeprom->Get(0, v6Config);
-
-    // Manual field copying as some fields have moved
     #define LAZY(member) v7Config.member = v6Config.member
     LAZY(vtxBand);
     LAZY(vtxChannel);
@@ -377,25 +431,11 @@ void TxConfig::UpgradeEepromV6ToV7()
     LAZY(dvrStopDelay);
     #undef LAZY
 
-    for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
     {
         ModelV6toV7(&v6Config.model_config[i], &v7Config.model_config[i]);
     }
 
-    m_modified = ALL_CHANGED;
-
-    // Full Commit now
-    m_config.version = 7U | TX_CONFIG_MAGIC;
-    m_eeprom->Put(0, v7Config);
-    m_eeprom->Commit();
-}
-
-void TxConfig::UpgradeEepromV7ToV8()
-{
-    v7_tx_config_t v7Config;
-    m_eeprom->Get(0, v7Config);
-
-    // Manual field copying as some fields were removed
     #define LAZY(member) m_config.member = v7Config.member
     LAZY(vtxBand);
     LAZY(vtxChannel);
@@ -409,16 +449,87 @@ void TxConfig::UpgradeEepromV7ToV8()
     LAZY(dvrStopDelay);
     #undef LAZY
 
-    for (unsigned i=0; i<CONFIG_TX_MODEL_CNT; i++)
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
     {
         ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
     }
 
     m_modified = ALL_CHANGED;
-
-    // Full Commit now
     m_config.version = 8U | TX_CONFIG_MAGIC;
-    Commit();
+}
+
+void TxConfig::UpgradeEepromV6ToV7(ELRS_EEPROM &eeprom)
+{
+    v6_tx_config_t v6Config;
+    v7_tx_config_t v7Config = { 0 };
+
+    eeprom.Get(0, v6Config);
+
+    #define LAZY(member) v7Config.member = v6Config.member
+    LAZY(vtxBand);
+    LAZY(vtxChannel);
+    LAZY(vtxPower);
+    LAZY(vtxPitmode);
+    LAZY(powerFanThreshold);
+    LAZY(fanMode);
+    LAZY(motionMode);
+    LAZY(dvrAux);
+    LAZY(dvrStartDelay);
+    LAZY(dvrStopDelay);
+    #undef LAZY
+
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
+    {
+        ModelV6toV7(&v6Config.model_config[i], &v7Config.model_config[i]);
+    }
+
+    #define LAZY(member) m_config.member = v7Config.member
+    LAZY(vtxBand);
+    LAZY(vtxChannel);
+    LAZY(vtxPower);
+    LAZY(vtxPitmode);
+    LAZY(powerFanThreshold);
+    LAZY(fanMode);
+    LAZY(motionMode);
+    LAZY(dvrAux);
+    LAZY(dvrStartDelay);
+    LAZY(dvrStopDelay);
+    #undef LAZY
+
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
+    {
+        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
+    }
+
+    m_modified = ALL_CHANGED;
+    m_config.version = 8U | TX_CONFIG_MAGIC;
+}
+
+void TxConfig::UpgradeEepromV7ToV8(ELRS_EEPROM &eeprom)
+{
+    v7_tx_config_t v7Config;
+    eeprom.Get(0, v7Config);
+
+    #define LAZY(member) m_config.member = v7Config.member
+    LAZY(vtxBand);
+    LAZY(vtxChannel);
+    LAZY(vtxPower);
+    LAZY(vtxPitmode);
+    LAZY(powerFanThreshold);
+    LAZY(fanMode);
+    LAZY(motionMode);
+    LAZY(dvrAux);
+    LAZY(dvrStartDelay);
+    LAZY(dvrStopDelay);
+    #undef LAZY
+
+    for (unsigned i = 0; i < CONFIG_TX_MODEL_CNT; i++)
+    {
+        ModelV7toV8(&v7Config.model_config[i], &m_config.model_config[i]);
+    }
+
+    m_modified = ALL_CHANGED;
+    m_config.version = 8U | TX_CONFIG_MAGIC;
 }
 #endif
 
@@ -431,14 +542,10 @@ TxConfig::Commit()
         // No changes
         return 0;
     }
-#if defined(PLATFORM_ESP32)
-    // Write parts to NVS
+    TX_MODEL_KEY_DECLARE(modelKey, m_modelId);
     if (m_modified & EVENT_CONFIG_MODEL_CHANGED)
     {
-        uint32_t value = Model_to_U32(m_model);
-        char model[10] = "model";
-        itoa(m_modelId, model+5, 10);
-        nvs_set_u32(handle, model, value);
+        nvs_set_u32(handle, TX_MODEL_KEY(modelKey), Model_to_U32(m_model));
     }
     if (m_modified & EVENT_CONFIG_VTX_CHANGED)
     {
@@ -447,42 +554,35 @@ TxConfig::Commit()
             m_config.vtxChannel << 16 |
             m_config.vtxPower << 8 |
             m_config.vtxPitmode;
-        nvs_set_u32(handle, "vtx", value);
+        nvs_set_u32(handle, TX_NVS_KEY_VTX, value);
     }
     if (m_modified & EVENT_CONFIG_FAN_CHANGED)
     {
-        uint32_t value = m_config.fanMode;
-        nvs_set_u32(handle, "fan", value);
-        nvs_set_u8(handle, "fanthresh", m_config.powerFanThreshold);
+        nvs_set_u32(handle, TX_NVS_KEY_FAN, m_config.fanMode);
+        nvs_set_u8(handle, TX_NVS_KEY_FANTHRESH, m_config.powerFanThreshold);
     }
     if (m_modified & EVENT_CONFIG_MOTION_CHANGED)
     {
-        uint32_t value = m_config.motionMode;
-        nvs_set_u32(handle, "motion", value);
+        nvs_set_u32(handle, TX_NVS_KEY_MOTION, m_config.motionMode);
     }
     if (m_modified & EVENT_CONFIG_MAIN_CHANGED)
     {
-        nvs_set_u8(handle, "backpackdisable", m_config.backpackDisable);
-        nvs_set_u8(handle, "backpacktlmen", m_config.backpackTlmMode);
-        nvs_set_u8(handle, "dvraux", m_config.dvrAux);
-        nvs_set_u8(handle, "dvrstartdelay", m_config.dvrStartDelay);
-        nvs_set_u8(handle, "dvrstopdelay", m_config.dvrStopDelay);
+        nvs_set_u8(handle, TX_NVS_KEY_BACKPACKDISABLE, m_config.backpackDisable);
+        nvs_set_u8(handle, TX_NVS_KEY_BACKPACKTLMEN, m_config.backpackTlmMode);
+        nvs_set_u8(handle, TX_NVS_KEY_DVRAUX, m_config.dvrAux);
+        nvs_set_u8(handle, TX_NVS_KEY_DVRSTARTDELAY, m_config.dvrStartDelay);
+        nvs_set_u8(handle, TX_NVS_KEY_DVRSTOPDELAY, m_config.dvrStopDelay);
     }
     if (m_modified & EVENT_CONFIG_BUTTON_CHANGED)
     {
-        nvs_set_u32(handle, "button1", m_config.buttonColors[0].raw);
-        nvs_set_u32(handle, "button2", m_config.buttonColors[1].raw);
+        nvs_set_u32(handle, TX_NVS_KEY_BUTTON1, m_config.buttonColors[0].raw);
+        nvs_set_u32(handle, TX_NVS_KEY_BUTTON2, m_config.buttonColors[1].raw);
     }
     if (m_modified & EVENT_CONFIG_VERSION_CHANGED)
     {
-        nvs_set_u32(handle, "tx_version", m_config.version);
+        nvs_set_u32(handle, TX_NVS_KEY_VERSION, m_config.version);
     }
     nvs_commit(handle);
-#else
-    // Write the struct to eeprom
-    m_eeprom->Put(0, m_config);
-    m_eeprom->Commit();
-#endif
     uint32_t changes = m_modified;
     m_modified = 0;
     return changes;
@@ -635,14 +735,6 @@ TxConfig::SetPowerFanThreshold(uint8_t powerFanThreshold)
     }
 }
 
-void
-TxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
-{
-    if (eeprom)
-    {
-        m_eeprom = eeprom;
-    }
-}
 
 void
 TxConfig::SetFanMode(uint8_t fanMode)
