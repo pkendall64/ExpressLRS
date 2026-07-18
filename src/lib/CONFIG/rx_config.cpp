@@ -181,7 +181,7 @@ RxConfig::Commit()
 {
     if (!m_modified)
     {
-        // No changes
+        DBGLN("No changes");
         return 0;
     }
 

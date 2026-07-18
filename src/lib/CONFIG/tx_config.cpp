@@ -9,6 +9,7 @@
 
 TxConfig::TxConfig()
     : BindphraseConfigurable()
+    , m_modified(0)
     , m_modelId(0xFF)
 {
     SetDefaultModelConfig(&m_model);

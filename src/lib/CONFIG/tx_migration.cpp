@@ -1,61 +1,10 @@
 #include "tx_config_internal.h"
 
 #include "config_legacy.h"
+#include "legacy_storage_internal.h"
 #include "logging.h"
 
 #if defined(TARGET_TX)
-
-static constexpr size_t LEGACY_STORAGE_SIZE = 1024U;
-
-#if defined(PLATFORM_ESP8266)
-extern "C" uint32_t _EEPROM_start;
-
-static bool ReadLegacyTxStorageBytes(uint32_t offset, void *dst, size_t len)
-{
-    uint8_t *out = static_cast<uint8_t *>(dst);
-    uint32_t baseAddress = reinterpret_cast<uint32_t>(&_EEPROM_start) - 0x40200000UL;
-    uint32_t alignedAddress = (baseAddress + offset) & ~uint32_t(0x3U);
-    size_t skip = (baseAddress + offset) - alignedAddress;
-    size_t remaining = len;
-    uint32_t words[8];
-
-    while (remaining > 0)
-    {
-        size_t chunk = remaining + skip;
-        size_t alignedLen = (chunk + 3U) & ~size_t(0x3U);
-        if (alignedLen > sizeof(words))
-            alignedLen = sizeof(words);
-        if (!ESP.flashRead(alignedAddress, words, alignedLen))
-            return false;
-        size_t copyLen = alignedLen - skip;
-        if (copyLen > remaining)
-            copyLen = remaining;
-        memcpy(out, reinterpret_cast<uint8_t *>(words) + skip, copyLen);
-        out += copyLen;
-        remaining -= copyLen;
-        alignedAddress += static_cast<uint32_t>(alignedLen);
-        skip = 0;
-    }
-    return true;
-}
-#elif defined(PLATFORM_ESP32)
-static bool ReadLegacyTxStorageBytes(uint32_t offset, void *dst, size_t len)
-{
-    nvs_handle legacyHandle = 0;
-    if (nvs_open("eeprom", NVS_READONLY, &legacyHandle) != ESP_OK)
-        return false;
-
-    uint8_t data[LEGACY_STORAGE_SIZE];
-    size_t dataLen = sizeof(data);
-    esp_err_t err = nvs_get_blob(legacyHandle, "eeprom", data, &dataLen);
-    nvs_close(legacyHandle);
-    if (err != ESP_OK || offset + len > dataLen)
-        return false;
-
-    memcpy(dst, data + offset, len);
-    return true;
-}
-#endif
 
 static uint8_t RateV6toV7(uint8_t rateV6)
 {
@@ -260,7 +209,7 @@ bool TxConfig::MigrateLegacyConfig()
         return false;
 #endif
 
-    if (ReadLegacyTxStorageBytes(0, &legacyVersion, sizeof(legacyVersion)) && ((legacyVersion & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC))
+    if (ReadLegacyStorageBytes(0, &legacyVersion, sizeof(legacyVersion)) && ((legacyVersion & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC))
         legacyVersion &= ~CONFIG_MAGIC_MASK;
     else
         legacyVersion = 0;
@@ -270,7 +219,7 @@ bool TxConfig::MigrateLegacyConfig()
     if (legacyVersion == TX_CONFIG_VERSION)
     {
         v8_tx_config_t v8Config;
-        if (!ReadLegacyTxStorageBytes(0, &v8Config, sizeof(v8Config)))
+        if (!ReadLegacyStorageBytes(0, &v8Config, sizeof(v8Config)))
             return false;
 
         m_config.version = TX_CONFIG_VERSION | TX_CONFIG_MAGIC;
@@ -331,7 +280,7 @@ void TxConfig::UpgradeEepromV5ToV6()
     v6_tx_config_t v6Config = { 0 };
     v7_tx_config_t v7Config = { 0 };
 
-    ReadLegacyTxStorageBytes(0, &v5Config, sizeof(v5Config));
+    ReadLegacyStorageBytes(0, &v5Config, sizeof(v5Config));
     memcpy(&v6Config, &v5Config, sizeof(v5Config));
     v6Config.version = 6U | TX_CONFIG_MAGIC;
 
@@ -380,7 +329,7 @@ void TxConfig::UpgradeEepromV6ToV7()
     v6_tx_config_t v6Config;
     v7_tx_config_t v7Config = { 0 };
 
-    ReadLegacyTxStorageBytes(0, &v6Config, sizeof(v6Config));
+    ReadLegacyStorageBytes(0, &v6Config, sizeof(v6Config));
 
     #define LAZY(member) v7Config.member = v6Config.member
     LAZY(vtxBand);
@@ -425,7 +374,7 @@ void TxConfig::UpgradeEepromV6ToV7()
 void TxConfig::UpgradeEepromV7ToV8()
 {
     v7_tx_config_t v7Config;
-    ReadLegacyTxStorageBytes(0, &v7Config, sizeof(v7Config));
+    ReadLegacyStorageBytes(0, &v7Config, sizeof(v7Config));
 
     m_config.vtxBand = v7Config.vtxBand;
     m_config.vtxChannel = v7Config.vtxChannel;
