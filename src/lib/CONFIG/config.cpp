@@ -74,6 +74,61 @@ template<class T> static const uint32_t Model_to_U32(T const * const model)
     return converter.u32;
 }
 
+static constexpr size_t LEGACY_STORAGE_SIZE = 1024U;
+
+static bool ReadLegacyStorageBytes(uint32_t offset, void *dst, size_t len);
+
+#if defined(PLATFORM_ESP8266)
+extern "C" uint32_t _EEPROM_start;
+
+static bool ReadLegacyStorageBytes(uint32_t offset, void *dst, size_t len)
+{
+    uint8_t *out = static_cast<uint8_t *>(dst);
+    uint32_t baseAddress = reinterpret_cast<uint32_t>(&_EEPROM_start) - 0x40200000UL;
+    uint32_t alignedAddress = (baseAddress + offset) & ~uint32_t(0x3U);
+    size_t skip = (baseAddress + offset) - alignedAddress;
+    size_t remaining = len;
+    uint32_t words[8];
+
+    while (remaining > 0)
+    {
+        size_t chunk = remaining + skip;
+        size_t alignedLen = (chunk + 3U) & ~size_t(0x3U);
+        if (alignedLen > sizeof(words))
+            alignedLen = sizeof(words);
+        if (!ESP.flashRead(alignedAddress, words, alignedLen))
+            return false;
+        size_t copyLen = alignedLen - skip;
+        if (copyLen > remaining)
+            copyLen = remaining;
+        memcpy(out, reinterpret_cast<uint8_t *>(words) + skip, copyLen);
+        out += copyLen;
+        remaining -= copyLen;
+        alignedAddress += static_cast<uint32_t>(alignedLen);
+        skip = 0;
+    }
+    return true;
+}
+#elif defined(PLATFORM_ESP32)
+static bool ReadLegacyStorageBytes(uint32_t offset, void *dst, size_t len)
+{
+    nvs_handle legacyHandle = 0;
+    if (nvs_open("eeprom", NVS_READONLY, &legacyHandle) != ESP_OK)
+        return false;
+
+    uint8_t data[LEGACY_STORAGE_SIZE];
+    size_t dataLen = sizeof(data);
+    esp_err_t err = nvs_get_blob(legacyHandle, "eeprom", data, &dataLen);
+    nvs_close(legacyHandle);
+    if (err != ESP_OK || offset + len > dataLen)
+        return false;
+
+    memcpy(dst, data + offset, len);
+    return true;
+}
+#endif
+
+
 #if defined(PLATFORM_ESP32)
 typedef const char *tx_nvs_key_t;
 static constexpr tx_nvs_key_t TX_NVS_KEY_VERSION = "tx_version";
@@ -212,18 +267,13 @@ void TxConfig::Load()
 
 #if defined(PLATFORM_ESP8266)
     bool migrateLegacy = false;
-    ELRS_EEPROM legacy;
-
 
     // If NVS is not initialized yet, try to migrate the legacy EEPROM copy first
     flash_nvs_set_esp8266_default_config();
     if (!flash_nvs_has_store())
     {
-        legacy.Begin();
-
         uint32_t legacyVersion = 0;
-        legacy.Get(0, legacyVersion);
-        if ((legacyVersion & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC)
+        if (ReadLegacyStorageBytes(0, &legacyVersion, sizeof(legacyVersion)) && ((legacyVersion & CONFIG_MAGIC_MASK) == TX_CONFIG_MAGIC))
             legacyVersion &= ~CONFIG_MAGIC_MASK;
         else
             legacyVersion = 0;
@@ -232,26 +282,26 @@ void TxConfig::Load()
 
         if (legacyVersion == TX_CONFIG_VERSION)
         {
-            legacy.Get(0, m_config);
+            ReadLegacyStorageBytes(0, &m_config, sizeof(m_config));
             m_modified = ALL_CHANGED;
             migrateLegacy = true;
         }
         else if (legacyVersion == 5)
         {
             SetDefaults(false);
-            UpgradeEepromV5ToV6(legacy);
+            UpgradeEepromV5ToV6();
             migrateLegacy = true;
         }
         else if (legacyVersion == 6)
         {
             SetDefaults(false);
-            UpgradeEepromV6ToV7(legacy);
+            UpgradeEepromV6ToV7();
             migrateLegacy = true;
         }
         else if (legacyVersion == 7)
         {
             SetDefaults(false);
-            UpgradeEepromV7ToV8(legacy);
+            UpgradeEepromV7ToV8();
             migrateLegacy = true;
         }
     }
@@ -408,13 +458,13 @@ void TxConfig::Load()
 }
 
 #if defined(PLATFORM_ESP8266)
-void TxConfig::UpgradeEepromV5ToV6(ELRS_EEPROM &eeprom)
+void TxConfig::UpgradeEepromV5ToV6()
 {
     v5_tx_config_t v5Config;
     v6_tx_config_t v6Config = { 0 };
     v7_tx_config_t v7Config = { 0 };
 
-    eeprom.Get(0, v5Config);
+    ReadLegacyStorageBytes(0, &v5Config, sizeof(v5Config));
     memcpy(&v6Config, &v5Config, sizeof(v5Config));
     v6Config.version = 6U | TX_CONFIG_MAGIC;
 
@@ -458,12 +508,12 @@ void TxConfig::UpgradeEepromV5ToV6(ELRS_EEPROM &eeprom)
     m_config.version = 8U | TX_CONFIG_MAGIC;
 }
 
-void TxConfig::UpgradeEepromV6ToV7(ELRS_EEPROM &eeprom)
+void TxConfig::UpgradeEepromV6ToV7()
 {
     v6_tx_config_t v6Config;
     v7_tx_config_t v7Config = { 0 };
 
-    eeprom.Get(0, v6Config);
+    ReadLegacyStorageBytes(0, &v6Config, sizeof(v6Config));
 
     #define LAZY(member) v7Config.member = v6Config.member
     LAZY(vtxBand);
@@ -505,10 +555,10 @@ void TxConfig::UpgradeEepromV6ToV7(ELRS_EEPROM &eeprom)
     m_config.version = 8U | TX_CONFIG_MAGIC;
 }
 
-void TxConfig::UpgradeEepromV7ToV8(ELRS_EEPROM &eeprom)
+void TxConfig::UpgradeEepromV7ToV8()
 {
     v7_tx_config_t v7Config;
-    eeprom.Get(0, v7Config);
+    ReadLegacyStorageBytes(0, &v7Config, sizeof(v7Config));
 
     #define LAZY(member) m_config.member = v7Config.member
     LAZY(vtxBand);
@@ -939,55 +989,357 @@ void TxConfig::SetUID(uint8_t uid[UID_LEN])
 
 #define CONFCOPY(member) m_config.member = old.member
 
+
+#if defined(PLATFORM_ESP32)
+typedef const char *rx_nvs_key_t;
+static constexpr rx_nvs_key_t RX_NVS_KEY_VERSION = "rx_version";
+static constexpr rx_nvs_key_t RX_NVS_KEY_IDENTITY = "rx_identity";
+static constexpr rx_nvs_key_t RX_NVS_KEY_POWER_ON_COUNT = "rx_poc";
+static constexpr rx_nvs_key_t RX_NVS_KEY_MAIN = "rx_main";
+static constexpr rx_nvs_key_t RX_NVS_KEY_SERIAL = "rx_serial";
+#define RX_PWM_KEY_DECLARE(name, channel) char name[8] = "pwm"; itoa((channel), name + 3, 10)
+#define RX_PWM_KEY(name) name
+#elif defined(PLATFORM_ESP8266)
+typedef nvs_key_t rx_nvs_key_t;
+enum : nvs_key_t {
+    RX_NVS_KEY_VERSION = 1,
+    RX_NVS_KEY_IDENTITY = 2,
+    RX_NVS_KEY_POWER_ON_COUNT = 3,
+    RX_NVS_KEY_MAIN = 4,
+    RX_NVS_KEY_SERIAL = 5,
+    RX_NVS_KEY_PWM_BASE = 0x100,
+};
+static uint32_t RxPwmKey(uint8_t channel)
+{
+    return RX_NVS_KEY_PWM_BASE + channel;
+}
+#define RX_PWM_KEY_DECLARE(name, channel) const rx_nvs_key_t name = RxPwmKey(channel)
+#define RX_PWM_KEY(name) name
+#endif
+
+#if defined(PLATFORM_ESP8266)
+static bool ReadLegacyRxStorageBytes(uint32_t offset, void *dst, size_t len)
+{
+    uint8_t *out = static_cast<uint8_t *>(dst);
+    uint32_t baseAddress = reinterpret_cast<uint32_t>(&_EEPROM_start) - 0x40200000UL;
+    uint32_t alignedAddress = (baseAddress + offset) & ~uint32_t(0x3U);
+    size_t skip = (baseAddress + offset) - alignedAddress;
+    size_t remaining = len;
+    uint32_t words[8];
+
+    while (remaining > 0)
+    {
+        size_t chunk = remaining + skip;
+        size_t alignedLen = (chunk + 3U) & ~size_t(0x3U);
+        if (alignedLen > sizeof(words))
+            alignedLen = sizeof(words);
+        if (!ESP.flashRead(alignedAddress, words, alignedLen))
+            return false;
+        size_t copyLen = alignedLen - skip;
+        if (copyLen > remaining)
+            copyLen = remaining;
+        memcpy(out, reinterpret_cast<uint8_t *>(words) + skip, copyLen);
+        out += copyLen;
+        remaining -= copyLen;
+        alignedAddress += static_cast<uint32_t>(alignedLen);
+        skip = 0;
+    }
+    return true;
+}
+#elif defined(PLATFORM_ESP32)
+static bool ReadLegacyRxStorageBytes(uint32_t offset, void *dst, size_t len)
+{
+    nvs_handle legacyHandle = 0;
+    if (nvs_open("eeprom", NVS_READONLY, &legacyHandle) != ESP_OK)
+        return false;
+
+    uint8_t data[1024];
+    size_t dataLen = sizeof(data);
+    esp_err_t err = nvs_get_blob(legacyHandle, "eeprom", data, &dataLen);
+    nvs_close(legacyHandle);
+    if (err != ESP_OK || offset + len > dataLen)
+        return false;
+
+    memcpy(dst, data + offset, len);
+    return true;
+}
+#endif
+
+typedef struct __attribute__((packed)) {
+    uint8_t uid[UID_LEN];
+    uint32_t flash_discriminator;
+    uint8_t bindStorage;
+} rx_identity_storage_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t power;
+    uint8_t antennaMode;
+    uint8_t antennaGroup;
+    uint8_t forceTlmOff;
+    uint8_t rateInitialIdx;
+    uint8_t modelId;
+    uint8_t failsafeMode;
+    uint8_t teamraceChannel;
+    uint8_t teamracePosition;
+    uint8_t teamracePitMode;
+    uint8_t targetSysId;
+    uint8_t sourceSysId;
+} rx_main_storage_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t serialProtocol;
+    uint8_t serial1Protocol;
+} rx_serial_storage_t;
+
+#define RX_ALL_DIRTY (EVENT_CONFIG_UID_CHANGED | EVENT_CONFIG_POWER_COUNT_CHANGED | EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED | EVENT_CONFIG_SERIAL_CHANGE | EVENT_CONFIG_PWM_CHANGE | EVENT_CONFIG_VERSION_CHANGED)
+
 RxConfig::RxConfig()
     : BindphraseConfigurable()
+    , m_modified(0)
+    , m_pwmDirtyMask(0)
 {
 }
 
 void RxConfig::Load()
 {
     m_modified = 0;
-    m_eeprom->Get(0, m_config);
+    m_pwmDirtyMask = 0;
+
+#if defined(PLATFORM_ESP8266)
+    bool migrateLegacy = false;
+
+    flash_nvs_set_esp8266_default_config();
+    if (!flash_nvs_has_store())
+    {
+        uint32_t legacyVersion = 0;
+        if (ReadLegacyRxStorageBytes(0, &legacyVersion, sizeof(legacyVersion)) && ((legacyVersion & CONFIG_MAGIC_MASK) == RX_CONFIG_MAGIC))
+            legacyVersion &= ~CONFIG_MAGIC_MASK;
+        else
+            legacyVersion = 0;
+        DBGLN("Config version %u", legacyVersion);
+
+        if (legacyVersion == 11)
+        {
+            v11_rx_config_t old;
+            ReadLegacyRxStorageBytes(0, &old, sizeof(old));
+            memcpy(m_config.uid, old.uid, UID_LEN);
+            m_config.serial1Protocol = old.serial1Protocol;
+            m_config.flash_discriminator = old.flash_discriminator;
+            m_config.bindStorage = old.bindStorage;
+            m_config.power = old.power;
+            m_config.antennaMode = old.antennaMode;
+            m_config.powerOnCounter = old.powerOnCounter;
+            m_config.forceTlmOff = old.forceTlmOff;
+            m_config.rateInitialIdx = old.rateInitialIdx;
+            m_config.modelId = old.modelId;
+            m_config.serialProtocol = old.serialProtocol;
+            m_config.failsafeMode = old.failsafeMode;
+            m_config.antennaGroup = old.antennaGroup;
+            for (unsigned ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+                m_config.pwmChannels[ch].raw = old.pwmChannels[ch].raw;
+            m_config.teamraceChannel = old.teamraceChannel;
+            m_config.teamracePosition = old.teamracePosition;
+            m_config.teamracePitMode = old.teamracePitMode;
+            m_config.targetSysId = old.targetSysId;
+            m_config.sourceSysId = old.sourceSysId;
+            migrateLegacy = true;
+        }
+        else if (legacyVersion >= 4 && legacyVersion <= 10)
+        {
+            SetDefaults(false);
+            switch (legacyVersion)
+            {
+                case 4:
+                    UpgradeEepromV4(); break;
+                case 5:
+                    UpgradeEepromV5(); break;
+                case 6:
+                    UpgradeEepromV6(); break;
+                case 7: // fallthrough
+                case 8:
+                    UpgradeEepromV7V8(legacyVersion); break;
+                case 9: // fallthrough
+                case 10:
+                    UpgradeEepromV9V10(legacyVersion); break;
+            }
+            migrateLegacy = true;
+        }
+
+        if (migrateLegacy)
+        {
+            m_config.powerOnCounter = 0;
+            if (firmwareOptions.hasUID && m_config.flash_discriminator != firmwareOptions.flash_discriminator)
+            {
+                memcpy(m_config.uid, firmwareOptions.uid, UID_LEN);
+                m_config.flash_discriminator = firmwareOptions.flash_discriminator;
+            }
+            m_config.version = RX_CONFIG_VERSION | RX_CONFIG_MAGIC;
+            m_modified = RX_ALL_DIRTY;
+            m_pwmDirtyMask = 0xFFFFU;
+        }
+    }
+#endif
+
+    // Initialize NVS
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        nvs_flash_erase();
+        err = nvs_flash_init();
+    }
+    if (err != ESP_OK)
+    {
+        ERRLN("RxConfig NVS init failed");
+        SetDefaults(false);
+        return;
+    }
+    if (nvs_open("ELRS", NVS_READWRITE, &handle) != ESP_OK)
+    {
+        ERRLN("RxConfig NVS open failed");
+        SetDefaults(false);
+        return;
+    }
+
+#if defined(PLATFORM_ESP8266)
+    if (migrateLegacy)
+    {
+        Commit();
+        return;
+    }
+#endif
 
     uint32_t version = 0;
-    if ((m_config.version & CONFIG_MAGIC_MASK) == RX_CONFIG_MAGIC)
-        version = m_config.version & ~CONFIG_MAGIC_MASK;
+    if (nvs_get_u32(handle, RX_NVS_KEY_VERSION, &version) == ESP_OK && ((version & CONFIG_MAGIC_MASK) == RX_CONFIG_MAGIC))
+        version &= ~CONFIG_MAGIC_MASK;
     DBGLN("Config version %u", version);
 
-    // If version is current, all done
     if (version == RX_CONFIG_VERSION)
     {
+        SetDefaults(false);
+
+        rx_identity_storage_t identity{};
+        size_t identityLen = sizeof(identity);
+        if (nvs_get_blob(handle, RX_NVS_KEY_IDENTITY, &identity, &identityLen) == ESP_OK && identityLen == sizeof(identity))
+        {
+            memcpy(m_config.uid, identity.uid, UID_LEN);
+            m_config.flash_discriminator = identity.flash_discriminator;
+            m_config.bindStorage = identity.bindStorage;
+        }
+
+        uint8_t powerOnCounter = 0;
+        if (nvs_get_u8(handle, RX_NVS_KEY_POWER_ON_COUNT, &powerOnCounter) == ESP_OK)
+            m_config.powerOnCounter = powerOnCounter;
+
+        rx_main_storage_t main{};
+        size_t mainLen = sizeof(main);
+        if (nvs_get_blob(handle, RX_NVS_KEY_MAIN, &main, &mainLen) == ESP_OK && mainLen == sizeof(main))
+        {
+            m_config.power = main.power;
+            m_config.antennaMode = main.antennaMode;
+            m_config.antennaGroup = main.antennaGroup;
+            m_config.forceTlmOff = main.forceTlmOff;
+            m_config.rateInitialIdx = main.rateInitialIdx;
+            m_config.modelId = main.modelId;
+            m_config.failsafeMode = main.failsafeMode;
+            m_config.teamraceChannel = main.teamraceChannel;
+            m_config.teamracePosition = main.teamracePosition;
+            m_config.teamracePitMode = main.teamracePitMode;
+            m_config.targetSysId = main.targetSysId;
+            m_config.sourceSysId = main.sourceSysId;
+        }
+
+        rx_serial_storage_t serial{};
+        size_t serialLen = sizeof(serial);
+        if (nvs_get_blob(handle, RX_NVS_KEY_SERIAL, &serial, &serialLen) == ESP_OK && serialLen == sizeof(serial))
+        {
+            m_config.serialProtocol = serial.serialProtocol;
+            m_config.serial1Protocol = serial.serial1Protocol;
+        }
+
+        for (uint8_t ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+        {
+            RX_PWM_KEY_DECLARE(pwmKey, ch);
+            uint32_t raw = 0;
+            if (nvs_get_u32(handle, RX_PWM_KEY(pwmKey), &raw) == ESP_OK)
+                m_config.pwmChannels[ch].raw = raw;
+        }
+
         CheckUpdateFlashedUid(false);
         return;
     }
 
-    // Can't upgrade from version <4, or when flashing a previous version, just use defaults.
-    if (version < 4 || version > RX_CONFIG_VERSION)
+#if defined(PLATFORM_ESP32)
+    uint32_t legacyVersion = 0;
+    if (ReadLegacyRxStorageBytes(0, &legacyVersion, sizeof(legacyVersion)) && ((legacyVersion & CONFIG_MAGIC_MASK) == RX_CONFIG_MAGIC))
+        legacyVersion &= ~CONFIG_MAGIC_MASK;
+    else
+        legacyVersion = 0;
+
+    if (legacyVersion < 4 || legacyVersion > 11)
     {
         SetDefaults(true);
-        CheckUpdateFlashedUid(true);
         return;
     }
 
-    // Upgrade EEPROM, load defaults then load the old values into it
-    SetDefaults(false);
-    switch (version)
+    if (legacyVersion == 11)
     {
-        case 4:
-            UpgradeEepromV4(); break;
-        case 5:
-            UpgradeEepromV5(); break;
-        case 6:
-            UpgradeEepromV6(); break;
-        case 7: // fallthrough
-        case 8:
-            UpgradeEepromV7V8(version); break;
-        case 9: // fallthrough
-        case 10:
-            UpgradeEepromV9V10(version); break;
+        v11_rx_config_t old;
+        ReadLegacyRxStorageBytes(0, &old, sizeof(old));
+        memcpy(m_config.uid, old.uid, UID_LEN);
+        m_config.serial1Protocol = old.serial1Protocol;
+        m_config.flash_discriminator = old.flash_discriminator;
+        m_config.bindStorage = old.bindStorage;
+        m_config.power = old.power;
+        m_config.antennaMode = old.antennaMode;
+        m_config.powerOnCounter = old.powerOnCounter;
+        m_config.forceTlmOff = old.forceTlmOff;
+        m_config.rateInitialIdx = old.rateInitialIdx;
+        m_config.modelId = old.modelId;
+        m_config.serialProtocol = old.serialProtocol;
+        m_config.failsafeMode = old.failsafeMode;
+        m_config.antennaGroup = old.antennaGroup;
+        for (unsigned ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+            m_config.pwmChannels[ch].raw = old.pwmChannels[ch].raw;
+        m_config.teamraceChannel = old.teamraceChannel;
+        m_config.teamracePosition = old.teamracePosition;
+        m_config.teamracePitMode = old.teamracePitMode;
+        m_config.targetSysId = old.targetSysId;
+        m_config.sourceSysId = old.sourceSysId;
     }
-    m_modified = EVENT_CONFIG_MODEL_CHANGED; // anything to force write
+    else
+    {
+        SetDefaults(false);
+        switch (legacyVersion)
+        {
+            case 4:
+                UpgradeEepromV4(); break;
+            case 5:
+                UpgradeEepromV5(); break;
+            case 6:
+                UpgradeEepromV6(); break;
+            case 7: // fallthrough
+            case 8:
+                UpgradeEepromV7V8(legacyVersion); break;
+            case 9: // fallthrough
+            case 10:
+                UpgradeEepromV9V10(legacyVersion); break;
+        }
+    }
+
+    if (firmwareOptions.hasUID && m_config.flash_discriminator != firmwareOptions.flash_discriminator)
+    {
+        memcpy(m_config.uid, firmwareOptions.uid, UID_LEN);
+        m_config.flash_discriminator = firmwareOptions.flash_discriminator;
+        m_config.powerOnCounter = 0;
+    }
+
+    m_config.version = RX_CONFIG_VERSION | RX_CONFIG_MAGIC;
+    m_modified = RX_ALL_DIRTY;
+    m_pwmDirtyMask = 0xFFFFU;
     Commit();
+#else
+    SetDefaults(true);
+#endif
 }
 
 void RxConfig::CheckUpdateFlashedUid(bool skipDescrimCheck)
@@ -1004,8 +1356,8 @@ void RxConfig::CheckUpdateFlashedUid(bool skipDescrimCheck)
     m_config.flash_discriminator = firmwareOptions.flash_discriminator;
     // Reset the power on counter because this is following a flash, may have taken a few boots to flash
     m_config.powerOnCounter = 0;
-    // SetUID should set this but just in case that gets removed, flash_discriminator needs to be saved
-    m_modified = EVENT_CONFIG_UID_CHANGED;
+    // SetUID should set this but just in case that gets removed, flash_discriminator and power-on count need to be saved
+    m_modified = EVENT_CONFIG_UID_CHANGED | EVENT_CONFIG_POWER_COUNT_CHANGED;
 
     Commit();
 }
@@ -1042,10 +1394,15 @@ static void PwmConfigV4(v4_rx_config_pwm_t const * const v4, rx_config_pwm_t * c
     current->val.inverted = v4->val.inverted;
 }
 
+static bool ReadLegacyRxObject(void *dst, size_t len)
+{
+    return ReadLegacyRxStorageBytes(0, dst, len);
+}
+
 void RxConfig::UpgradeEepromV4()
 {
     v4_rx_config_t old;
-    m_eeprom->Get(0, old);
+    ReadLegacyRxObject(&old, sizeof(old));
 
     UpgradeUid(nullptr, old.isBound ? old.uid : nullptr);
     CONFCOPY(modelId);
@@ -1073,10 +1430,9 @@ static void PwmConfigV5(v5_rx_config_pwm_t const * const v5, rx_config_pwm_t * c
 void RxConfig::UpgradeEepromV5()
 {
     v5_rx_config_t old;
-    m_eeprom->Get(0, old);
+    ReadLegacyRxObject(&old, sizeof(old));
 
     UpgradeUid(old.onLoan ? old.loanUID : nullptr, old.isBound ? old.uid : nullptr);
-    m_config.vbat.scale = old.vbatScale;
     CONFCOPY(power);
     CONFCOPY(antennaMode);
     CONFCOPY(forceTlmOff);
@@ -1101,10 +1457,9 @@ static void PwmConfigV6(v6_rx_config_pwm_t const * const v6, rx_config_pwm_t * c
 void RxConfig::UpgradeEepromV6()
 {
     v6_rx_config_t old;
-    m_eeprom->Get(0, old);
+    ReadLegacyRxObject(&old, sizeof(old));
 
     UpgradeUid(old.onLoan ? old.loanUID : nullptr, old.isBound ? old.uid : nullptr);
-    m_config.vbat.scale = old.vbatScale;
     CONFCOPY(power);
     CONFCOPY(antennaMode);
     CONFCOPY(forceTlmOff);
@@ -1120,10 +1475,9 @@ void RxConfig::UpgradeEepromV6()
 void RxConfig::UpgradeEepromV7V8(uint8_t ver)
 {
     v7_rx_config_t old;
-    m_eeprom->Get(0, old);
+    ReadLegacyRxObject(&old, sizeof(old));
 
     UpgradeUid(old.onLoan ? old.loanUID : nullptr, old.isBound ? old.uid : nullptr);
-    m_config.vbat.scale = old.vbatScale;
     CONFCOPY(power);
     CONFCOPY(antennaMode);
     CONFCOPY(forceTlmOff);
@@ -1132,7 +1486,7 @@ void RxConfig::UpgradeEepromV7V8(uint8_t ver)
     CONFCOPY(serialProtocol);
     CONFCOPY(failsafeMode);
 
-    for (unsigned ch=0; ch<16; ++ch)
+    for (unsigned ch = 0; ch < 16; ++ch)
     {
         m_config.pwmChannels[ch].raw = old.pwmChannels[ch].raw;
         m_config.pwmChannels[ch].val.failsafe = toFailsafeV10(old.pwmChannels[ch].val.failsafe);
@@ -1159,15 +1513,13 @@ static void PwmConfigV9(v9_rx_config_pwm_t const * const old, rx_config_pwm_t * 
 void RxConfig::UpgradeEepromV9V10(uint8_t ver)
 {
     v9_rx_config_t old;
-    m_eeprom->Get(0, old);
+    ReadLegacyRxObject(&old, sizeof(old));
 
     UpgradeUid(nullptr, old.uid);
     // Version 10 is the main structure, version 11 changes the PWM structure
     if (ver != 10)
     {
         CONFCOPY(serial1Protocol);
-        CONFCOPY(vbat.scale);
-        CONFCOPY(vbat.offset);
         CONFCOPY(bindStorage);
         CONFCOPY(power);
         CONFCOPY(antennaMode);
@@ -1182,10 +1534,9 @@ void RxConfig::UpgradeEepromV9V10(uint8_t ver)
         CONFCOPY(targetSysId);
         CONFCOPY(sourceSysId);
     }
-    for (unsigned ch=0; ch<16; ++ch)
+    for (unsigned ch = 0; ch < 16; ++ch)
         PwmConfigV9(&old.pwmChannels[ch], &m_config.pwmChannels[ch]);
 }
-
 /**
  * @brief Upgrade UID and flash_discriminator from old config, using onLoanUid if != null
  */
@@ -1232,50 +1583,75 @@ bool RxConfig::IsOnLoan() const
     return GetIsBound() && memcmp(m_config.uid, firmwareOptions.uid, UID_LEN) != 0;
 }
 
-#if defined(PLATFORM_ESP8266)
-#define EMPTY_SECTOR ((FS_start - 0x1000 - 0x40200000) / SPI_FLASH_SEC_SIZE) // empty sector before FS area start
-static bool erase_power_on_count = false;
-static int realPowerOnCounter = -1;
-uint8_t
-RxConfig::GetPowerOnCounter() const
-{
-    if (realPowerOnCounter == -1) {
-        byte zeros[16];
-        ESP.flashRead(EMPTY_SECTOR * SPI_FLASH_SEC_SIZE, zeros, sizeof(zeros));
-        realPowerOnCounter = sizeof(zeros);
-        for (int i=0 ; i<sizeof(zeros) ; i++) {
-            if (zeros[i] != 0) {
-                realPowerOnCounter = i;
-                break;
-            }
-        }
-    }
-    return realPowerOnCounter;
-}
-#endif
-
 uint32_t
 RxConfig::Commit()
 {
-#if defined(PLATFORM_ESP8266)
-    if (erase_power_on_count)
-    {
-        ESP.flashEraseSector(EMPTY_SECTOR);
-        erase_power_on_count = false;
-    }
-#endif
     if (!m_modified)
     {
         // No changes
         return 0;
     }
 
-    // Write the struct to eeprom
-    m_eeprom->Put(0, m_config);
-    m_eeprom->Commit();
+    if (m_modified & EVENT_CONFIG_UID_CHANGED)
+    {
+        rx_identity_storage_t identity{};
+        memcpy(identity.uid, m_config.uid, UID_LEN);
+        identity.flash_discriminator = m_config.flash_discriminator;
+        identity.bindStorage = m_config.bindStorage;
+        nvs_set_blob(handle, RX_NVS_KEY_IDENTITY, &identity, sizeof(identity));
+    }
+
+    if (m_modified & EVENT_CONFIG_POWER_COUNT_CHANGED)
+    {
+        nvs_set_u8(handle, RX_NVS_KEY_POWER_ON_COUNT, m_config.powerOnCounter);
+    }
+
+    if (m_modified & EVENT_CONFIG_MAIN_CHANGED)
+    {
+        rx_main_storage_t main{};
+        main.power = m_config.power;
+        main.antennaMode = m_config.antennaMode;
+        main.antennaGroup = m_config.antennaGroup;
+        main.forceTlmOff = m_config.forceTlmOff;
+        main.rateInitialIdx = m_config.rateInitialIdx;
+        main.modelId = m_config.modelId;
+        main.failsafeMode = m_config.failsafeMode;
+        main.teamraceChannel = m_config.teamraceChannel;
+        main.teamracePosition = m_config.teamracePosition;
+        main.teamracePitMode = m_config.teamracePitMode;
+        main.targetSysId = m_config.targetSysId;
+        main.sourceSysId = m_config.sourceSysId;
+        nvs_set_blob(handle, RX_NVS_KEY_MAIN, &main, sizeof(main));
+    }
+
+    if (m_modified & EVENT_CONFIG_SERIAL_CHANGE)
+    {
+        rx_serial_storage_t serial{};
+        serial.serialProtocol = m_config.serialProtocol;
+        serial.serial1Protocol = m_config.serial1Protocol;
+        nvs_set_blob(handle, RX_NVS_KEY_SERIAL, &serial, sizeof(serial));
+    }
+
+    if (m_modified & EVENT_CONFIG_PWM_CHANGE)
+    {
+        for (uint8_t ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+        {
+            RX_PWM_KEY_DECLARE(pwmKey, ch);
+            if (m_pwmDirtyMask & (1U << ch))
+                nvs_set_u32(handle, RX_PWM_KEY(pwmKey), m_config.pwmChannels[ch].raw);
+        }
+    }
+
+    if (m_modified & EVENT_CONFIG_VERSION_CHANGED)
+    {
+        nvs_set_u32(handle, RX_NVS_KEY_VERSION, m_config.version);
+    }
+
+    nvs_commit(handle);
 
     uint32_t changes = m_modified;
     m_modified = 0;
+    m_pwmDirtyMask = 0;
     return changes;
 }
 
@@ -1287,31 +1663,17 @@ RxConfig::SetUID(uint8_t uid[UID_LEN])
     {
         m_config.uid[i] = uid[i];
     }
-    m_modified = EVENT_CONFIG_UID_CHANGED;
+    m_modified |= EVENT_CONFIG_UID_CHANGED;
 }
 
 void
 RxConfig::SetPowerOnCounter(uint8_t powerOnCounter)
 {
-#if defined(PLATFORM_ESP8266)
-    realPowerOnCounter = powerOnCounter;
-    if (powerOnCounter == 0)
-    {
-        erase_power_on_count = true;
-        m_modified = true;
-    }
-    else
-    {
-        byte zeros[16] = {0};
-        ESP.flashWrite(EMPTY_SECTOR * SPI_FLASH_SEC_SIZE, zeros, std::min((size_t)powerOnCounter, sizeof(zeros)));
-    }
-#else
     if (m_config.powerOnCounter != powerOnCounter)
     {
         m_config.powerOnCounter = powerOnCounter;
-        m_modified = EVENT_CONFIG_POWER_COUNT_CHANGED;
+        m_modified |= EVENT_CONFIG_POWER_COUNT_CHANGED;
     }
-#endif
 }
 
 void
@@ -1320,7 +1682,7 @@ RxConfig::SetModelId(uint8_t modelId)
     if (m_config.modelId != modelId)
     {
         m_config.modelId = modelId;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1330,7 +1692,7 @@ RxConfig::SetPower(uint8_t power)
     if (m_config.power != power)
     {
         m_config.power = power;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1343,7 +1705,7 @@ RxConfig::SetAntennaMode(uint8_t antennaMode)
     if (m_config.antennaMode != antennaMode)
     {
         m_config.antennaMode = antennaMode;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1353,7 +1715,7 @@ RxConfig::SetAntennaGroup(uint8_t antennaGroup)
     if (m_config.antennaGroup != antennaGroup)
     {
         m_config.antennaGroup = antennaGroup;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1370,6 +1732,7 @@ RxConfig::SetDefaults(bool commit)
         m_config.antennaMode = 2; // 2 is diversity
     if (GPIO_PIN_NSS_2 != UNDEF_PIN)
         m_config.antennaMode = 0; // 0 is diversity for dual radio
+    m_pwmDirtyMask = 0;
 
     for (int ch=0; ch<PWM_MAX_CHANNELS; ++ch)
     {
@@ -1412,19 +1775,17 @@ RxConfig::SetDefaults(bool commit)
     {
         // Prevent rebinding to the flashed UID on first boot
         m_config.flash_discriminator = firmwareOptions.flash_discriminator;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified = RX_ALL_DIRTY;
+        m_pwmDirtyMask = 0xFFFFU;
         Commit();
+    }
+    else
+    {
+        m_modified = 0;
+        m_pwmDirtyMask = 0;
     }
 }
 
-void
-RxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
-{
-    if (eeprom)
-    {
-        m_eeprom = eeprom;
-    }
-}
 
 void
 RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inverted, uint8_t mode, uint8_t stretched)
@@ -1443,7 +1804,8 @@ RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inv
         return;
 
     pwm->raw = newConfig.raw;
-    m_modified = EVENT_CONFIG_PWM_CHANGE;
+    m_modified |= EVENT_CONFIG_PWM_CHANGE;
+    m_pwmDirtyMask |= (1U << ch);
 }
 
 void
@@ -1457,7 +1819,8 @@ RxConfig::SetPwmChannelRaw(uint8_t ch, uint32_t raw)
         return;
 
     pwm->raw = raw;
-    m_modified = EVENT_CONFIG_PWM_CHANGE;
+    m_modified |= EVENT_CONFIG_PWM_CHANGE;
+    m_pwmDirtyMask |= (1U << ch);
 }
 
 void
@@ -1466,7 +1829,7 @@ RxConfig::SetForceTlmOff(bool forceTlmOff)
     if (m_config.forceTlmOff != forceTlmOff)
     {
         m_config.forceTlmOff = forceTlmOff;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1476,7 +1839,7 @@ RxConfig::SetRateInitialIdx(uint8_t rateInitialIdx)
     if (m_config.rateInitialIdx != rateInitialIdx)
     {
         m_config.rateInitialIdx = rateInitialIdx;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1485,7 +1848,7 @@ void RxConfig::SetSerialProtocol(eSerialProtocol serialProtocol)
     if (m_config.serialProtocol != serialProtocol)
     {
         m_config.serialProtocol = serialProtocol;
-        m_modified = EVENT_CONFIG_SERIAL_CHANGE;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_SERIAL_CHANGE;
     }
 }
 
@@ -1495,7 +1858,7 @@ void RxConfig::SetSerial1Protocol(eSerial1Protocol serialProtocol)
     if (m_config.serial1Protocol != serialProtocol)
     {
         m_config.serial1Protocol = serialProtocol;
-        m_modified = EVENT_CONFIG_SERIAL_CHANGE;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_SERIAL_CHANGE;
     }
 }
 #endif
@@ -1505,7 +1868,7 @@ void RxConfig::SetTeamraceChannel(uint8_t teamraceChannel)
     if (m_config.teamraceChannel != teamraceChannel)
     {
         m_config.teamraceChannel = teamraceChannel;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1514,7 +1877,7 @@ void RxConfig::SetTeamracePosition(uint8_t teamracePosition)
     if (m_config.teamracePosition != teamracePosition)
     {
         m_config.teamracePosition = teamracePosition;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1523,7 +1886,7 @@ void RxConfig::SetFailsafeMode(eFailsafeMode failsafeMode)
     if (m_config.failsafeMode != failsafeMode)
     {
         m_config.failsafeMode = failsafeMode;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1534,7 +1897,7 @@ void RxConfig::SetBindStorage(rx_config_bindstorage_t value)
         // If switching away from returnable, revert
         ReturnLoan();
         m_config.bindStorage = value;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_UID_CHANGED;
     }
 }
 
@@ -1543,7 +1906,7 @@ void RxConfig::SetTargetSysId(uint8_t value)
     if (m_config.targetSysId != value)
     {
         m_config.targetSysId = value;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 void RxConfig::SetSourceSysId(uint8_t value)
@@ -1551,7 +1914,7 @@ void RxConfig::SetSourceSysId(uint8_t value)
     if (m_config.sourceSysId != value)
     {
         m_config.sourceSysId = value;
-        m_modified = EVENT_CONFIG_MODEL_CHANGED;
+        m_modified |= EVENT_CONFIG_MODEL_CHANGED | EVENT_CONFIG_MAIN_CHANGED;
     }
 }
 
@@ -1565,8 +1928,7 @@ void RxConfig::ReturnLoan()
             memcpy(m_config.uid, firmwareOptions.uid, UID_LEN);
         else
             memset(m_config.uid, 0, UID_LEN);
-
-        m_modified = EVENT_CONFIG_UID_CHANGED;
+        m_modified |= EVENT_CONFIG_UID_CHANGED;
     }
 }
 

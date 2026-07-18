@@ -1,7 +1,6 @@
 #pragma once
 
 #include "targets.h"
-#include "elrs_eeprom.h"
 #include "options.h"
 #include "common.h"
 #include "OTA.h"
@@ -19,7 +18,7 @@
 #define RX_CONFIG_MAGIC     (0b10U << 30)
 
 #define TX_CONFIG_VERSION   8U
-#define RX_CONFIG_VERSION   11U
+#define RX_CONFIG_VERSION   12U
 
 class BindphraseConfigurable
 {
@@ -196,9 +195,9 @@ public:
 private:
 
 #if defined(PLATFORM_ESP8266)
-    void UpgradeEepromV5ToV6(ELRS_EEPROM &eeprom);
-    void UpgradeEepromV6ToV7(ELRS_EEPROM &eeprom);
-    void UpgradeEepromV7ToV8(ELRS_EEPROM &eeprom);
+    void UpgradeEepromV5ToV6();
+    void UpgradeEepromV6ToV7();
+    void UpgradeEepromV7ToV8();
 #endif
     tx_config_t m_config;
     uint32_t     m_modified;
@@ -244,10 +243,6 @@ typedef struct __attribute__((packed)) {
     uint8_t     serial1Protocol:4,  // secondary serial protocol
                 serial1Protocol_unused:4;
     uint32_t    flash_discriminator;
-    struct __attribute__((packed)) {
-        uint16_t    scale;          // FUTURE: Override compiled vbat scale
-        int16_t     offset;         // FUTURE: Override comiled vbat offset
-    } vbat;
     uint8_t     bindStorage:2,     // rx_config_bindstorage_t
                 power:4,
                 antennaMode:2;      // 0=0, 1=1, 2=Diversity
@@ -279,11 +274,7 @@ public:
     // Getters
     bool     GetIsBound() const;
     const uint8_t* GetUID() const { return m_config.uid; }
-#if defined(PLATFORM_ESP8266)
-    uint8_t  GetPowerOnCounter() const;
-#else
     uint8_t  GetPowerOnCounter() const { return m_config.powerOnCounter; }
-#endif
     uint8_t  GetModelId() const { return m_config.modelId; }
     uint8_t GetPower() const { return m_config.power; }
     uint8_t GetAntennaMode() const { return m_config.antennaMode; }
@@ -312,7 +303,6 @@ public:
     void SetAntennaMode(uint8_t antennaMode);
     void SetAntennaGroup(uint8_t antennaGroup);
     void SetDefaults(bool commit);
-    void SetStorageProvider(ELRS_EEPROM *eeprom);
     void SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inverted, uint8_t mode, uint8_t stretched);
     void SetPwmChannelRaw(uint8_t ch, uint32_t raw);
     void SetForceTlmOff(bool forceTlmOff);
@@ -339,8 +329,9 @@ private:
     void UpgradeEepromV9V10(uint8_t ver);
 
     rx_config_t m_config;
-    ELRS_EEPROM *m_eeprom;
     uint32_t    m_modified;
+    uint16_t    m_pwmDirtyMask;
+    nvs_handle  handle;
 };
 
 extern RxConfig config;

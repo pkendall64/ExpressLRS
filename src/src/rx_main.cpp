@@ -99,7 +99,6 @@ uint8_t geminiMode = 0;
 
 PFD PFDloop;
 Crc2Byte ota_crc;
-ELRS_EEPROM eeprom;
 RxConfig config;
 
 CRSFRouter crsfRouter;
@@ -922,8 +921,8 @@ void ICACHE_RAM_ATTR OnELRSBindMSP(uint8_t* newUid4)
 
     DBGLN("New UID = %u, %u, %u, %u, %u, %u", UID[0], UID[1], UID[2], UID[3], UID[4], UID[5]);
 
-    // Set new UID in eeprom
-    // EEPROM commit will happen on the main thread in ExitBindingMode()
+    // Set new UID in config storage
+    // Commit will happen on the main thread in ExitBindingMode()
     config.SetUID(UID);
 }
 
@@ -1514,11 +1513,9 @@ void reconfigureSerial()
 
 static void setupConfigAndPocCheck()
 {
-    eeprom.Begin();
-    config.SetStorageProvider(&eeprom); // Pass pointer to the Config class for access to storage
     config.Load();
 
-    // If bound, track number of plug/unplug cycles to go to binding mode in eeprom
+    // If bound, track number of plug/unplug cycles to go to binding mode in config storage
     if (config.GetIsBound() && config.GetPowerOnCounter() < 3)
     {
         config.SetPowerOnCounter(config.GetPowerOnCounter() + 1);
@@ -1696,7 +1693,7 @@ static void ExitBindingMode()
 
     // Prevent any new packets from coming in
     Radio.SetTxIdleMode();
-    // Write the values to eeprom
+    // Write the values to config storage
     config.Commit();
 
     OtaUpdateCrcInitFromUid();
@@ -1757,7 +1754,7 @@ static void updateBindingMode(unsigned long now)
         EnterBindingMode();
     }
 
-    // If the eeprom is indicating that we're not bound, enter binding
+    // If the stored config indicates that we're not bound, enter binding
     else if (!OtaUidIsBound(UID) && !InBindingMode)
     {
         DBGLN("RX has not been bound, enter binding mode");
