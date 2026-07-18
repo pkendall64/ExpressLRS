@@ -5,7 +5,7 @@
 #include <unity.h>
 
 #include "flash_nvs.h"
-
+#include "flash_nvs_compat.h"
 namespace {
 
 struct FakeFlash
@@ -178,6 +178,39 @@ void test_nvs_missing_commit_is_ignored_after_reopen(void)
     TEST_ASSERT_EQUAL(FLASH_NVS_ERR_NOT_FOUND, reopened.GetU8(0x50, &value));
 }
 
+void test_compat_layer_u32_round_trip(void)
+{
+    FakeFlash flash(8192);
+    flash_nvs_config_t config = MakeConfig(flash, 4096);
+    nvs_handle handle = 0;
+    uint32_t value = 0;
+
+    TEST_ASSERT_EQUAL(ESP_OK, flash_nvs_set_config(&config));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_flash_init());
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_open("ELRS", NVS_READWRITE, &handle));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_set_u32(handle, 0x60, 0xAABBCCDDUL));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_commit(handle));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_get_u32(handle, 0x60, &value));
+    TEST_ASSERT_EQUAL_HEX32(0xAABBCCDDUL, value);
+}
+
+void test_compat_layer_erase_clears_store(void)
+{
+    FakeFlash flash(8192);
+    flash_nvs_config_t config = MakeConfig(flash, 4096);
+    nvs_handle handle = 0;
+    uint8_t value = 0;
+
+    TEST_ASSERT_EQUAL(ESP_OK, flash_nvs_set_config(&config));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_flash_init());
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_open("ELRS", NVS_READWRITE, &handle));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_set_u8(handle, 0x61, 5));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_commit(handle));
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_flash_erase());
+    TEST_ASSERT_EQUAL(ESP_OK, nvs_open("ELRS", NVS_READWRITE, &handle));
+    TEST_ASSERT_EQUAL(ESP_ERR_NVS_NOT_FOUND, nvs_get_u8(handle, 0x61, &value));
+}
+
 } // namespace
 
 void setUp() {}
@@ -191,5 +224,7 @@ int main()
     RUN_TEST(test_nvs_blob_round_trip);
     RUN_TEST(test_nvs_compacts_when_sector_fills);
     RUN_TEST(test_nvs_missing_commit_is_ignored_after_reopen);
+    RUN_TEST(test_compat_layer_u32_round_trip);
+    RUN_TEST(test_compat_layer_erase_clears_store);
     return UNITY_END();
 }
