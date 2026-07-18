@@ -194,11 +194,10 @@ public:
 
 private:
 
-#if defined(PLATFORM_ESP8266)
+    bool MigrateLegacyConfig();
     void UpgradeEepromV5ToV6();
     void UpgradeEepromV6ToV7();
     void UpgradeEepromV7ToV8();
-#endif
     tx_config_t m_config;
     uint32_t     m_modified;
     model_config_t *m_model;
@@ -320,6 +319,7 @@ public:
     void ReturnLoan();
 
 private:
+    bool MigrateLegacyConfig();
     void CheckUpdateFlashedUid(bool skipDescrimCheck);
     void UpgradeUid(uint8_t *onLoanUid, uint8_t *boundUid);
     void UpgradeEepromV4();
