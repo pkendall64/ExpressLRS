@@ -41,10 +41,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 #include <user_interface.h>
 #endif
 
-#if defined(PLATFORM_ESP32_S3)
-USBCDC USBSerial;
-#endif
-
 /// define some libs to use ///
 MSP msp;
 ELRS_EEPROM eeprom;
@@ -1277,8 +1273,8 @@ static void setupSerial()
 // Setup TxUSB
 #if defined(PLATFORM_ESP32_S3)
   // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
-  USBSerial.begin(firmwareOptions.uart_baud);
-  TxUSB = &USBSerial;
+  HWCDCSerial.begin(firmwareOptions.uart_baud);
+  TxUSB = &HWCDCSerial;
 #elif defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
   if (GPIO_PIN_DEBUG_RX == U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX == U0TXD_GPIO_NUM)
   {

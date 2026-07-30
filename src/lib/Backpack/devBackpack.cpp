@@ -35,10 +35,6 @@ static uint32_t lastPTRValidTimeMs;
 
 #include "hwTimer.h"
 
-#if defined(PLATFORM_ESP32_S3)
-extern USBCDC USBSerial;
-#endif
-
 [[noreturn]] static void startPassthrough(const bool useUSBSerial)
 {
     // stop everything
@@ -53,8 +49,8 @@ extern USBCDC USBSerial;
 #if defined(PLATFORM_ESP32_S3)
     if (useUSBSerial)
     {
-        uplink = &USBSerial;
-        USBSerial.setRxBufferSize(16384);
+        uplink = &HWCDCSerial;
+        HWCDCSerial.setRxBufferSize(16384);
     }
     else
 #endif
@@ -150,9 +146,9 @@ void checkBackpackUpdate()
             0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0xc0
         };
         static int resync_pos = 0;
-        while(USBSerial.available())
+        while(HWCDCSerial.available())
         {
-            const int byte = USBSerial.read();
+            const int byte = HWCDCSerial.read();
             if (byte == resync[resync_pos])
             {
                 resync_pos++;
