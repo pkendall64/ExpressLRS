@@ -8,13 +8,14 @@
 #include "stubborn_receiver.h"
 #include "stubborn_sender.h"
 
-#include "devHandset.h"
 #include "devADC.h"
+#include "devButton.h"
+#include "devHandset.h"
 #include "devLED.h"
 #include "devTXLUA.h"
-#include "devWIFI.h"
-#include "devButton.h"
 #include "devVTX.h"
+#include "devWIFI.h"
+#include "tx-serial/AirportSerial.h"
 #if defined(PLATFORM_ESP32)
 #include "devScreen.h"
 #include "devBLE.h"
@@ -45,10 +46,6 @@ MSP msp;
 ELRS_EEPROM eeprom;
 TxConfig config;
 Stream *TxUSB;
-
-// Variables / constants for Airport //
-FIFO<AP_MAX_BUF_LEN> apInputBuffer;
-FIFO<AP_MAX_BUF_LEN> apOutputBuffer;
 
 #define UART_INPUT_BUF_LEN 1024
 FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
@@ -99,6 +96,7 @@ CRSFParser crsfParser;
 
 device_affinity_t ui_devices[] = {
   {&Handset_device, 1},
+  {&Airport_device, 1},
   {&LED_device, 0},
   {&RGB_device, 0},
   {&TXLUA_device, 1},
@@ -279,7 +277,7 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
       case PACKET_TYPE_DATA:
         if (firmwareOptions.is_airport)
         {
-          OtaUnpackAirportData(otaPktPtr, &apOutputBuffer);
+          UnpackAirportData(otaPktPtr);
         }
         else
         {
@@ -314,7 +312,7 @@ static bool ICACHE_RAM_ATTR ProcessDownlinkPacket(SX12xxDriverCommon::rx_status 
       case PACKET_TYPE_DATA:
         if (firmwareOptions.is_airport)
         {
-          OtaUnpackAirportData(otaPktPtr, &apOutputBuffer);
+          UnpackAirportData(otaPktPtr);
         }
         else
         {
@@ -562,7 +560,7 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   {
     if (firmwareOptions.is_airport)
     {
-      OtaPackAirportData(&otaPkt, &apInputBuffer);
+      PackAirportData(&otaPkt);
     }
     else if ((NextPacketIsDataUl && DataUlSender.IsActive()) || dontSendChannelData)
     {
@@ -914,9 +912,6 @@ static void UpdateConnectDisconnectStatus()
       DBGLN("got downlink conn");
       RxDisconnected_Ms = 0;
       setConnectionState(connected);
-
-      apInputBuffer.flush();
-      apOutputBuffer.flush();
       uartInputBuffer.flush();
     }
   }
@@ -1112,38 +1107,8 @@ void ParseMSPData(uint8_t *buf, uint8_t size)
   }
 }
 
-static void HandleUARTout()
-{
-  if (firmwareOptions.is_airport)
-  {
-    auto size = apOutputBuffer.size();
-    if (size)
-    {
-      uint8_t buf[size];
-      apOutputBuffer.lock();
-      apOutputBuffer.popBytes(buf, size);
-      apOutputBuffer.unlock();
-      TxUSB->write(buf, size);
-    }
-  }
-}
-
 static void HandleUARTin()
 {
-  if (firmwareOptions.is_airport)
-  {
-    auto size = std::min(apInputBuffer.free(), (uint16_t)TxUSB->available());
-    if (size > 0)
-    {
-      uint8_t buf[size];
-      TxUSB->readBytes(buf, size);
-      apInputBuffer.lock();
-      apInputBuffer.pushBytes(buf, size);
-      apInputBuffer.unlock();
-    }
-    return;
-  }
-
   // USB serial input
   // If a mavlink packet is received on the USB input, automatically switch the link mode to and process as mavlink
   // Otherwise, USB serial data is processed as CRSF
@@ -1239,11 +1204,7 @@ static void setupSerial()
    */
 #if defined(PLATFORM_ESP8266)
   BackpackOrLogStrm = new NullStream();
-  TxUSB = new NullStream();
 #elif defined(PLATFORM_ESP32_S3)
-  // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
-  USBSerial.begin(firmwareOptions.uart_baud);
-  TxUSB = &USBSerial;
   if (!firmwareOptions.is_airport && GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
   {
     BackpackOrLogStrm = new HardwareSerial(2);
@@ -1256,8 +1217,6 @@ static void setupSerial()
 #elif defined(PLATFORM_ESP32_C3)
   if(firmwareOptions.is_airport)
   {
-    TxUSB = new HardwareSerial(1);
-    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
   }
   else
   {
@@ -1267,8 +1226,6 @@ static void setupSerial()
 #else
   if(firmwareOptions.is_airport)
   {
-    TxUSB = new HardwareSerial(1);
-    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
     BackpackOrLogStrm = new NullStream();
   }
   else
@@ -1482,20 +1439,11 @@ void setup()
   registerButtonFunction(ACTION_INCREASE_POWER, cyclePower);
 
   devicesStart();
-
-  if (firmwareOptions.is_airport)
-  {
-    config.SetTlm(TLM_RATIO_1_2); // Force TLM ratio of 1:2 for balanced bi-dir link
-    config.SetMotionMode(0); // Ensure motion detection is off
-    UARTconnected();
-  }
 }
 
 void loop()
 {
-  uint32_t now = millis();
-
-  HandleUARTout(); // Only used for non-CRSF output
+  const uint32_t now = millis();
 
   #if defined(USE_BLE_JOYSTICK)
   if (connectionState != bleJoystick && connectionState != noCrossfire) // Wait until the correct crsf baud has been found
@@ -1518,7 +1466,7 @@ void loop()
 
   executeDeferredFunction(micros());
 
-  HandleUARTin();
+  if (!firmwareOptions.is_airport) HandleUARTin();
 
   if (connectionState > MODE_STATES)
   {

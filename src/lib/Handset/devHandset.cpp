@@ -29,6 +29,7 @@ static bool initialize()
 
 static int start()
 {
+    if (firmwareOptions.is_airport) return DURATION_NEVER;
     handset->Begin();
 #if defined(DEBUG_TX_FREERUN)
     handset->forceConnection();
