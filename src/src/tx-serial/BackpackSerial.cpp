@@ -10,30 +10,38 @@
 #include "logging.h"
 
 extern void UARTconnected();
+extern SerialUplink uplink;
 
-bool BackpackSerial::initialize()
+namespace
+{
+bool initialize()
 {
     /*
      * Setup the logging/backpack serial port, we always need a place to send data even if there is no backpack!
      */
 #if defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
-    if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
+    if (OPT_USE_TX_BACKPACK && GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
     {
         BackpackOrLogStrm = new HardwareSerial(2);
         ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
-        return true;
+        return !firmwareOptions.is_airport; // backpack does not run in airport mode
     }
 #endif
     BackpackOrLogStrm = new NullStream();
     return false;
 }
 
-size_t BackpackSerial::available()
+int start()
 {
-    return BackpackOrLogStrm->available();
+    return config.GetBackpackDisable() ? DURATION_NEVER : DURATION_IMMEDIATELY;
 }
 
-void BackpackSerial::poll(SerialUplink &uplink)
+int event()
+{
+    return config.GetBackpackDisable() ? DURATION_NEVER : DURATION_IMMEDIATELY;
+}
+
+int timeout()
 {
     // Backpack will not switch modes, but will process data as mavlink if the link mode is already set to mavlink
     // Backpack serial data is ALSO always processed as backpack MSP
@@ -65,4 +73,14 @@ void BackpackSerial::poll(SerialUplink &uplink)
             ParseMSPData(buf, size);
         }
     }
+    return DURATION_IMMEDIATELY;
 }
+}
+
+device_t BackpackSerial_device = {
+    .initialize = initialize,
+    .start = start,
+    .event = event,
+    .timeout = timeout,
+    .subscribe = EVENT_CONFIG_MAIN_CHANGED,
+};

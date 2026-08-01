@@ -1,12 +1,5 @@
 #pragma once
 
-#include "SerialUplink.h"
-#include "targets.h"
+#include "device.h"
 
-class BackpackSerial
-{
-public:
-    bool initialize();
-    size_t available();
-    void poll(SerialUplink &uplink);
-};
+extern device_t BackpackSerial_device;

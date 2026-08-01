@@ -30,7 +30,7 @@ static uint8_t deviceCount;
 static uint32_t eventFired[2] = {0, 0};
 static bool lastModelMatch[2] = {false, false};
 
-static unsigned long deviceTimeout[16] = {0};
+static unsigned long deviceTimeout[32] = {0};
 
 #if MULTICORE
 static TaskHandle_t xDeviceTask = nullptr;

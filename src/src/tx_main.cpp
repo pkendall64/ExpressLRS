@@ -47,9 +47,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 ELRS_EEPROM eeprom;
 TxConfig config;
 SerialUplink uplink;
-#if defined(PLATFORM_ESP32)
-BackpackSerial backpack;
-#endif
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
@@ -92,8 +89,6 @@ TXOTAConnector otaConnector;
 
 device_affinity_t ui_devices[] = {
   {&Handset_device, 1},
-  {&Airport_device, 1},
-  {&TxUSBSerial_device, 1},
   {&LED_device, 0},
   {&RGB_device, 0},
   {&TXLUA_device, 1},
@@ -101,6 +96,9 @@ device_affinity_t ui_devices[] = {
   {&WIFI_device, 0},
   {&Button_device, 0},
 #if defined(PLATFORM_ESP32)
+  {&Airport_device, 1},
+  {&TxUSBSerial_device, 1},
+  {&BackpackSerial_device, 1},
   {&Backpack_device, 0},
   {&BLE_device, 0},
 #if !defined(PLATFORM_ESP32_C3)
@@ -1048,9 +1046,6 @@ void EnterBindingModeSafely()
 #if defined(PLATFORM_ESP32)
 static void HandleUARTin()
 {
-  // Backpack serial input
-  backpack.poll(uplink);
-
   uplink.pump(DataUlSender);
 }
 #endif
@@ -1165,9 +1160,6 @@ void setup()
   if (setupHardwareFromOptions())
   {
     setupTarget();
-#if defined(PLATFORM_ESP32)
-    backpack.initialize();
-#endif
 
     // Register the devices with the framework
     devicesRegister(ui_devices, ARRAY_SIZE(ui_devices));
