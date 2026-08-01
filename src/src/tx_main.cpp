@@ -1198,59 +1198,21 @@ static void HandleUARTin()
 
 static void setupSerial()
 {
-  /*
-   * Setup the logging/backpack serial port, and the USB serial port.
-   * This is always done because we need a place to send data even if there is no backpack!
-   */
-#if defined(PLATFORM_ESP8266)
-  BackpackOrLogStrm = new NullStream();
-#elif defined(PLATFORM_ESP32_S3)
-  if (!firmwareOptions.is_airport && GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
-  {
-    BackpackOrLogStrm = new HardwareSerial(2);
-    ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
+#if defined(PLATFORM_ESP32)
+#if defined(PLATFORM_ESP32_S3)
+  if (!firmwareOptions.is_airport) {
+    // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
+    USBSerial.begin(firmwareOptions.uart_baud);
+    TxUSB = &USBSerial;
   }
-  else
+#elif !defined(PLATFORM_ESP32_C3)
+  // If not airport and the default UART is not the backpack, then our UART is available for use
+  if(!firmwareOptions.is_airport && GPIO_PIN_DEBUG_RX != U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX != U0TXD_GPIO_NUM)
   {
-    BackpackOrLogStrm = new NullStream();
+    TxUSB = new HardwareSerial(1);
+    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
   }
-#elif defined(PLATFORM_ESP32_C3)
-  if(firmwareOptions.is_airport)
-  {
-  }
-  else
-  {
-    TxUSB = new NullStream();
-  }
-  BackpackOrLogStrm = new NullStream();
-#else
-  if(firmwareOptions.is_airport)
-  {
-    BackpackOrLogStrm = new NullStream();
-  }
-  else
-  {
-    // If the default UART is not the backpack, then our USB is assigned
-    if (GPIO_PIN_DEBUG_RX != U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX != U0TXD_GPIO_NUM)
-    {
-      TxUSB = new HardwareSerial(1);
-      ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
-    }
-    else
-    {
-      TxUSB = new NullStream();
-    }
-    // If we have a backpack then set that up
-    if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
-    {
-      BackpackOrLogStrm = new HardwareSerial(2);
-      ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
-    }
-    else
-    {
-      BackpackOrLogStrm = new NullStream();
-    }
-  }
+#endif
 #endif
 }
 

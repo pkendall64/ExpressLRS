@@ -4,6 +4,7 @@
 #include "CRSFRouter.h"
 #include "config.h"
 #include "device.h"
+#include "helpers.h"
 #include "logging.h"
 #include "msp.h"
 #include "msptypes.h"
@@ -400,8 +401,27 @@ static void sendConfigToBackpack()
     MSP::sendPacket(&packet, BackpackOrLogStrm); // send to tx-backpack as MSP
 }
 
+static bool SetupSerial()
+{
+    /*
+     * Setup the logging/backpack serial port, we always need a place to send data even if there is no backpack!
+     */
+#if defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
+    if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
+    {
+        BackpackOrLogStrm = new HardwareSerial(2);
+        ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
+        return true;
+    }
+#endif
+    BackpackOrLogStrm = new NullStream();
+    return false;
+}
+
 static bool initialize()
 {
+    if (!SetupSerial() || firmwareOptions.is_airport) return false;
+
     if (OPT_USE_TX_BACKPACK)
     {
         if (GPIO_PIN_BACKPACK_EN != UNDEF_PIN)
