@@ -16,6 +16,7 @@
 #include "devVTX.h"
 #include "devWIFI.h"
 #include "tx-serial/AirportSerial.h"
+#include "tx-serial/SerialUplink.h"
 #if defined(PLATFORM_ESP32)
 #include "devScreen.h"
 #include "devBLE.h"
@@ -46,11 +47,7 @@ MSP msp;
 ELRS_EEPROM eeprom;
 TxConfig config;
 Stream *TxUSB;
-
-#define UART_INPUT_BUF_LEN 1024
-FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
-
-uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]; // Buffer for current stubborn sender packet (mavlink only)
+SerialUplink uplink;
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
@@ -912,7 +909,7 @@ static void UpdateConnectDisconnectStatus()
       DBGLN("got downlink conn");
       RxDisconnected_Ms = 0;
       setConnectionState(connected);
-      uartInputBuffer.flush();
+      uplink.flush();
     }
   }
   // If past RX_LOSS_CNT, or in awaitingModelId state for longer than DisconnectTimeoutMs, go to disconnected
@@ -1112,7 +1109,7 @@ static void HandleUARTin()
   // USB serial input
   // If a mavlink packet is received on the USB input, automatically switch the link mode to and process as mavlink
   // Otherwise, USB serial data is processed as CRSF
-  auto size = std::min(uartInputBuffer.free(), (uint16_t)TxUSB->available());
+  auto size = std::min(uplink.free(), (uint16_t)TxUSB->available());
   if (size > 0)
   {
     uint8_t buf[size];
@@ -1130,9 +1127,7 @@ static void HandleUARTin()
     }
     if (config.GetLinkMode() == TX_MAVLINK_MODE)
     {
-      uartInputBuffer.lock();
-      uartInputBuffer.pushBytes(buf, size);
-      uartInputBuffer.unlock();
+      uplink.push(buf, size);
     }
     else
     {
@@ -1145,7 +1140,7 @@ static void HandleUARTin()
   // Backpack serial data is ALSO always processed as backpack MSP
   if (BackpackOrLogStrm->available())
   {
-    auto size = std::min(uartInputBuffer.free(), (uint16_t)BackpackOrLogStrm->available());
+    auto size = std::min(uplink.free(), (uint16_t)BackpackOrLogStrm->available());
     if (size > 0)
     {
       uint8_t buf[size];
@@ -1154,9 +1149,7 @@ static void HandleUARTin()
       // If the TX is in Mavlink mode, push the bytes into the fifo buffer
       if (config.GetLinkMode() == TX_MAVLINK_MODE)
       {
-        uartInputBuffer.lock();
-        uartInputBuffer.pushBytes(buf, size);
-        uartInputBuffer.unlock();
+        uplink.push(buf, size);
 
         // The TX is in MAVLink mode and receiving data from the Backpack,
         // start the radio since the user might be operating the module as a standalone unit without a handset.
@@ -1174,26 +1167,7 @@ static void HandleUARTin()
     }
   }
 
-  if (config.GetLinkMode() == TX_MAVLINK_MODE)
-  {
-    // Use DataUlSender for MAVLINK uplink data
-    uint8_t *nextPayload = 0;
-    uint8_t nextPlayloadSize = 0;
-    uint16_t count = uartInputBuffer.size();
-    if (count > 0 && !DataUlSender.IsActive())
-    {
-      count = std::min(count, (uint16_t)CRSF_PAYLOAD_SIZE_MAX);
-      mavlinkSSBuffer[0] = MSP_ELRS_MAVLINK_TLM; // Used on RX to differentiate between std msp opcodes and mavlink
-      mavlinkSSBuffer[1] = count;
-      // Following n bytes are just raw mavlink
-      uartInputBuffer.lock();
-      uartInputBuffer.popBytes(mavlinkSSBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
-      uartInputBuffer.unlock();
-      nextPayload = mavlinkSSBuffer;
-      nextPlayloadSize = count + CRSF_FRAME_NOT_COUNTED_BYTES;
-      DataUlSender.SetDataToTransmit(nextPayload, nextPlayloadSize);
-    }
-  }
+  uplink.pump(DataUlSender);
 }
 
 static void setupSerial()
