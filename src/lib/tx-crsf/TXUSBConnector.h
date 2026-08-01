@@ -5,7 +5,11 @@
 class TXUSBConnector final : public CRSFConnector
 {
 public:
+    explicit TXUSBConnector(Stream *stream) : stream(stream) {}
     void forwardMessage(const crsf_header_t *message) override;
+
+private:
+    Stream *stream;
 };
 
 #endif //TX_USB_CONNECTOR_H

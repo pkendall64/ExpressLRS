@@ -10,6 +10,7 @@ extern void UARTconnected();
 
 namespace
 {
+Stream *TxUSB = nullptr;
 FIFO<AP_MAX_BUF_LEN> *apInputBuffer;
 FIFO<AP_MAX_BUF_LEN> *apOutputBuffer;
 

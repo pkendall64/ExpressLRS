@@ -17,6 +17,7 @@
 #include "devWIFI.h"
 #include "tx-serial/AirportSerial.h"
 #include "tx-serial/SerialUplink.h"
+#include "tx-serial/TxUSBSerial.h"
 #if defined(PLATFORM_ESP32)
 #include "devScreen.h"
 #include "devBLE.h"
@@ -36,7 +37,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 #include "MAVLink.h"
 #include "TXModuleEndpoint.h"
 #include "TXOTAConnector.h"
-#include "TXUSBConnector.h"
 
 #if defined(PLATFORM_ESP8266)
 #include <user_interface.h>
@@ -46,7 +46,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 MSP msp;
 ELRS_EEPROM eeprom;
 TxConfig config;
-Stream *TxUSB;
 SerialUplink uplink;
 
 extern bool webserverPreventAutoStart;
@@ -88,12 +87,11 @@ uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
 CRSFRouter crsfRouter;
 TXModuleEndpoint crsfTransmitter;
 TXOTAConnector otaConnector;
-TXUSBConnector usbConnector;
-CRSFParser crsfParser;
 
 device_affinity_t ui_devices[] = {
   {&Handset_device, 1},
   {&Airport_device, 1},
+  {&TxUSBSerial_device, 1},
   {&LED_device, 0},
   {&RGB_device, 0},
   {&TXLUA_device, 1},
@@ -714,7 +712,7 @@ static void UARTdisconnected()
   linkStats.uplink_Link_quality = 0;
 }
 
-static void UARTconnected()
+void UARTconnected()
 {
   webserverPreventAutoStart = true;
   rfModeLastChangedMS = millis(); // force syncspam on first packets
@@ -1106,35 +1104,6 @@ void ParseMSPData(uint8_t *buf, uint8_t size)
 
 static void HandleUARTin()
 {
-  // USB serial input
-  // If a mavlink packet is received on the USB input, automatically switch the link mode to and process as mavlink
-  // Otherwise, USB serial data is processed as CRSF
-  auto size = std::min(uplink.free(), (uint16_t)TxUSB->available());
-  if (size > 0)
-  {
-    uint8_t buf[size];
-    TxUSB->readBytes(buf, size);
-
-    // If the data is MAVLink, then auto change LinkMode and start the radio link
-    // since the user might be operating the module as a standalone unit without a handset.
-    if (connectionState == noCrossfire)
-    {
-      if (isThisAMavPacket(buf, size))
-      {
-        config.SetLinkMode(TX_MAVLINK_MODE);
-        UARTconnected();
-      }
-    }
-    if (config.GetLinkMode() == TX_MAVLINK_MODE)
-    {
-      uplink.push(buf, size);
-    }
-    else
-    {
-      crsfParser.processBytes(&usbConnector, buf, size);
-    }
-  }
-
   // Backpack serial input
   // Backpack will not switch modes, but will process data as mavlink if the link mode is already set to mavlink
   // Backpack serial data is ALSO always processed as backpack MSP
@@ -1170,26 +1139,6 @@ static void HandleUARTin()
   uplink.pump(DataUlSender);
 }
 
-static void setupSerial()
-{
-#if defined(PLATFORM_ESP32)
-#if defined(PLATFORM_ESP32_S3)
-  if (!firmwareOptions.is_airport) {
-    // Because we have ARDUINO_USB_MODE enabled, we use USBSerial as the USB device.
-    USBSerial.begin(firmwareOptions.uart_baud);
-    TxUSB = &USBSerial;
-  }
-#elif !defined(PLATFORM_ESP32_C3)
-  // If not airport and the default UART is not the backpack, then our UART is available for use
-  if(!firmwareOptions.is_airport && GPIO_PIN_DEBUG_RX != U0RXD_GPIO_NUM && GPIO_PIN_DEBUG_TX != U0TXD_GPIO_NUM)
-  {
-    TxUSB = new HardwareSerial(1);
-    ((HardwareSerial *)TxUSB)->begin(firmwareOptions.uart_baud, SERIAL_8N1, U0RXD_GPIO_NUM, U0TXD_GPIO_NUM);
-  }
-#endif
-#endif
-}
-
 /**
  * Target-specific initialization code called early in setup()
  * Setup GPIOs or other hardware, config not yet loaded
@@ -1210,7 +1159,6 @@ static void setupTarget()
     digitalWrite(GPIO_PIN_ANT_CTRL, diversityAntennaState);
   }
 
-  setupSerial();
   setupTargetCommon();
 }
 
@@ -1316,7 +1264,6 @@ void setup()
     crsfTransmitter.begin();
     crsfRouter.addConnector(&otaConnector);
     crsfRouter.addEndpoint(&crsfTransmitter);
-    crsfRouter.addConnector(&usbConnector);
     // When a CRSF handset is detected, it will add itself to the router
 
     handset->registerCallbacks(UARTconnected, firmwareOptions.is_airport ? nullptr : UARTdisconnected);
@@ -1368,7 +1315,6 @@ void setup()
     // In the failure case we set the logging to the null logger so nothing crashes
     // if it decides to log something
     BackpackOrLogStrm = new NullStream();
-    TxUSB = BackpackOrLogStrm;
   }
 
   registerButtonFunction(ACTION_BIND, EnterBindingMode);
@@ -1425,7 +1371,7 @@ void loop()
           // Convert to CRSF telemetry where we can and send to handset
           convert_mavlink_to_crsf_telem(CRSF_ADDRESS_RADIO_TRANSMITTER, CRSFinBuffer, count);
           // forward raw mavlink data to USB
-          TxUSB->write(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
+          forwardMAVLinkPayloadToUSB(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
           // And to the backpack if we have one
           sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
         }
