@@ -15,9 +15,9 @@
 #include "devTXLUA.h"
 #include "devVTX.h"
 #include "devWIFI.h"
+#include "tx-serial/MAVLinkUplink.h"
 #include "tx-serial/AirportSerial.h"
 #include "tx-serial/BackpackSerial.h"
-#include "tx-serial/SerialUplink.h"
 #include "tx-serial/TxUSBSerial.h"
 #if defined(PLATFORM_ESP32)
 #include "devScreen.h"
@@ -46,7 +46,6 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 /// define some libs to use ///
 ELRS_EEPROM eeprom;
 TxConfig config;
-SerialUplink uplink;
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
@@ -86,6 +85,7 @@ uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
 CRSFRouter crsfRouter;
 TXModuleEndpoint crsfTransmitter;
 TXOTAConnector otaConnector;
+MAVLinkUplink mavLinkUplink;
 
 device_affinity_t ui_devices[] = {
   {&Handset_device, 1},
@@ -96,6 +96,7 @@ device_affinity_t ui_devices[] = {
   {&WIFI_device, 0},
   {&Button_device, 0},
 #if defined(PLATFORM_ESP32)
+  {&MAVLinkUplink_device, 1},
   {&Airport_device, 1},
   {&TxUSBSerial_device, 1},
   {&BackpackSerial_device, 1},
@@ -907,7 +908,6 @@ static void UpdateConnectDisconnectStatus()
       DBGLN("got downlink conn");
       RxDisconnected_Ms = 0;
       setConnectionState(connected);
-      uplink.flush();
     }
   }
   // If past RX_LOSS_CNT, or in awaitingModelId state for longer than DisconnectTimeoutMs, go to disconnected
@@ -1042,13 +1042,6 @@ void EnterBindingModeSafely()
   // TX can always enter binding mode safely as the function handles stopping the transmitter
   EnterBindingMode();
 }
-
-#if defined(PLATFORM_ESP32)
-static void HandleUARTin()
-{
-  uplink.pump(DataUlSender);
-}
-#endif
 
 /**
  * Target-specific initialization code called early in setup()
@@ -1259,10 +1252,6 @@ void loop()
   checkRebootTime(now);
 
   executeDeferredFunction(micros());
-
-#if defined(PLATFORM_ESP32)
-  if (!firmwareOptions.is_airport) HandleUARTin();
-#endif
 
   if (connectionState > MODE_STATES)
   {

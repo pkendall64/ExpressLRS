@@ -3,14 +3,14 @@
 #include "CRSFParser.h"
 #include "CRSFRouter.h"
 #include "MAVLink.h"
-#include "SerialUplink.h"
+#include "MAVLinkUplink.h"
 #include "TXUSBConnector.h"
 #include "common.h"
 #include "config.h"
 #include "options.h"
 
 extern void UARTconnected();
-extern SerialUplink uplink;
+extern MAVLinkUplink mavLinkUplink;
 
 namespace
 {
@@ -51,7 +51,7 @@ int timeout()
 {
     // If a mavlink packet is received on the USB input, automatically switch the link mode to and process as mavlink
     // Otherwise, USB serial data is processed as CRSF
-    const auto size = std::min(uplink.free(), (uint16_t)TxUSB->available());
+    const auto size = std::min(mavLinkUplink.free(), (uint16_t)TxUSB->available());
     if (size > 0)
     {
         uint8_t buf[size];
@@ -69,7 +69,7 @@ int timeout()
         }
         if (config.GetLinkMode() == TX_MAVLINK_MODE)
         {
-            uplink.push(buf, size);
+            mavLinkUplink.push(buf, size);
         }
         else
         {

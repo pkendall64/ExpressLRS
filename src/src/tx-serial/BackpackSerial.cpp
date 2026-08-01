@@ -3,14 +3,13 @@
 #include "BackpackSerial.h"
 
 #include "MAVLink.h"
-#include "SerialUplink.h"
+#include "MAVLinkUplink.h"
 #include "config.h"
 #include "devBackpack.h"
 #include "helpers.h"
 #include "logging.h"
 
-extern void UARTconnected();
-extern SerialUplink uplink;
+extern MAVLinkUplink mavLinkUplink;
 
 namespace
 {
@@ -47,7 +46,7 @@ int timeout()
     // Backpack serial data is ALSO always processed as backpack MSP
     if (BackpackOrLogStrm->available())
     {
-        auto size = std::min(uplink.free(), (uint16_t)BackpackOrLogStrm->available());
+        auto size = std::min(mavLinkUplink.free(), (uint16_t)BackpackOrLogStrm->available());
         if (size > 0)
         {
             uint8_t buf[size];
@@ -56,7 +55,7 @@ int timeout()
             // If the TX is in Mavlink mode, push the bytes into the fifo buffer
             if (config.GetLinkMode() == TX_MAVLINK_MODE)
             {
-                uplink.push(buf, size);
+                mavLinkUplink.push(buf, size);
 
                 // The TX is in MAVLink mode and receiving data from the Backpack,
                 // start the radio since the user might be operating the module as a standalone unit without a handset.
