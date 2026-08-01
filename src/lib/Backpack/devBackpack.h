@@ -1,6 +1,7 @@
 #pragma once
 
 #include "device.h"
+#include "msp.h"
 
 /**
  * @brief process backpack PTR (pan/tilt/roll) MSP packet from goggles/head tracker.
@@ -34,5 +35,8 @@ void sendCRSFTelemetryToBackpack(const uint8_t *data);
  * @param data the MAVLink telemetry packet to send.
  */
 void sendMAVLinkTelemetryToBackpack(const uint8_t *data);
+
+void sendMSPToBackpack(const mspPacket_t *packet);
+void ParseMSPData(uint8_t *buf, uint8_t size);
 
 extern device_t Backpack_device;

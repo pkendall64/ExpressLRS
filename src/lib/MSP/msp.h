@@ -90,7 +90,7 @@ public:
     bool            processReceivedByte(uint8_t c);
     mspPacket_t*    getReceivedPacket();
     void            markPacketReceived();
-    static bool     sendPacket(mspPacket_t* packet, Stream* port);
+    static bool     sendPacket(const mspPacket_t * packet, Stream* port);
 
 private:
     mspState_e  m_inputState;

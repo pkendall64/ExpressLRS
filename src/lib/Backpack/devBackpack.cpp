@@ -4,7 +4,6 @@
 #include "CRSFRouter.h"
 #include "config.h"
 #include "device.h"
-#include "helpers.h"
 #include "logging.h"
 #include "msp.h"
 #include "msptypes.h"
@@ -19,16 +18,19 @@
 // Stop overriding channels with PTR data if older than this
 #define HT_STALE_TIMEOUT_MS 1000
 
-extern char backpackVersion[];
+char backpackVersion[32] = "";
 
 bool TxBackpackWiFiReadyToSend = false;
 bool VRxBackpackWiFiReadyToSend = false;
 bool BackpackTelemReadyToSend = false;
 bool lastRecordingState = false;
 
+static MSP msp;
 static uint16_t ptrChannelData[CRSF_NUM_CHANNELS];
 static bool headTrackingEnabled = false;
 static uint32_t lastPTRValidTimeMs;
+
+void VtxTriggerSend();
 
 #if defined(PLATFORM_ESP32)
 
@@ -389,6 +391,11 @@ void sendMAVLinkTelemetryToBackpack(const uint8_t *data)
     BackpackOrLogStrm->write(data + CRSF_FRAME_NOT_COUNTED_BYTES, count);
 }
 
+void sendMSPToBackpack(const mspPacket_t *packet)
+{
+    MSP::sendPacket(packet, BackpackOrLogStrm); // send to tx-backpack as MSP
+}
+
 static void sendConfigToBackpack()
 {
     // Send any config values to the tx-backpack, as one key/value pair per MSP msg
@@ -401,28 +408,70 @@ static void sendConfigToBackpack()
     MSP::sendPacket(&packet, BackpackOrLogStrm); // send to tx-backpack as MSP
 }
 
-static bool SetupSerial()
+void ProcessMSPPacket(uint32_t now, mspPacket_t *packet)
 {
-    /*
-     * Setup the logging/backpack serial port, we always need a place to send data even if there is no backpack!
-     */
-#if defined(PLATFORM_ESP32) && !defined(PLATFORM_ESP32_C3)
-    if (GPIO_PIN_DEBUG_RX != UNDEF_PIN && GPIO_PIN_DEBUG_TX != UNDEF_PIN)
+    // Inspect packet for ELRS specific opcodes
+#if 0
+    // FIXME: we should just remove the power calibration thing.
+    // FIXME: It's never been used and is deprecated since hardware.json
+    if (packet->function == MSP_ELRS_FUNC)
     {
-        BackpackOrLogStrm = new HardwareSerial(2);
-        ((HardwareSerial *)BackpackOrLogStrm)->begin(BACKPACK_LOGGING_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
-        return true;
+        uint8_t opcode = packet->readByte();
+
+        CHECK_PACKET_PARSING();
+
+        switch (opcode)
+        {
+        case MSP_ELRS_POWER_CALI_GET:
+            OnPowerGetCalibration(packet);
+            break;
+        case MSP_ELRS_POWER_CALI_SET:
+            OnPowerSetCalibration(packet);
+            break;
+        default:
+            break;
+        }
     }
 #endif
-    BackpackOrLogStrm = new NullStream();
-    return false;
+    if (packet->function == MSP_SET_VTX_CONFIG)
+    {
+        if (packet->payload[0] < 48) // Standard 48 channel VTx table size e.g. A, B, E, F, R, L
+        {
+            config.SetVtxBand(packet->payload[0] / 8 + 1);
+            config.SetVtxChannel(packet->payload[0] % 8);
+        } else
+        {
+            return; // Packets containing frequency in MHz are not yet supported.
+        }
+
+        VtxTriggerSend();
+    }
+    else if (packet->function == MSP_ELRS_BACKPACK_SET_PTR)
+    {
+        processPanTiltRollPacket(now, packet);
+    }
+    if (packet->function == MSP_ELRS_GET_BACKPACK_VERSION)
+    {
+        memset(backpackVersion, 0, sizeof(backpackVersion));
+        memcpy(backpackVersion, packet->payload, min((size_t)packet->payloadSize, sizeof(backpackVersion)-1));
+    }
+}
+
+void ParseMSPData(uint8_t *buf, uint8_t size)
+{
+    for (uint8_t i = 0; i < size; ++i)
+    {
+        if (msp.processReceivedByte(buf[i]))
+        {
+            ProcessMSPPacket(millis(), msp.getReceivedPacket());
+            msp.markPacketReceived();
+        }
+    }
 }
 
 static bool initialize()
 {
-    if (!SetupSerial() || firmwareOptions.is_airport) return false;
-
-    if (OPT_USE_TX_BACKPACK)
+    if (OPT_USE_TX_BACKPACK && !firmwareOptions.is_airport)
     {
         if (GPIO_PIN_BACKPACK_EN != UNDEF_PIN)
         {
@@ -437,8 +486,9 @@ static bool initialize()
         }
         // Set all channels of PTR data to "do not override" (0xffff)
         memset(ptrChannelData, 0xff, sizeof(ptrChannelData));
+        return true;
     }
-    return OPT_USE_TX_BACKPACK;
+    return false;
 }
 
 static int start()

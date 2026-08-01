@@ -145,7 +145,7 @@ MSP::markPacketReceived()
 }
 
 bool
-MSP::sendPacket(mspPacket_t* packet, Stream* port)
+MSP::sendPacket(const mspPacket_t * packet, Stream* port)
 {
     // Sanity check the packet before sending
     if (packet->type != MSP_PACKET_COMMAND && packet->type != MSP_PACKET_RESPONSE) {

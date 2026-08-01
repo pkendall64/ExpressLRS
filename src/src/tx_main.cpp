@@ -16,6 +16,7 @@
 #include "devVTX.h"
 #include "devWIFI.h"
 #include "tx-serial/AirportSerial.h"
+#include "tx-serial/BackpackSerial.h"
 #include "tx-serial/SerialUplink.h"
 #include "tx-serial/TxUSBSerial.h"
 #if defined(PLATFORM_ESP32)
@@ -43,15 +44,16 @@ void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 #endif
 
 /// define some libs to use ///
-MSP msp;
 ELRS_EEPROM eeprom;
 TxConfig config;
 SerialUplink uplink;
+#if defined(PLATFORM_ESP32)
+BackpackSerial backpack;
+#endif
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
 bool NextPacketIsDataUl = false;  // if true the next packet will contain the uplink data (instead of channels)
-char backpackVersion[32] = "";
 
 ////////////SYNC PACKET/////////
 /// sync packet spamming on mode change vars ///
@@ -1043,101 +1045,15 @@ void EnterBindingModeSafely()
   EnterBindingMode();
 }
 
-void ProcessMSPPacket(uint32_t now, mspPacket_t *packet)
-{
 #if defined(PLATFORM_ESP32)
-  // Inspect packet for ELRS specific opcodes
-  if (packet->function == MSP_ELRS_FUNC)
-  {
-    uint8_t opcode = packet->readByte();
-
-    CHECK_PACKET_PARSING();
-
-    switch (opcode)
-    {
-    case MSP_ELRS_POWER_CALI_GET:
-      OnPowerGetCalibration(packet);
-      break;
-    case MSP_ELRS_POWER_CALI_SET:
-      OnPowerSetCalibration(packet);
-      break;
-    default:
-      break;
-    }
-  }
-  else if (packet->function == MSP_SET_VTX_CONFIG)
-  {
-    if (packet->payload[0] < 48) // Standard 48 channel VTx table size e.g. A, B, E, F, R, L
-    {
-      config.SetVtxBand(packet->payload[0] / 8 + 1);
-      config.SetVtxChannel(packet->payload[0] % 8);
-    } else
-    {
-      return; // Packets containing frequency in MHz are not yet supported.
-    }
-
-    VtxTriggerSend();
-  }
-  else if (packet->function == MSP_ELRS_BACKPACK_SET_PTR)
-  {
-    processPanTiltRollPacket(now, packet);
-  }
-  if (packet->function == MSP_ELRS_GET_BACKPACK_VERSION)
-  {
-    memset(backpackVersion, 0, sizeof(backpackVersion));
-    memcpy(backpackVersion, packet->payload, min((size_t)packet->payloadSize, sizeof(backpackVersion)-1));
-  }
-#endif
-}
-
-void ParseMSPData(uint8_t *buf, uint8_t size)
-{
-  for (uint8_t i = 0; i < size; ++i)
-  {
-    if (msp.processReceivedByte(buf[i]))
-    {
-      ProcessMSPPacket(millis(), msp.getReceivedPacket());
-      msp.markPacketReceived();
-    }
-  }
-}
-
 static void HandleUARTin()
 {
   // Backpack serial input
-  // Backpack will not switch modes, but will process data as mavlink if the link mode is already set to mavlink
-  // Backpack serial data is ALSO always processed as backpack MSP
-  if (BackpackOrLogStrm->available())
-  {
-    auto size = std::min(uplink.free(), (uint16_t)BackpackOrLogStrm->available());
-    if (size > 0)
-    {
-      uint8_t buf[size];
-      BackpackOrLogStrm->readBytes(buf, size);
-
-      // If the TX is in Mavlink mode, push the bytes into the fifo buffer
-      if (config.GetLinkMode() == TX_MAVLINK_MODE)
-      {
-        uplink.push(buf, size);
-
-        // The TX is in MAVLink mode and receiving data from the Backpack,
-        // start the radio since the user might be operating the module as a standalone unit without a handset.
-        if (connectionState == noCrossfire)
-        {
-          if (isThisAMavPacket(buf, size))
-          {
-            UARTconnected();
-          }
-        }
-      }
-
-      // Try to parse any MSP packets from the Backpack
-      ParseMSPData(buf, size);
-    }
-  }
+  backpack.poll(uplink);
 
   uplink.pump(DataUlSender);
 }
+#endif
 
 /**
  * Target-specific initialization code called early in setup()
@@ -1249,6 +1165,10 @@ void setup()
   if (setupHardwareFromOptions())
   {
     setupTarget();
+#if defined(PLATFORM_ESP32)
+    backpack.initialize();
+#endif
+
     // Register the devices with the framework
     devicesRegister(ui_devices, ARRAY_SIZE(ui_devices));
     // Initialise the devices
@@ -1348,7 +1268,9 @@ void loop()
 
   executeDeferredFunction(micros());
 
+#if defined(PLATFORM_ESP32)
   if (!firmwareOptions.is_airport) HandleUARTin();
+#endif
 
   if (connectionState > MODE_STATES)
   {
@@ -1363,6 +1285,7 @@ void loop()
 
   if (DataDlReceiver.HasFinishedData())
   {
+#if defined(PLATFORM_ESP32)
       if (CRSFinBuffer[0] == CRSF_ADDRESS_USB)
       {
         if (config.GetLinkMode() == TX_MAVLINK_MODE)
@@ -1377,6 +1300,7 @@ void loop()
         }
       }
       else
+#endif
       {
         // Send all other tlm to CRSF router
         crsfRouter.processMessage(&otaConnector, (crsf_header_t *)CRSFinBuffer);

@@ -17,5 +17,4 @@ private:
     static constexpr uint32_t UART_INPUT_BUF_LEN = 1024;
     FIFO<UART_INPUT_BUF_LEN> uartInputBuffer;
     uint8_t mavlinkSSBuffer[CRSF_MAX_PACKET_LEN]{}; // Buffer for current stubborn sender packet (mavlink only)
-
 };
