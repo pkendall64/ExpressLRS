@@ -311,9 +311,6 @@ extern void ResetPower();
 extern uint8_t adjustPacketRateForBaud(uint8_t rate);
 extern uint8_t adjustSwitchModeForAirRate(OtaSwitchMode_e eSwitchMode, uint8_t packetSize);
 extern bool RxWiFiReadyToSend;
-extern bool BackpackTelemReadyToSend;
-extern bool TxBackpackWiFiReadyToSend;
-extern bool VRxBackpackWiFiReadyToSend;
 extern void setWifiUpdateMode();
 
 void TXModuleEndpoint::supressCriticalErrors()
@@ -539,11 +536,11 @@ void TXModuleEndpoint::handleSimpleSendCmd(propertiesCommon *item, uint8_t arg)
     }
     else if ((void *)item == (void *)&luaTxBackpackUpdate && OPT_USE_TX_BACKPACK)
     {
-      TxBackpackWiFiReadyToSend = true;
+      sendBackpackCommand(ENABLE_TXBP_WIFI);
     }
     else if ((void *)item == (void *)&luaVRxBackpackUpdate && OPT_USE_TX_BACKPACK)
     {
-      VRxBackpackWiFiReadyToSend = true;
+      sendBackpackCommand(ENABLE_VRX_WIFI);
     }
     sendCommandResponse((commandParameter *)item, lcsExecuting, msg);
   } /* if doExecute */
@@ -955,7 +952,7 @@ void TXModuleEndpoint::registerParameters()
       registerParameter(
             &luaBackpackTelemetry, [](propertiesCommon *item, uint8_t arg) {
                 config.SetBackpackTlmMode(arg);
-                BackpackTelemReadyToSend = true;
+                sendBackpackCommand(SEND_TELEMETRY_CONFIG);
             }, luaBackpackFolder.common.id);
 
       registerParameter(&luaBackpackVersion, nullptr, luaBackpackFolder.common.id);

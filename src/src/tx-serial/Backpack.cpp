@@ -5,24 +5,19 @@
 #include "CRSFHandset.h"
 #include "CRSFRouter.h"
 #include "config.h"
+#include "devVTX.h"
 #include "logging.h"
 #include "msp.h"
 #include "msptypes.h"
+#include "rxtx_intf.h"
 
-// How often to check for backpack commands
 // value in ptrChannelData that means "don't replace value in ChannelData"
-#define HT_DO_NOT_UPDATE    0xffff
+static constexpr uint16_t HT_DO_NOT_UPDATE =    0xffffU;
 // EdgeTX doesn't support not updating a value, so 0 might be a safer value?
 // it always takes (11-bits) - CRSF_CHANNEL_VALUE_MID * 5/8
-#define HT_EDGETX_NO_VALUE  0
+static constexpr uint32_t HT_EDGETX_NO_VALUE =  0U;
 // Stop overriding channels with PTR data if older than this
-#define HT_STALE_TIMEOUT_MS 1000
-
-bool TxBackpackWiFiReadyToSend = false;
-bool VRxBackpackWiFiReadyToSend = false;
-bool BackpackTelemReadyToSend = false;
-
-void VtxTriggerSend();
+static constexpr uint32_t HT_STALE_TIMEOUT_MS = 1000U;
 
 #if defined(PLATFORM_ESP32)
 
@@ -34,6 +29,9 @@ uint16_t ptrChannelData[CRSF_NUM_CHANNELS];
 bool headTrackingEnabled = false;
 uint32_t lastPTRValidTimeMs;
 char backpackVersion[32] = "";
+bool TxBackpackWiFiReadyToSend = false;
+bool VRxBackpackWiFiReadyToSend = false;
+bool BackpackTelemReadyToSend = false;
 
 void BackpackWiFiToMSPOut(const uint16_t command)
 {
@@ -286,13 +284,46 @@ const char *getBackpackVersion()
     return backpackVersion;
 }
 
-Backpack::Backpack()
+void sendBackpackCommand(backpackCommand_e command)
+{
+    switch (command)
+    {
+    case ENABLE_TXBP_WIFI:
+        TxBackpackWiFiReadyToSend = true;
+        break;
+    case ENABLE_VRX_WIFI:
+        VRxBackpackWiFiReadyToSend = true;
+        break;
+    case SEND_TELEMETRY_CONFIG:
+        BackpackTelemReadyToSend = true;
+        break;
+    default:
+        break;
+    }
+}
+
+bool getBackpackCommandState(backpackCommand_e command)
+{
+    switch (command)
+    {
+    case ENABLE_TXBP_WIFI:
+        return TxBackpackWiFiReadyToSend;
+    case ENABLE_VRX_WIFI:
+        return VRxBackpackWiFiReadyToSend;
+    case SEND_TELEMETRY_CONFIG:
+        return BackpackTelemReadyToSend;
+    default:
+        return false;
+    }
+}
+
+void resetBackpackChannelData()
 {
     // Set all channels of PTR data to "do not override" (0xffff)
     memset(ptrChannelData, 0xff, sizeof(ptrChannelData));
 }
 
-void Backpack::ParseMSPData(uint8_t *buf, uint8_t size)
+void ParseMSPData(uint8_t *buf, uint8_t size)
 {
     for (uint8_t i = 0; i < size; ++i)
     {
@@ -304,7 +335,7 @@ void Backpack::ParseMSPData(uint8_t *buf, uint8_t size)
     }
 }
 
-void Backpack::ProcessPendingCommands()
+void ProcessPendingCommands()
 {
     static uint8_t versionRequestTries = 0;
     static uint32_t lastVersionTryTime = 0;
@@ -320,7 +351,6 @@ void Backpack::ProcessPendingCommands()
         MSP::sendPacket(&out, BackpackOrLogStrm);
         DBGLN("Sending get backpack version command");
     }
-
 
     if (connectionState < MODE_STATES && !config.GetBackpackDisable())
     {
@@ -346,7 +376,7 @@ void Backpack::ProcessPendingCommands()
     }
 }
 
-void Backpack::ProcessEvents(bool disabled)
+void ProcessEvents(bool disabled)
 {
     if (InBindingMode)
     {

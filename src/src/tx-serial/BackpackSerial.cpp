@@ -21,8 +21,6 @@ namespace
 #define GPIO_PIN_BOOT0 0
 #define BACKPACK_PERIOD_MS  20
 
-Backpack *backpack = nullptr;
-
 [[noreturn]] void startPassthrough(const bool useUSBSerial)
 {
     // stop everything
@@ -50,13 +48,13 @@ Backpack *backpack = nullptr;
     }
     disableLoopWDT();
 
-    const auto backpack = (HardwareSerial *)BackpackOrLogStrm;
+    const auto backpackUart = (HardwareSerial *)BackpackOrLogStrm;
     if (baud != BACKPACK_LOGGING_BAUD)
     {
-        backpack->begin(PASSTHROUGH_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
+        backpackUart->begin(PASSTHROUGH_BAUD, SERIAL_8N1, GPIO_PIN_DEBUG_RX, GPIO_PIN_DEBUG_TX);
     }
-    backpack->setRxBufferSize(1024);
-    backpack->setTxBufferSize(16384);
+    backpackUart->setRxBufferSize(1024);
+    backpackUart->setTxBufferSize(16384);
 
     // reset ESP8285 into bootloader mode
     digitalWrite(GPIO_PIN_BACKPACK_BOOT, HIGH);
@@ -67,12 +65,12 @@ Backpack *backpack = nullptr;
     delay(50);
 
     uplink->flush();
-    backpack->flush();
+    backpackUart->flush();
 
     uint8_t buf[64];
-    while (backpack->available())
+    while (backpackUart->available())
     {
-        backpack->readBytes(buf, sizeof(buf));
+        backpackUart->readBytes(buf, sizeof(buf));
     }
 
     // go hard!
@@ -80,10 +78,10 @@ Backpack *backpack = nullptr;
     {
         int available_bytes = min(uplink->available(), static_cast<int>(sizeof(buf)));
         auto bytes_read = uplink->readBytes(buf, available_bytes);
-        backpack->write(buf, bytes_read);
+        backpackUart->write(buf, bytes_read);
 
-        available_bytes = min(backpack->available(), static_cast<int>(sizeof(buf)));
-        bytes_read = backpack->readBytes(buf, available_bytes);
+        available_bytes = min(backpackUart->available(), static_cast<int>(sizeof(buf)));
+        bytes_read = backpackUart->readBytes(buf, available_bytes);
         uplink->write(buf, bytes_read);
     }
 }
@@ -145,7 +143,6 @@ bool initialize()
 
         if (OPT_USE_TX_BACKPACK && !firmwareOptions.is_airport)
         {
-            backpack = new Backpack();
             return true;
         }
         return false;
@@ -157,6 +154,7 @@ bool initialize()
 
 int start()
 {
+    resetBackpackChannelData();
     return config.GetBackpackDisable() ? DURATION_NEVER : DURATION_IMMEDIATELY;
 }
 
@@ -169,7 +167,7 @@ int event()
         digitalWrite(GPIO_PIN_BACKPACK_EN, disabled ? LOW : HIGH);
     }
 
-    backpack->ProcessEvents(disabled);
+    ProcessEvents(disabled);
 
     return disabled ? DURATION_NEVER : DURATION_IMMEDIATELY;
 }
@@ -203,7 +201,7 @@ int timeout()
             }
 
             // Try to parse any MSP packets from the Backpack
-            backpack->ParseMSPData(buf, size);
+            ParseMSPData(buf, size);
         }
     }
 
@@ -212,7 +210,7 @@ int timeout()
     if (now - lastCall > BACKPACK_PERIOD_MS)
     {
         lastCall = now;
-        backpack->ProcessPendingCommands();
+        ProcessPendingCommands();
     }
     return DURATION_IMMEDIATELY;
 }

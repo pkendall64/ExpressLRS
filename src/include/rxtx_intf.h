@@ -17,6 +17,7 @@ void scheduleRebootTime(unsigned long inMs);
  ***/
 #if defined(TARGET_TX)
 void SetSyncSpam();
+void UARTconnected();
 
 /**
  * @brief send MSP packet to the backpack.
@@ -25,6 +26,14 @@ void SetSyncSpam();
  */
 void sendMSPToBackpack(const void *packet);
 const char *getBackpackVersion();
+typedef enum
+{
+    ENABLE_TXBP_WIFI,
+    ENABLE_VRX_WIFI,
+    SEND_TELEMETRY_CONFIG
+} backpackCommand_e;
+void sendBackpackCommand(backpackCommand_e command);
+bool getBackpackCommandState(backpackCommand_e command);
 #endif
 
 /***

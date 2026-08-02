@@ -18,8 +18,6 @@ extern Thermal thermal;
 extern FiniteStateMachine state_machine;
 
 extern bool RxWiFiReadyToSend;
-extern bool TxBackpackWiFiReadyToSend;
-extern bool VRxBackpackWiFiReadyToSend;
 extern void VtxTriggerSend();
 extern void ResetPower();
 extern void setWifiUpdateMode();
@@ -351,10 +349,10 @@ static void executeWiFi(bool init)
                 RxWiFiReadyToSend = true;
                 break;
             case STATE_WIFI_BACKPACK:
-                TxBackpackWiFiReadyToSend = true;
+                sendBackpackCommand(ENABLE_TXBP_WIFI);
                 break;
             case STATE_WIFI_VRX:
-                VRxBackpackWiFiReadyToSend = true;
+                sendBackpackCommand(ENABLE_VRX_WIFI);
                 break;
         }
         if (state_machine.getParentState() == STATE_WIFI_TX)
@@ -380,10 +378,10 @@ static void executeWiFi(bool init)
             running = RxWiFiReadyToSend;
             break;
         case STATE_WIFI_BACKPACK:
-            running = TxBackpackWiFiReadyToSend;
+            running = getBackpackCommandState(ENABLE_TXBP_WIFI);
             break;
         case STATE_WIFI_VRX:
-            running = VRxBackpackWiFiReadyToSend;
+            running = getBackpackCommandState(ENABLE_VRX_WIFI);
             break;
         default:
             running = false;

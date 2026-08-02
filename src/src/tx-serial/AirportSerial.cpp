@@ -5,8 +5,7 @@
 #include "config.h"
 #include "options.h"
 #include "telemetry_protocol.h"
-
-extern void UARTconnected();
+#include "rxtx_intf.h"
 
 namespace
 {

@@ -8,8 +8,8 @@
 #include "common.h"
 #include "config.h"
 #include "options.h"
+#include "rxtx_intf.h"
 
-extern void UARTconnected();
 extern MAVLinkUplink mavLinkUplink;
 
 namespace
