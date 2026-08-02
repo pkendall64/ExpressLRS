@@ -1148,6 +1148,31 @@ static void checkSendLinkStatsToHandset(uint32_t now)
   }
 }
 
+static void routePacketToDownlinkDevices()
+{
+#if defined(PLATFORM_ESP32)
+  if (CRSFinBuffer[0] == CRSF_ADDRESS_USB)
+  {
+    if (config.GetLinkMode() == TX_MAVLINK_MODE)
+    {
+      const uint8_t count = CRSFinBuffer[CRSF_TELEMETRY_LENGTH_INDEX];
+      // Convert to CRSF telemetry where we can and send to handset
+      convert_mavlink_to_crsf_telem(CRSF_ADDRESS_RADIO_TRANSMITTER, CRSFinBuffer, count);
+      // forward raw mavlink data to USB
+      forwardMAVLinkPayloadToUSB(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
+      // And to the backpack if we have one
+      sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
+    }
+  }
+  else
+#endif
+  {
+    // Send all other tlm to CRSF router
+    crsfRouter.processMessage(&otaConnector, (crsf_header_t *)CRSFinBuffer);
+    sendCRSFTelemetryToBackpack(CRSFinBuffer);
+  }
+}
+
 void setup()
 {
   if (setupHardwareFromOptions())
@@ -1266,28 +1291,8 @@ void loop()
 
   if (DataDlReceiver.HasFinishedData())
   {
-#if defined(PLATFORM_ESP32)
-      if (CRSFinBuffer[0] == CRSF_ADDRESS_USB)
-      {
-        if (config.GetLinkMode() == TX_MAVLINK_MODE)
-        {
-          const uint8_t count = CRSFinBuffer[CRSF_TELEMETRY_LENGTH_INDEX];
-          // Convert to CRSF telemetry where we can and send to handset
-          convert_mavlink_to_crsf_telem(CRSF_ADDRESS_RADIO_TRANSMITTER, CRSFinBuffer, count);
-          // forward raw mavlink data to USB
-          forwardMAVLinkPayloadToUSB(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
-          // And to the backpack if we have one
-          sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
-        }
-      }
-      else
-#endif
-      {
-        // Send all other tlm to CRSF router
-        crsfRouter.processMessage(&otaConnector, (crsf_header_t *)CRSFinBuffer);
-        sendCRSFTelemetryToBackpack(CRSFinBuffer);
-      }
-      DataDlReceiver.Unlock();
+    routePacketToDownlinkDevices();
+    DataDlReceiver.Unlock();
   }
 
   // only send Uplink data when binding is not active
