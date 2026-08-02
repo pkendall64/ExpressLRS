@@ -17,20 +17,18 @@
 #include "devWIFI.h"
 #include "tx-serial/MAVLinkUplink.h"
 #include "tx-serial/AirportSerial.h"
+#if defined(PLATFORM_ESP32)
 #include "tx-serial/BackpackSerial.h"
 #include "tx-serial/TxUSBSerial.h"
-#if defined(PLATFORM_ESP32)
 #include "devScreen.h"
 #include "devBLE.h"
 #include "devGsensor.h"
 #include "devThermal.h"
 #include "devPDET.h"
-#include "devBackpack.h"
 #else
 // Fake functions for 8285
 void checkBackpackUpdate() {}
 void sendCRSFTelemetryToBackpack(uint8_t *) {}
-void sendMAVLinkTelemetryToBackpack(uint8_t *) {}
 #endif
 
 #include "CRSFParser.h"
@@ -100,7 +98,6 @@ device_affinity_t ui_devices[] = {
   {&Airport_device, 1},
   {&TxUSBSerial_device, 1},
   {&BackpackSerial_device, 1},
-  {&Backpack_device, 0},
   {&BLE_device, 0},
 #if !defined(PLATFORM_ESP32_C3)
   {&Screen_device, 0},
@@ -1161,7 +1158,7 @@ static void routePacketToDownlinkDevices()
       // forward raw mavlink data to USB
       forwardMAVLinkPayloadToUSB(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
       // And to the backpack if we have one
-      sendMAVLinkTelemetryToBackpack(CRSFinBuffer);
+      sendMAVLinkTelemetryToBackpack(CRSFinBuffer + CRSF_FRAME_NOT_COUNTED_BYTES, count);
     }
   }
   else
@@ -1269,13 +1266,10 @@ void loop()
     UpdateConnectDisconnectStatus();
   }
 
-  // Update UI devices
   devicesUpdate(now);
-
-  // Not a device because it must be run on the loop core
-  checkBackpackUpdate();
   checkRebootTime(now);
 
+  checkBackpackUpdate();
   executeDeferredFunction(micros());
 
   if (connectionState > MODE_STATES)

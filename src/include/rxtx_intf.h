@@ -17,6 +17,14 @@ void scheduleRebootTime(unsigned long inMs);
  ***/
 #if defined(TARGET_TX)
 void SetSyncSpam();
+
+/**
+ * @brief send MSP packet to the backpack.
+ *
+ * @param packet the MSP packet to send.
+ */
+void sendMSPToBackpack(const void *packet);
+const char *getBackpackVersion();
 #endif
 
 /***

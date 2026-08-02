@@ -8,7 +8,6 @@
 #include "POWERMGNT.h"
 #include "SX12xxDriverCommon.h"
 #include "config.h"
-#include "helpers.h"
 #include "deferred.h"
 #include "msptypes.h"
 
@@ -39,8 +38,6 @@
 #endif
 
 #define HAS_RADIO (GPIO_PIN_SCK != UNDEF_PIN)
-
-extern char backpackVersion[];
 
 #if defined(Regulatory_Domain_EU_CE_2400)
 #if defined(RADIO_LR1121)
@@ -304,7 +301,7 @@ static selectionParameter luaBackpackTelemetry = {
 
 static stringParameter luaBackpackVersion = {
     {"Version", CRSF_INFO},
-    backpackVersion};
+    STR_EMPTYSPACE};
 
 //---------------------------- BACKPACK ------------------
 
@@ -1032,7 +1029,7 @@ void TXModuleEndpoint::updateParameters()
     setTextSelectionValue(&luaHeadTrackingEnableChannel, config.GetBackpackDisable() ? 0 : config.GetPTREnableChannel());
     setTextSelectionValue(&luaHeadTrackingStartChannel, config.GetBackpackDisable() ? 0 : config.GetPTRStartChannel());
     setTextSelectionValue(&luaBackpackTelemetry, config.GetBackpackDisable() ? 0 : config.GetBackpackTlmMode());
-    setStringValue(&luaBackpackVersion, backpackVersion);
+    setStringValue(&luaBackpackVersion, getBackpackVersion());
   }
   updateFolderNamesAndVisibility();
 }

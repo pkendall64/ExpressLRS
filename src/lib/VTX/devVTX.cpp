@@ -7,9 +7,10 @@
 #include "logging.h"
 #include "msp.h"
 
-#include "devBackpack.h"
 #include "devButton.h"
 #include "msptypes.h"
+
+#include "rxtx_intf.h"
 
 #define PITMODE_NOT_INITIALISED    -1
 #define PITMODE_OFF                 0
