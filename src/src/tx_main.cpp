@@ -47,16 +47,16 @@ TxConfig config;
 
 extern bool webserverPreventAutoStart;
 //// MSP Data Handling ///////
-bool NextPacketIsDataUl = false;  // if true the next packet will contain the uplink data (instead of channels)
+static bool NextPacketIsDataUl = false;  // if true the next packet will contain the uplink data (instead of channels)
 
 ////////////SYNC PACKET/////////
 /// sync packet spamming on mode change vars ///
 #define syncSpamAmount 3
 #define syncSpamAmountAfterRateChange 10
-volatile uint8_t syncSpamCounter = 0;
-volatile uint8_t syncSpamCounterAfterRateChange = 0;
-uint32_t rfModeLastChangedMS = 0;
-uint32_t SyncPacketLastSent = 0;
+static volatile uint8_t syncSpamCounter = 0;
+static volatile uint8_t syncSpamCounterAfterRateChange = 0;
+static uint32_t rfModeLastChangedMS = 0;
+static uint32_t SyncPacketLastSent = 0;
 static enum { stbIdle, stbRequested, stbBoosting } syncTelemBoostState = stbIdle;
 ////////////////////////////////////////////////
 
@@ -65,27 +65,27 @@ static uint32_t LinkStatsLastReported_Ms = 0;
 static uint32_t RxDisconnected_Ms = 0;
 static bool commitInProgress = false;
 
-LQCALC<100> LqTQly;
+static LQCALC<100> LqTQly;
 
 volatile bool busyTransmitting;
 static volatile bool ModelUpdatePending;
 
-uint8_t MSPDataPackage[5];
+static uint8_t MSPDataPackage[5];
 #define BindingSpamAmount 25
 static uint8_t BindingSendCount;
 bool RxWiFiReadyToSend = false;
 
 static TxTlmRcvPhase_e TelemetryRcvPhase = ttrpTransmitting;
-StubbornReceiver DataDlReceiver;
+static StubbornReceiver DataDlReceiver;
 StubbornSender DataUlSender;
-uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
+static uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
 
 CRSFRouter crsfRouter;
 TXModuleEndpoint crsfTransmitter;
-TXOTAConnector otaConnector;
+static TXOTAConnector otaConnector;
 MAVLinkUplink mavLinkUplink;
 
-device_affinity_t ui_devices[] = {
+static device_affinity_t ui_devices[] = {
   {&Handset_device, 1},
   {&LED_device, 0},
   {&RGB_device, 0},

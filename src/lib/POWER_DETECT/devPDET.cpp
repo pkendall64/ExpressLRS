@@ -15,7 +15,6 @@ typedef uint32_t pdet_storage_t;
 #define PDET_HYSTERESIS_DBMSCALED PDET_DBM_SCALE(0.7)
 #define PDET_SAMPLE_PERIODMS      1000
 
-extern bool busyTransmitting;
 static pdet_storage_t PdetMvScaled;
 static uint8_t lastTargetPowerdBm;
 
