@@ -171,6 +171,7 @@ bool ICACHE_RAM_ATTR LR1121Hal::WaitOnBusy(SX12XX_Radio_Number_t radioNumber)
                                            // commands may have extremely long busy times during startup, exceeding 1ms
     uint32_t startTime = 0;
 
+    SPIEx.awaitTransferComplete();
     while (true)
     {
         if (radioNumber == SX12XX_Radio_1)

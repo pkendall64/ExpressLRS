@@ -1,6 +1,10 @@
 #include "targets.h"
 #include <SPI.h>
 
+#if defined(PLATFORM_ESP32)
+#include <soc/spi_struct.h>
+#endif
+
 /**
  * @brief An extension to the platform SPI class that provides some performance enhancements.
  *
@@ -47,6 +51,17 @@ public:
      */
     void inline ICACHE_RAM_ATTR write(uint8_t cs_mask, uint8_t * data, uint32_t size) { _transfer(cs_mask, data, size, false); }
 
+    void ICACHE_RAM_ATTR awaitTransferComplete()
+    {
+#if defined(PLATFORM_ESP32)
+        spi_dev_t *spi = *(reinterpret_cast<spi_dev_t**>(bus()));
+        // wait for SPI to become non-busy
+        while(spi->cmd.usr) {}
+#elif defined(ARDUINO_ARCH_ESP8266)
+        // wait for SPI to become non-busy
+        while(SPI1CMD & SPIBUSY) {}
+#endif
+    }
 private:
     void _transfer(uint8_t cs_mask, uint8_t *data, uint32_t size, bool reading);
 };
