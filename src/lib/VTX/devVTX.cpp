@@ -26,7 +26,6 @@
 
 static int pitmodeAuxState = PITMODE_NOT_INITIALISED;
 static bool sendEepromWrite = true;
-extern void clearOTAQueue();
 
 static enum VtxSendState_e
 {
@@ -179,7 +178,6 @@ static int timeout()
     }
     else
     {
-        clearOTAQueue();
         VtxSendState = VTXSS_UNKNOWN;
     }
 

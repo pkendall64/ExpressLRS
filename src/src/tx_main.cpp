@@ -904,6 +904,7 @@ static void UpdateConnectDisconnectStatus()
     {
       DBGLN("got downlink conn");
       RxDisconnected_Ms = 0;
+      otaConnector.resetOutputQueue(); // clear any stale messages
       setConnectionState(connected);
     }
   }
@@ -915,11 +916,6 @@ static void UpdateConnectDisconnectStatus()
     RxDisconnected_Ms = now;
     connectionHasModelMatch = true;
   }
-}
-
-void clearOTAQueue()
-{
-    otaConnector.resetOutputQueue();
 }
 
 void SetSyncSpam()
