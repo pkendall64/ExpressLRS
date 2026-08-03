@@ -1,11 +1,12 @@
 #include "AirportSerial.h"
 
+#include "BackpackSerial.h"
 #include "FIFO.h"
 #include "common.h"
 #include "config.h"
 #include "options.h"
-#include "telemetry_protocol.h"
 #include "rxtx_intf.h"
+#include "telemetry_protocol.h"
 
 namespace
 {
@@ -57,6 +58,7 @@ int timeout()
     {
         uint8_t buf[size];
         size = TxUSB->readBytes(buf, size);
+        checkForUpdateSync(buf, size);
         apInputBuffer->lock();
         apInputBuffer->pushBytes(buf, size);
         apInputBuffer->unlock();

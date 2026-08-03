@@ -224,28 +224,6 @@ void checkBackpackUpdate()
         {
             startPassthrough(false);
         }
-#if defined(PLATFORM_ESP32_S3)
-        // Start passthrough mode if an Espressif resync packet is detected on the USB port
-        static const uint8_t resync[] = {
-            0xc0,0x00,0x08,0x24,0x00,0x00,0x00,0x00,0x00,0x07,0x07,0x12,0x20,0x55,0x55,0x55,0x55,
-            0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55, 0x55,0x55,
-            0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0xc0
-        };
-        static int resync_pos = 0;
-        while(USBSerial.available())
-        {
-            const int byte = USBSerial.read();
-            if (byte == resync[resync_pos])
-            {
-                resync_pos++;
-                if (resync_pos == sizeof(resync)) startPassthrough(true);
-            }
-            else
-            {
-                resync_pos = 0;
-            }
-        }
-#endif
     }
 }
 
@@ -290,6 +268,31 @@ void sendCRSFTelemetryToBackpack(const uint8_t *data)
 void sendMSPToBackpack(const void *packet)
 {
     MSP::sendPacket(static_cast<const mspPacket_t *>(packet), BackpackOrLogStrm); // send to tx-backpack as MSP
+}
+
+void checkForUpdateSync(const uint8_t *data, const uint16_t count)
+{
+#if defined(PLATFORM_ESP32_S3)
+    // Start passthrough mode if an Espressif resync packet is detected on the USB port
+    static const uint8_t resync[] = {
+        0xc0,0x00,0x08,0x24,0x00,0x00,0x00,0x00,0x00,0x07,0x07,0x12,0x20,0x55,0x55,0x55,0x55,
+        0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55, 0x55,0x55,
+        0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0xc0
+    };
+    static int resync_pos = 0;
+    for (int i=0 ; i<count ; i++)
+    {
+        if (data[i] == resync[resync_pos])
+        {
+            resync_pos++;
+            if (resync_pos == sizeof(resync)) startPassthrough(true);
+        }
+        else
+        {
+            resync_pos = 0;
+        }
+    }
+#endif
 }
 
 device_t BackpackSerial_device = {

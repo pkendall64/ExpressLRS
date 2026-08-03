@@ -28,3 +28,11 @@ extern void sendCRSFTelemetryToBackpack(const uint8_t *data);
  * are configured for passthrough flashing.
  */
 extern void checkBackpackUpdate();
+
+/**
+ * @brief perform check to see if a backpack firmware update has been requested by detecting ESP sync packets on the serial port.
+ *
+ * If a backpack update has been requested then all devices are stopped and the UARTs
+ * are configured for passthrough flashing.
+ */
+extern void checkForUpdateSync(const uint8_t *data, uint16_t count);

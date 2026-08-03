@@ -1,5 +1,6 @@
 #include "TxUSBSerial.h"
 
+#include "BackpackSerial.h"
 #include "CRSFParser.h"
 #include "CRSFRouter.h"
 #include "MAVLink.h"
@@ -56,6 +57,7 @@ int timeout()
     {
         uint8_t buf[size];
         TxUSB->readBytes(buf, size);
+        checkForUpdateSync(buf, size);
 
         // If the data is MAVLink, then auto change LinkMode and start the radio link
         // since the user might be operating the module as a standalone unit without a handset.
