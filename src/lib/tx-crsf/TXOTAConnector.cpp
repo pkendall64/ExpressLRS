@@ -1,18 +1,39 @@
 #include "TXOTAConnector.h"
 
 #include "common.h"
+#include "config.h"
+#include "options.h"
 #include "stubborn_sender.h"
+#include "FIFO.h"
+#include "telemetry_protocol.h"
 
 extern StubbornSender DataUlSender;
 
-TXOTAConnector::TXOTAConnector()
+namespace
 {
-    // add the devices that we know are reachable via this connector
-    addDevice(CRSF_ADDRESS_CRSF_RECEIVER);
-    addDevice(CRSF_ADDRESS_FLIGHT_CONTROLLER);
+constexpr auto MSP_SERIAL_OUT_FIFO_SIZE = 256U;
+FIFO<MSP_SERIAL_OUT_FIFO_SIZE> outputQueue;
+uint8_t currentTransmissionBuffer[ELRS_DATA_UL_BUFFER] = {};
+uint8_t currentTransmissionLength = 0;
+
+void unlockMessage()
+{
+    // the current msp message is sent so restore the next buffered write
+    if (outputQueue.size() > 0)
+    {
+        outputQueue.lock();
+        currentTransmissionLength = outputQueue.pop();
+        outputQueue.popBytes(currentTransmissionBuffer, currentTransmissionLength);
+        outputQueue.unlock();
+    }
+    else
+    {
+        // no msp message is ready to send currently
+        currentTransmissionLength = 0;
+    }
 }
 
-void TXOTAConnector::pumpSender()
+void pumpSender()
 {
     static bool transferActive = false;
     // sending is done and we need to update our flag
@@ -34,27 +55,47 @@ void TXOTAConnector::pumpSender()
     }
 }
 
-void TXOTAConnector::resetOutputQueue()
+void resetOutputQueue()
 {
     outputQueue.flush();
     currentTransmissionLength = 0;
 }
 
-void TXOTAConnector::unlockMessage()
+bool initialize()
 {
-    // the current msp message is sent so restore the next buffered write
-    if (outputQueue.size() > 0)
+    return !firmwareOptions.is_airport;
+}
+
+int start()
+{
+    if (!InBindingMode && config.GetLinkMode() != TX_MAVLINK_MODE) return DURATION_IMMEDIATELY;
+    return DURATION_NEVER;
+}
+
+int event()
+{
+    static connectionState_e lastConnectionState = noCrossfire;
+    if (lastConnectionState != connected && connectionState == connected)
     {
-        outputQueue.lock();
-        currentTransmissionLength = outputQueue.pop();
-        outputQueue.popBytes(currentTransmissionBuffer, currentTransmissionLength);
-        outputQueue.unlock();
+        resetOutputQueue();
     }
-    else
-    {
-        // no msp message is ready to send currently
-        currentTransmissionLength = 0;
-    }
+    lastConnectionState = connectionState;
+    return start();
+}
+
+int timeout()
+{
+    pumpSender();
+    return DURATION_IMMEDIATELY;
+}
+}
+
+
+TXOTAConnector::TXOTAConnector()
+{
+    // add the devices that we know are reachable via this connector
+    addDevice(CRSF_ADDRESS_CRSF_RECEIVER);
+    addDevice(CRSF_ADDRESS_FLIGHT_CONTROLLER);
 }
 
 void TXOTAConnector::forwardMessage(const crsf_header_t *message)
@@ -90,3 +131,11 @@ void TXOTAConnector::forwardMessage(const crsf_header_t *message)
         }
     }
 }
+
+device_t CRSFUplink_device {
+    .initialize = initialize,
+    .start = start,
+    .event = event,
+    .timeout = timeout,
+    .subscribe = EVENT_CONNECTION_CHANGED | EVENT_CONFIG_MAIN_CHANGED | EVENT_ENTER_BIND_MODE | EVENT_EXIT_BIND_MODE,
+};

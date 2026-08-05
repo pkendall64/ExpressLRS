@@ -93,6 +93,7 @@ static device_affinity_t ui_devices[] = {
   {&ADC_device, 1},
   {&WIFI_device, 0},
   {&Button_device, 0},
+  {&CRSFUplink_device, 1},
 #if defined(PLATFORM_ESP32)
   {&MAVLinkUplink_device, 1},
   {&Airport_device, 1},
@@ -904,7 +905,6 @@ static void UpdateConnectDisconnectStatus()
     {
       DBGLN("got downlink conn");
       RxDisconnected_Ms = 0;
-      otaConnector.resetOutputQueue(); // clear any stale messages
       setConnectionState(connected);
     }
   }
@@ -1285,7 +1285,6 @@ void loop()
     DataDlReceiver.Unlock();
   }
 
-  // only send Uplink data when binding is not active
   if (InBindingMode)
   {
 #if defined(RADIO_LR1121)
@@ -1300,9 +1299,5 @@ void loop()
     if (BindingSendCount > BindingSpamAmount) {
       ExitBindingMode();
     }
-  }
-  else if (!DataUlSender.IsActive())
-  {
-    otaConnector.pumpSender();
   }
 }

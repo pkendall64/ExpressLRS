@@ -1,5 +1,6 @@
 #include "MAVLinkUplink.h"
 
+#include "device.h"
 #include "common.h"
 #include "config.h"
 #include "msptypes.h"
@@ -20,16 +21,18 @@ bool initialize()
 
 int start()
 {
-    if (config.GetLinkMode() == TX_MAVLINK_MODE) return DURATION_IMMEDIATELY;
+    if (!InBindingMode && config.GetLinkMode() == TX_MAVLINK_MODE) return DURATION_IMMEDIATELY;
     return DURATION_NEVER;
 }
 
 int event()
 {
-    if (connectionState == connected)
+    static connectionState_e lastConnectionState = noCrossfire;
+    if (lastConnectionState != connected && connectionState == connected)
     {
         uartInputBuffer.flush();
     }
+    lastConnectionState = connectionState;
     return start();
 }
 
@@ -76,5 +79,5 @@ device_t MAVLinkUplink_device = {
     .start = start,
     .event = event,
     .timeout = timeout,
-    .subscribe = EVENT_CONNECTION_CHANGED | EVENT_CONFIG_MAIN_CHANGED,
+    .subscribe = EVENT_CONNECTION_CHANGED | EVENT_CONFIG_MAIN_CHANGED | EVENT_ENTER_BIND_MODE | EVENT_EXIT_BIND_MODE,
 };
