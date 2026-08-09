@@ -7,6 +7,7 @@
 #include "config.h"
 #include "crsf_protocol.h"
 #include "device.h"
+#include "devWIFI.h"
 
 #define NO_SERIALIO_INTERVAL 1000
 
@@ -77,7 +78,9 @@ static int event(devserial_ctx_t *ctx)
 
     ctx->lastConnectionState = connectionState;
 
-    return DURATION_IGNORE;
+    return wifiConfigMode && *(ctx->io) != nullptr && (*(ctx->io))->sendImmediateRC()
+        ? DURATION_IMMEDIATELY
+        : DURATION_IGNORE;
 }
 
 static int event0()
@@ -200,8 +203,8 @@ static int timeout(devserial_ctx_t *ctx)
         return NO_SERIALIO_INTERVAL;
     }
 
-    // stop callbacks when serial driver wants immediate sends or when doing serial update
-    if ((*(ctx->io))->sendImmediateRC() || connectionState == serialUpdate)
+    // stop callbacks when serial driver wants immediate sends and not in wifi mode, or when doing serial update
+    if (((*(ctx->io))->sendImmediateRC() && !wifiConfigMode) || connectionState == serialUpdate)
     {
         return DURATION_NEVER;
     }
@@ -242,6 +245,12 @@ static int timeout(devserial_ctx_t *ctx)
 
 void sendImmediateRC()
 {
+    // HardwareSerial takes a FreeRTOS lock. WiFi config keeps the UARTs live,
+    // but moves CRSF output out of the radio timer ISR.
+    if (wifiConfigMode)
+    {
+        return;
+    }
     if (*(serial0.io) != nullptr && (*(serial0.io))->sendImmediateRC() && connectionState != serialUpdate)
     {
         const bool missed = serial0.frameMissed;

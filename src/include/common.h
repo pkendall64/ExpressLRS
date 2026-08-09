@@ -182,6 +182,7 @@ typedef enum : uint8_t {
     ACTION_BIND,
     ACTION_BLE_JOYSTICK,
     ACTION_RESET_REBOOT,
+    ACTION_START_WIFI_CONFIG,
 
     ACTION_LAST
 } action_e;

@@ -23,6 +23,7 @@ extern void reconfigureSerial();
 extern void reconfigureSerial1();
 #endif
 extern bool BindingModeRequest;
+extern void setWifiConfigMode();
 
 #if 0
 extern void setWifiConfigMode();
@@ -1555,7 +1556,6 @@ void RXEndpoint::registerParameters()
         registerParameter(&luaTlmPower, &luaparamSetPower);
     }
 
-#if 0
     registerParameter(&luaWebConfig,
         [this](propertiesCommon *, const uint8_t arg) {
             if (arg == lcsClick)
@@ -1565,7 +1565,6 @@ void RXEndpoint::registerParameters()
             sendCommandResponse(&luaWebConfig, arg < 5 ? lcsExecuting : lcsIdle, arg < 5 ? "Starting WiFi..." : "");
         }
     );
-#endif 
 
     // Teamrace
     registerParameter(&luaTeamraceFolder);

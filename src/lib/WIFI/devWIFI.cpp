@@ -60,6 +60,7 @@ extern void setButtonColors(uint8_t b1, uint8_t b2);
 static char station_ssid[33];
 static char station_password[65];
 
+volatile bool wifiConfigMode = false;
 static bool wifiStarted = false;
 bool webserverPreventAutoStart = false;
 
@@ -95,6 +96,13 @@ static bool force_update = false;
 static uint32_t totalSize;
 
 static const char VERSION[] = {LATEST_VERSION, 0};
+
+// Starts wifi, leaves the radio and servos running
+void setWifiConfigMode()
+{
+  wifiConfigMode = true;
+  devicesTriggerEvent(EVENT_CONNECTION_CHANGED);
+}
 
 void setWifiUpdateMode()
 {
@@ -1027,6 +1035,9 @@ static bool initialize()
   registerButtonFunction(ACTION_START_WIFI, [](){
     setWifiUpdateMode();
   });
+  registerButtonFunction(ACTION_START_WIFI_CONFIG, [](){
+    setWifiConfigMode();
+  });
   return true;
 }
 
@@ -1036,7 +1047,7 @@ static void startWiFi(unsigned long now)
     return;
   }
 
-  if (connectionState < FAILURE_STATES) {
+  if (connectionState < FAILURE_STATES && !wifiConfigMode) {
     hwTimer::stop();
 #if defined(TARGET_RX) && defined(PLATFORM_ESP32)
     disableVTxSpi();
@@ -1368,21 +1379,12 @@ static int start()
 
 static int event()
 {
-  if (connectionState == wifiUpdate || connectionState > FAILURE_STATES)
+  if (connectionState == wifiUpdate || connectionState > FAILURE_STATES || wifiConfigMode)
   {
     if (!wifiStarted) {
       startWiFi(millis());
       return DURATION_IMMEDIATELY;
     }
-  }
-  else if (wifiStarted)
-  {
-    wifiStarted = false;
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    #if defined(PLATFORM_ESP8266)
-    WiFi.forceSleepBegin();
-    #endif
   }
   return DURATION_IGNORE;
 }
