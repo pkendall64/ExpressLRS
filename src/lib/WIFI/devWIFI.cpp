@@ -60,6 +60,7 @@ extern void setButtonColors(uint8_t b1, uint8_t b2);
 static char station_ssid[33];
 static char station_password[65];
 
+volatile bool wifiModeActive = false;
 static bool wifiStarted = false;
 bool webserverPreventAutoStart = false;
 
@@ -98,10 +99,13 @@ static const char VERSION[] = {LATEST_VERSION, 0};
 
 void setWifiUpdateMode()
 {
-  // No need to ExitBindingMode(), the radio will be stopped stopped when start the Wifi service.
-  // Need to change this before the mode change event so the LED is updated
   InBindingMode = false;
+#if defined(TARGET_RX)
+  wifiModeActive = true;
+  devicesTriggerEvent(EVENT_CONNECTION_CHANGED);
+#else
   setConnectionState(wifiUpdate);
+#endif
 }
 
 /** Is this an IP? */
@@ -857,6 +861,18 @@ static void WebUploadDataHandler(AsyncWebServerRequest *request, const String& f
     #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
       WifiJoystick::StopJoystickService();
     #endif
+#if defined(TARGET_RX)
+    if (connectionState < FAILURE_STATES && connectionState != wifiUpdate) {
+      hwTimer::stop();
+#if defined(PLATFORM_ESP32)
+      disableVTxSpi();
+#endif
+      POWERMGNT::setPower(MinPower);
+      setConnectionState(wifiUpdate);
+      DBGLN("Stopping Radio");
+      Radio.End();
+    }
+#endif
 
     size_t filesize = request->header("X-FileSize").toInt();
     DBGLN("Update: '%s' size %u", filename.c_str(), filesize);
@@ -1050,20 +1066,15 @@ static void startWiFi(unsigned long now)
     return;
   }
 
+#if defined(TARGET_TX)
   if (connectionState < FAILURE_STATES) {
     hwTimer::stop();
-#if defined(TARGET_RX) && defined(PLATFORM_ESP32)
-    disableVTxSpi();
-#endif
-
-    // Set transmit power to minimum
     POWERMGNT::setPower(MinPower);
-
     setWifiUpdateMode();
-
     DBGLN("Stopping Radio");
     Radio.End();
   }
+#endif
 
   DBGLN("Begin Webupdater");
 
@@ -1382,21 +1393,12 @@ static int start()
 
 static int event()
 {
-  if (connectionState == wifiUpdate || connectionState > FAILURE_STATES)
+  if (connectionState == wifiUpdate || connectionState > FAILURE_STATES || wifiModeActive)
   {
     if (!wifiStarted) {
       startWiFi(millis());
       return DURATION_IMMEDIATELY;
     }
-  }
-  else if (wifiStarted)
-  {
-    wifiStarted = false;
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
-    #if defined(PLATFORM_ESP8266)
-    WiFi.forceSleepBegin();
-    #endif
   }
   return DURATION_IGNORE;
 }
