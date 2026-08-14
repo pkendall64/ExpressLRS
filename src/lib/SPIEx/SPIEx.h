@@ -47,6 +47,7 @@ public:
      */
     void inline ICACHE_RAM_ATTR write(uint8_t cs_mask, uint8_t * data, uint32_t size) { _transfer(cs_mask, data, size, false); }
 
+    void wait();
 private:
     void _transfer(uint8_t cs_mask, uint8_t *data, uint32_t size, bool reading);
 };

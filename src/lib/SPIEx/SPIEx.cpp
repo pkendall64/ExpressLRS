@@ -4,6 +4,17 @@
 #include <soc/spi_struct.h>
 #endif
 
+void ICACHE_RAM_ATTR SPIExClass::wait()
+{
+#if defined(PLATFORM_ESP32)
+    spi_dev_t *spi = *(reinterpret_cast<spi_dev_t**>(bus()));
+    // wait for SPI to become non-busy
+    while(spi->cmd.usr) {}
+#else
+    while(SPI1CMD & SPIBUSY) {}
+#endif
+}
+
 void ICACHE_RAM_ATTR SPIExClass::_transfer(uint8_t cs_mask, uint8_t *data, uint32_t size, bool reading)
 {
 #if defined(PLATFORM_ESP32)
