@@ -35,12 +35,15 @@
 #include "options.h"
 #include "helpers.h"
 #include "devButton.h"
-#include "devAnalogVbat.h"
 #if defined(TARGET_RX)
+#include "devAnalogVbat.h"
 #include "VbatCalibration.h"
 #endif
 #if defined(TARGET_RX) && defined(PLATFORM_ESP32)
 #include "devVTXSPI.h"
+void addGyroHandlers(AsyncWebServer &server);
+void publishGyroRuntime(uint32_t now);
+void appendGyroConfig(JsonObject json);
 #endif
 
 #include "WebContent.h"
@@ -516,6 +519,9 @@ static void GetConfiguration(AsyncWebServerRequest *request)
 #if defined(TARGET_RX)
     settings["module-type"] = "RX";
     settings["voltage_source_count"] = getDefinedVoltageSourceCount();
+    #if defined(PLATFORM_ESP32)
+    appendGyroConfig(json);
+    #endif
 #endif
 #if defined(RADIO_SX128X)
     settings["radio-type"] = "SX128X";
@@ -652,6 +658,7 @@ static void JsonUidToConfig(JsonVariant &json)
     memcpy(UID, newUid, UID_LEN);
   }
 }
+
 static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &json)
 {
   uint8_t protocol = json["serial-protocol"] | 0;
@@ -694,6 +701,7 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
   request->send(200, "text/plain", "Configuration updated");
 }
 #endif
+
 
 static void WebUpdateSendNetworks(AsyncWebServerRequest *request)
 {
@@ -1234,6 +1242,9 @@ static void startServices()
   server.addHandler(new AsyncCallbackJsonWebHandler("/options.json", UpdateSettings));
   #if defined(TARGET_RX)
     server.addHandler(new AsyncCallbackJsonWebHandler("/voltage-sample", SampleVoltageSources));
+    #if defined(PLATFORM_ESP32)
+    addGyroHandlers(server);
+    #endif
   #endif
   #if defined(TARGET_TX)
     server.addHandler(new AsyncCallbackJsonWebHandler("/buttons", WebUpdateButtonColors));
@@ -1367,6 +1378,9 @@ static void HandleWebUpdate()
 
     #if defined(TARGET_TX) && defined(PLATFORM_ESP32)
       WifiJoystick::Loop(now);
+    #endif
+    #if defined(TARGET_RX) && defined(PLATFORM_ESP32)
+      publishGyroRuntime(now);
     #endif
   }
 }

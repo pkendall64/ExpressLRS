@@ -257,6 +257,10 @@ img.icon-pwm {
 	z-index: 999999;
   }
 
+  .alert-wrapper.wizard-dialog-backdrop {
+	overflow:visible;
+  }
+
   @keyframes open-frame {
 	0% {
 	  transform: scale(1);
@@ -384,7 +388,6 @@ img.icon-pwm {
 	min-height:auto;
 	display:flex;
 	flex-direction:column;
-	overflow:hidden;
   }
 
   .alert-frame.wizard .alert-header {
@@ -394,6 +397,8 @@ img.icon-pwm {
 	align-items:center;
 	padding:0 16px 0 24px;
 	background:linear-gradient(45deg, #9dc66b 5%, #4fa49a 30%, #4361c2);
+	border-top-left-radius:10px;
+	border-top-right-radius:10px;
 	color:#fff;
   }
 
@@ -411,13 +416,11 @@ img.icon-pwm {
 	flex:none;
   }
 
-  .wizard-title {
-	color:inherit;
+  .alert-frame.wizard .wizard-title {
 	padding:0;
-	margin:0;
 	text-align:left;
-	align-self:auto;
   }
+
 
   .alert-frame.wizard .alert-close {
 	color:#fffb;

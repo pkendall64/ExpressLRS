@@ -2,6 +2,7 @@ import {html, LitElement} from "lit"
 import {customElement, state} from "lit/decorators.js"
 import {post, showAlert, saveJSONWithReboot} from "../utils/feedback.js"
 import {loadHardware, setHardwareState} from "../utils/state.js"
+import '../components/wizard-dialog.js'
 
 // FEATURE:IS_8285
 const VOLTAGE_SOURCE_DEFS = [{id: 'vbat', label: 'VBat'}]
@@ -209,14 +210,15 @@ class VoltageCalibrationPanel extends LitElement {
         })
     }
 
-    createRenderRoot() {
-        return this
-    }
-
     connectedCallback() {
         super.connectedCallback()
         this._loadSources()
     }
+
+    createRenderRoot() {
+        return this
+    }
+
 
     disconnectedCallback() {
         this._stopLivePolling()
@@ -266,40 +268,31 @@ class VoltageCalibrationPanel extends LitElement {
 
     _renderWizard() {
         return html`
-            <div class="alert-wrapper" @click=${this._resetWizard}>
-                <div class="alert-frame wizard" @click=${(e) => e.stopPropagation()}>
-                    <div class="alert-header">
-                            <div class="alert-title-row">
-                                <span class="alert-title-icon icon--symbols icon--symbols--voltage" aria-hidden="true"></span>
-                                <div class="wizard-title mui--text-title">${this.selectedSource?.label} Calibration</div>
-                            </div>
-                        <span class="alert-close" @click=${this._resetWizard}>X</span>
-                    </div>
-                    <div class="alert-body">
-                        ${this.error && this.selectedSource ? html`<div class="mui-panel error-bg">${this.error}</div>` : ''}
-                        ${this.step === STEP_REVIEW && this.liveSample ? html`
-                            <div class="mui-panel info-bg">
-                                <div class="mui--text-headline">Live Voltage: <strong>${formatLiveVoltage(this.liveSample, this.result, this.selectedSource)}</strong></div>
-                            </div>
-                        ` : ''}
-                        ${this._renderWizardStep()}
-                    </div>
-                </div>
-            </div>
+            <elrs-wizard-dialog
+                .title=${`${this.selectedSource?.label} Calibration`}
+                icon="icon--symbols icon--symbols--voltage"
+                ?closeOnBackdrop=${true}
+                @wizard-close=${this._resetWizard}
+                .notice=${this.error && this.selectedSource ? this.error : ''}
+                .body=${html`
+                    ${this.step === STEP_REVIEW && this.liveSample ? html`
+                        <p><strong>Live Voltage: ${formatLiveVoltage(this.liveSample, this.result, this.selectedSource)}</strong></p>
+                    ` : ''}
+                    ${this._renderWizardStep()}
+                `}>
+            </elrs-wizard-dialog>
         `
     }
 
     _renderPointStep(title, targetMv, value, setValue, capture, buttonLabel) {
         return html`
-            <div class="mui-panel">
-                <div class="mui--text-title">${title}</div>
-                <p>Set a known voltage near ${formatMilliVolts(targetMv)} and capture it.</p>
-                <div class="mui-textfield">
-                    <input type="number" .value=${value} @input=${setValue} />
-                    <label>Known voltage (mV)</label>
-                </div>
-                <button class="mui-btn mui-btn--primary" ?disabled=${this.loading || !value} @click=${capture}>${buttonLabel}</button>
+            <div class="mui--text-title">${title}</div>
+            <p>Set a known voltage near ${formatMilliVolts(targetMv)} and capture it.</p>
+            <div class="mui-textfield">
+                <input type="number" .value=${value} @input=${setValue} />
+                <label>Known voltage (mV)</label>
             </div>
+            <button class="mui-btn mui-btn--primary" ?disabled=${this.loading || !value} @click=${capture}>${buttonLabel}</button>
         `
     }
 
@@ -325,22 +318,18 @@ class VoltageCalibrationPanel extends LitElement {
                 )
             case STEP_DISCONNECTED:
                 return html`
-                    <div class="mui-panel">
-                        <div class="mui--text-title">3. No Voltage</div>
-                        <p>Disconnect the source and capture the idle reading, or skip if it is always present.</p>
-                        <button class="mui-btn mui-btn--primary" ?disabled=${this.loading} @click=${() => this._captureDisconnected(false)}>Capture</button>
-                        <button class="mui-btn" ?disabled=${this.loading} @click=${() => this._captureDisconnected(true)}>Skip</button>
-                    </div>
+                    <div class="mui--text-title">3. No Voltage</div>
+                    <p>Disconnect the source and capture the idle reading, or skip if it is always present.</p>
+                    <button class="mui-btn mui-btn--primary" ?disabled=${this.loading} @click=${() => this._captureDisconnected(false)}>Capture</button>
+                    <button class="mui-btn" ?disabled=${this.loading} @click=${() => this._captureDisconnected(true)}>Skip</button>
                 `
             case STEP_REVIEW:
                 return html`
-                    <div class="mui-panel">
-                        <div class="mui--text-title">4. Review</div>
-                        <p>Offset ${this.result.offset}, scale ${this.result.scale}, no-reading ${this.result.noReading}</p>
-                        <p>Fit error: low ${this.result.lowErrorMv}mV, high ${this.result.highErrorMv}mV</p>
-                        <p>Reconnect or adjust the PSU and confirm the live reading before saving.</p>
-                        <button class="mui-btn mui-btn--primary" @click=${this._save}>Save Calibration</button>
-                    </div>
+                    <div class="mui--text-title">4. Review</div>
+                    <p>Offset ${this.result.offset}, scale ${this.result.scale}, no-reading ${this.result.noReading}</p>
+                    <p>Fit error: low ${this.result.lowErrorMv}mV, high ${this.result.highErrorMv}mV</p>
+                    <p>Reconnect or adjust the PSU and confirm the live reading before saving.</p>
+                    <button class="mui-btn mui-btn--primary" @click=${this._save}>Save Calibration</button>
                 `
             default:
                 return ''

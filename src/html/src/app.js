@@ -69,6 +69,11 @@ export class App extends LitElement {
                             <li><a id="menu-connections" href="#connections"><span class="mui--align-middle icon--symbols icon--symbols--connections"></span>Connections</a></li>
                             ` : ''}
                             <li><a id="menu-serial" href="#serial"><span class="mui--align-middle icon--symbols icon--symbols--serial"></span>Serial</a></li>
+                            <!-- FEATURE:NOT IS_8285 -->
+                            ${elrsState.gyro !== undefined ? html`
+                            <li><a id="menu-gyro" href="#gyro"><span class="mui--align-middle icon--symbols icon--symbols--gyro"></span>Gyro</a></li>
+                            ` : ''}
+                            <!-- /FEATURE:NOT IS_8285 -->
                             <!-- /FEATURE:NOT IS_TX -->
                             <li><a id="menu-wifi" href="#wifi"><span class="mui--align-middle icon--symbols icon--symbols--wifi"></span>WiFi</a></li>
                             <li><a id="menu-update" href="#update"><span class="mui--align-middle icon--symbols icon--symbols--update"></span>Update</a></li>
@@ -165,6 +170,7 @@ export class App extends LitElement {
         elrsState.settings = data.settings || {}
         elrsState.options = data.options || {}
         elrsState.config = data.config || {}
+        elrsState.gyro = data.gyro
         document.title = 'ExpressLRS ' + data.settings["module-type"] + ' WebUI'
         this.requestUpdate()
         return true
@@ -226,6 +232,10 @@ export class App extends LitElement {
                 return elrsState.config.pwm !== undefined ? html`<connections-panel></connections-panel>` : null
             case 'serial':
                 return html`<serial-panel></serial-panel>`
+            // FEATURE:NOT IS_8285
+            case 'gyro':
+                return elrsState.gyro !== undefined ? html`<gyro-panel></gyro-panel>` : null
+            // /FEATURE:NOT IS_8285
             case 'voltage':
                 return elrsState.settings?.voltage_source_count > 0 ? html`<voltage-calibration-panel></voltage-calibration-panel>` : null
             // /FEATURE:NOT IS_TX
@@ -249,8 +259,6 @@ export class App extends LitElement {
     }
 
     generalGroupLoaded = false
-    advancedGroupLoaded = false
-
     loadGeneralGroup() {
         if (this.generalGroupLoaded) return Promise.resolve()
         return showLoadingOverlay('Loading...')
@@ -261,6 +269,7 @@ export class App extends LitElement {
             })
     }
 
+    advancedGroupLoaded = false
     loadAdvancedGroup() {
         if (this.advancedGroupLoaded) return Promise.resolve()
         return showLoadingOverlay('Loading...')
@@ -271,6 +280,21 @@ export class App extends LitElement {
             })
     }
 
+    // FEATURE:NOT IS_TX
+    // FEATURE:NOT IS_8285
+    gyroGroupLoaded = false
+    loadGyroGroup() {
+        if (this.gyroGroupLoaded) return Promise.resolve()
+        return showLoadingOverlay('Loading...')
+            .then(() => import('./page-groups/gyro-group.js'))
+            .finally(() => {
+                hideLoadingOverlay()
+                this.gyroGroupLoaded = true
+            })
+    }
+    // /FEATURE:NOT IS_8285
+    // /FEATURE:NOT IS_TX
+
     ensureLoadedForRoute(route) {
         if (['binding', 'options', 'wifi', 'update', 'connections', 'serial', 'buttons', 'models'].includes(route)) {
             return this.loadGeneralGroup()
@@ -278,6 +302,13 @@ export class App extends LitElement {
         if (['hardware', 'voltage', 'cw', 'lr1121'].includes(route)) {
             return this.loadAdvancedGroup()
         }
+        // FEATURE:NOT IS_TX
+        // FEATURE:NOT IS_8285
+        if (['gyro'].includes(route)) {
+            return this.loadGyroGroup()
+        }
+        // /FEATURE:NOT IS_8285
+        // /FEATURE:NOT IS_TX
         return Promise.resolve()
     }
 

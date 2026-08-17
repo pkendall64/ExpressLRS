@@ -34,7 +34,8 @@
     "@babel/runtime": "^7.29.2",
     "@lit-app/state": "^1.0.0",
     "lit": "^3.3.2",
-    "lit-html": "^3.3.2"
+    "lit-html": "^3.3.2",
+    "ogl": "^1.0.11"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
