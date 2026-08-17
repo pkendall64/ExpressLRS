@@ -10,7 +10,7 @@ import { viteEsp32HeaderPlugin } from './build-plugins/esp32-header-plugin.js'
 // Simple dev mock server plugin
 import { devMockPlugin } from './dev-plugins/dev-mock-plugin.js'
 
-// Proxy plugin for devlopment against real hardware
+// Proxy plugin for development against real hardware
 import { devProxyPlugin } from './dev-plugins/dev-proxy-plugin.js'
 
 // Export standard Vite config with the plugin enabled for builds
@@ -68,7 +68,8 @@ export default defineConfig(({ command, mode }) => {
             const p = id.split('\\').join('/')
             if (
               (p.includes('/src/utils/') && !p.endsWith('/hardware-schema.js')) ||
-              p.endsWith('/src/components/filedrag.js')
+              p.endsWith('/src/components/filedrag.js') ||
+              p.endsWith('/src/components/wizard-dialog.js')
             ) {
               return 'utils'
             }

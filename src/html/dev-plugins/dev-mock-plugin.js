@@ -1,4 +1,5 @@
 import FEATURES from "../features.js";
+import {createHash} from 'node:crypto'
 
 // Dev plugin: provide mock ELRS endpoints to the local Vite server.
 //
@@ -54,6 +55,11 @@ export function devMockPlugin() {
             "module-type": FEATURES.IS_TX ? "TX" : "RX",
             "radio-type": FEATURES.HAS_SX128X ? "SX128X" : (FEATURES.HAS_LR1121 ? "LR1121" : (FEATURES.HAS_LR2021 ? "LR2021" : "SX127X")),
         },
+        gyro: {
+            version: 1.18,
+            config_version: 8,
+            imu: "LSM6Dxx"
+        },
         options: {
             customised: true,
             "uid": [1, 2, 3, 4, 5, 6],   // this is the 'flashed' UID and may be empty if using traditional binding on an RX.
@@ -103,6 +109,115 @@ export function devMockPlugin() {
             ]
         }
     }
+    const GYRO_FUNCTION_NAMES = ['None', 'Aileron', 'Elevator', 'Rudder', 'Elevon', 'Elevon R', 'V-Tail', 'V-Tail R', 'Gyro Mode', 'Gyro Gain']
+    const createGyroChannelFunction = (channel, overrides = {}) => {
+        const channelFunction = {
+            channel,
+            functionId: 0,
+            master: false,
+            invert: false,
+            min: 885,
+            mid: 1500,
+            max: 2135,
+            ...overrides,
+        }
+        return {...channelFunction, function: GYRO_FUNCTION_NAMES[channelFunction.functionId] ?? 'None'}
+    }
+    const defaultGyroModes = () => [
+        {modeId: 1, useRate: true, stickPriority: 0, gainFactor: 1, pitchLimit: 0, rollLimit: 0, trimPitch: 0, trimRoll: 0, gainPitch: 40, gainRoll: 30, gainYaw: 50},
+        {modeId: 2, useRate: true, stickPriority: 0, gainFactor: 1, pitchLimit: 40, rollLimit: 70, trimPitch: 0, trimRoll: 0, gainPitch: 35, gainRoll: 35, gainYaw: 35},
+        {modeId: 3, useRate: true, stickPriority: 0, gainFactor: 1, pitchLimit: 40, rollLimit: 70, trimPitch: 0, trimRoll: 0, gainPitch: 35, gainRoll: 35, gainYaw: 35},
+        {modeId: 4, useRate: true, stickPriority: 0, gainFactor: 1, pitchLimit: 0, rollLimit: 0, trimPitch: 10, trimRoll: 0, gainPitch: 35, gainRoll: 35, gainYaw: 35},
+        {modeId: 5, useRate: true, stickPriority: 0, gainFactor: 1, pitchLimit: 0, rollLimit: 0, trimPitch: 0, trimRoll: 0, gainPitch: 35, gainRoll: 35, gainYaw: 35},
+    ]
+    const gyroModes = defaultGyroModes()
+    const defaultGyroPids = () => [
+        {groupId: 0, axisId: 0, p: 35, i: 0, d: 10},
+        {groupId: 0, axisId: 1, p: 35, i: 0, d: 10},
+        {groupId: 0, axisId: 2, p: 35, i: 0, d: 10},
+        {groupId: 1, axisId: 0, p: 35, i: 0, d: 10},
+        {groupId: 1, axisId: 1, p: 35, i: 0, d: 10},
+        {groupId: 1, axisId: 2, p: 35, i: 0, d: 10},
+        {groupId: 2, axisId: 0, p: 20, i: 0, d: 0},
+    ]
+    const gyroPids = defaultGyroPids()
+
+    const gyro = {
+        version: 1.18,
+        config_version: 9,
+        enabled: false,
+        imu: "LSM6Dxx",
+        status: 2,
+        status_bits: 0,
+        next_action: "Run Orientation Wizard",
+        error: "",
+        link: 0,
+        rate: 28,
+        "read-errors": 0,
+        "int-errors": 0,
+        angle_r: 0,
+        angle_p: 0,
+        angle_y: 0,
+        mode: 1,
+        mode_position: 1,
+        mode_switch_positions: 3,
+        mode_map: [0, 1, 3],
+        channels: Array.from({length: 16}, () => 1500),
+        channel_functions: Array.from({length: 16}, (_unused, index) => createGyroChannelFunction(index + 1)),
+    }
+    gyro.stick_limits = gyro.channel_functions.map(() => ({min: 1500, mid: 1500, max: 1500}))
+    gyro.channel_functions[0] = createGyroChannelFunction(1, {functionId: 1, master: true})
+    gyro.channel_functions[1] = createGyroChannelFunction(2, {functionId: 2, master: true})
+    gyro.channel_functions[3] = createGyroChannelFunction(4, {functionId: 3, master: true})
+    gyro.channel_functions[8] = createGyroChannelFunction(9, {functionId: 8})
+    gyro.channel_functions[9] = createGyroChannelFunction(10, {functionId: 9})
+    const quickSetupGyro = ({wing, tail}) => {
+        gyro.mode_switch_positions = 3
+        gyro.mode_map = [0, 1, 3]
+        gyro.channel_functions = Array.from({length: 16}, (_unused, index) => createGyroChannelFunction(index + 1))
+        gyro.channel_functions[8] = createGyroChannelFunction(9, {functionId: 8})
+        gyro.channel_functions[9] = createGyroChannelFunction(10, {functionId: 9})
+        if (wing === 2) gyro.channel_functions[5] = createGyroChannelFunction(6, {functionId: 1})
+        if (wing === 1 || wing === 2) gyro.channel_functions[0] = createGyroChannelFunction(1, {functionId: 1, master: true})
+        if (wing === 3) {
+            gyro.channel_functions[0] = createGyroChannelFunction(1, {functionId: 4, master: true})
+            gyro.channel_functions[1] = createGyroChannelFunction(2, {functionId: 5})
+        }
+        if (tail === 1) {
+            gyro.channel_functions[1] = createGyroChannelFunction(2, {functionId: 2, master: true})
+            gyro.channel_functions[3] = createGyroChannelFunction(4, {functionId: 3, master: true})
+        }
+        if (tail === 2) {
+            gyro.channel_functions[1] = createGyroChannelFunction(2, {functionId: 6, master: true})
+            gyro.channel_functions[3] = createGyroChannelFunction(4, {functionId: 7})
+        }
+        if (tail === 3) {
+            gyro.channel_functions[0] = createGyroChannelFunction(1, {functionId: 4})
+            gyro.channel_functions[1] = createGyroChannelFunction(2, {functionId: 5})
+            gyro.channel_functions[3] = createGyroChannelFunction(4, {functionId: 3, master: true})
+        }
+        if (tail === 4) gyro.channel_functions[3] = createGyroChannelFunction(4, {functionId: 3, master: true})
+        gyroModes.splice(0, gyroModes.length, ...defaultGyroModes())
+        gyroPids.splice(0, gyroPids.length, ...defaultGyroPids())
+    }
+    let gyroCalibrationStep = 'idle'
+    const gyroRuntimeState = () => ({
+        status: gyro.status,
+        status_bits: gyro.status_bits,
+        next_action: gyro.next_action,
+        error: gyro.error,
+        link: gyro.link,
+        rate: gyro.rate,
+        "read-errors": gyro["read-errors"],
+        "int-errors": gyro["int-errors"],
+        angle_r: gyro.angle_r,
+        angle_p: gyro.angle_p,
+        angle_y: gyro.angle_y,
+        mode: gyro.mode,
+        mode_position: gyro.mode_position,
+        channels: gyro.channels,
+        ...(gyroCalibrationStep.startsWith('sticks') ? {stick_limits: gyro.stick_limits} : {}),
+    })
     let networkQueryCount = 0
     const hardwareState = {
         serial_rx: 3,
@@ -222,6 +337,37 @@ export function devMockPlugin() {
         name: 'vite-dev-mock',
         apply: 'serve',
         configureServer(server) {
+            server.httpServer?.on('upgrade', (req, socket) => {
+                if ((req.url || '').split('?')[0] !== '/gyro-runtime') return
+
+                const key = req.headers['sec-websocket-key']
+                if (typeof key !== 'string') {
+                    socket.destroy()
+                    return
+                }
+
+                const accept = createHash('sha1')
+                    .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+                    .digest('base64')
+                socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`)
+
+                const sendRuntime = () => {
+                    if (!socket.writable || socket.writableLength !== 0) return
+                    const payload = Buffer.from(JSON.stringify(gyroRuntimeState()))
+                    const header = payload.length < 126
+                        ? Buffer.from([0x81, payload.length])
+                        : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 0xff])
+                    socket.write(header)
+                    socket.write(payload)
+                }
+                const publisher = setInterval(sendRuntime, 40)
+                socket.once('close', () => clearInterval(publisher))
+                socket.once('error', () => clearInterval(publisher))
+                socket.on('data', (data) => {
+                    if ((data[0] & 0x0f) === 0x08) socket.end()
+                })
+                sendRuntime()
+            })
             server.middlewares.use((req, res, next) => {
                 const url = req.url || '/'
                 const method = (req.method || 'GET').toUpperCase()
@@ -329,6 +475,129 @@ export function devMockPlugin() {
                 }
                 if (method === 'GET' && url === '/hardware.json') {
                     return sendDelayed(PAGE_LOAD_DELAY_MS, () => sendJSON(res, hardwareState))
+                }
+                if (method === 'GET' && url === '/gyro.json') {
+                    return sendJSON(res, gyroRuntimeState())
+                }
+                if (method === 'GET' && url.startsWith('/gyro-config.json')) {
+                    return sendJSON(res, {
+                        enabled: gyro.enabled,
+                        imu: gyro.imu,
+                        version: gyro.version,
+                        config_version: gyro.config_version,
+                        mode_switch_positions: gyro.mode_switch_positions,
+                        mode_map: gyro.mode_map,
+                        channel_functions: url.includes('?export')
+                            ? gyro.channel_functions.filter((channelFunction) => channelFunction.functionId !== 0)
+                            : gyro.channel_functions,
+                        gyro_modes: gyroModes,
+                        gyro_pids: gyroPids,
+                    })
+                }
+                if (method === 'POST' && url === '/gyro-calibration.json') {
+                    return readBody().then((body) => {
+                        const action = JSON.parse(body || '{}').action
+                        if (action === 'orientation-horizontal' && gyroCalibrationStep === 'idle') {
+                            gyroCalibrationStep = 'orientation-horizontal'
+                        } else if (action === 'orientation-vertical' && gyroCalibrationStep === 'orientation-horizontal') {
+                            gyro.status_bits |= 1 << 1
+                            gyroCalibrationStep = 'idle'
+                        } else if (action === 'level' && gyroCalibrationStep === 'idle') {
+                            gyro.status_bits |= 1 << 0
+                        } else if (action === 'sticks-center' && gyroCalibrationStep === 'idle') {
+                            gyroCalibrationStep = 'sticks-centered'
+                        } else if (action === 'sticks-range-start' && (gyroCalibrationStep === 'idle' || gyroCalibrationStep === 'sticks-centered')) {
+                            gyroCalibrationStep = 'sticks-range'
+                            gyro.stick_limits = gyro.stick_limits.map((limits, index) => gyro.channel_functions[index].functionId
+                                ? {...limits, min: 885, max: 2135}
+                                : limits)
+                        } else if (action === 'sticks-range-finish' && gyroCalibrationStep === 'sticks-range') {
+                            gyro.status_bits |= 1 << 2
+                            gyroCalibrationStep = 'idle'
+                        } else if (action === 'cancel') {
+                            gyroCalibrationStep = 'idle'
+                        } else {
+                            return sendText(res, 'Invalid gyro calibration action', 400)
+                        }
+                        return sendJSON(res, {status_bits: gyro.status_bits})
+                    })
+                }
+                if (method === 'POST' && url.startsWith('/gyro-config.json')) {
+                    return readBody().then((body) => {
+                        let data
+                        try {
+                            data = JSON.parse(body || '{}')
+                        } catch (_error) {
+                            return sendText(res, 'Invalid JSON', 400)
+                        }
+                        if (url.includes('?import')
+                            && (typeof data.enabled !== 'boolean'
+                                || !Number.isInteger(data.mode_switch_positions)
+                                || !Array.isArray(data.mode_map)
+                                || !Array.isArray(data.channel_functions)
+                                || !Array.isArray(data.gyro_modes)
+                                || !Array.isArray(data.gyro_pids))) {
+                            return sendText(res, 'Incomplete gyro configuration', 400)
+                        }
+                        if (data.quick_setup) {
+                            quickSetupGyro({
+                                wing: Number(data.quick_setup.wing),
+                                tail: Number(data.quick_setup.tail),
+                            })
+                        } else {
+                            if (Array.isArray(data.channel_functions)) {
+                                const channelFunctions = Array.from({length: 16}, (_unused, index) => createGyroChannelFunction(index + 1))
+                                for (const row of data.channel_functions) {
+                                    const channel = Number(row?.channel)
+                                    if (channel >= 1 && channel <= channelFunctions.length) {
+                                        channelFunctions[channel - 1] = createGyroChannelFunction(channel, row)
+                                    }
+                                }
+                                gyro.channel_functions = channelFunctions
+                            }
+                            if (data.mode_switch_positions !== undefined) {
+                                const positions = Number(data.mode_switch_positions)
+                                if (positions < 2 || positions > 6) {
+                                    return sendText(res, 'Invalid mode switch position count', 400)
+                                }
+                                gyro.mode_switch_positions = positions
+                            }
+                            if (Array.isArray(data.mode_map)) {
+                                gyro.mode_map = data.mode_map.slice(0, gyro.mode_switch_positions).map((value) => Number(value) || 0)
+                            }
+                            if (data.enabled !== undefined) {
+                                gyro.enabled = Boolean(data.enabled)
+                            }
+                            if (Array.isArray(data.gyro_modes)) {
+                                gyroModes.splice(0, gyroModes.length, ...data.gyro_modes.map((mode) => ({...mode, modeId: Number(mode.modeId)})))
+                            }
+                            if (Array.isArray(data.gyro_pids)) {
+                                const nextPids = gyroPids.map((pid) => ({...pid}))
+                                const seen = new Set()
+                                for (const row of data.gyro_pids) {
+                                    const groupId = Number(row?.groupId)
+                                    const axisId = Number(row?.axisId)
+                                    const key = `${groupId}:${axisId}`
+                                    const target = nextPids.find((pid) => pid.groupId === groupId && pid.axisId === axisId)
+                                    const pMin = groupId === 2 ? 10 : 0
+                                    const pMax = groupId === 2 ? 60 : 100
+                                    if (!target || seen.has(key)
+                                        || !Number.isInteger(row.p) || row.p < pMin || row.p > pMax
+                                        || !Number.isInteger(row.i) || row.i < 0 || row.i > 100
+                                        || !Number.isInteger(row.d) || row.d < 0 || row.d > 100) {
+                                        return sendText(res, 'Invalid PID configuration', 400)
+                                    }
+                                    seen.add(key)
+                                    Object.assign(target, {p: row.p, i: row.i, d: row.d})
+                                }
+                                if (url.includes('?import') && seen.size !== nextPids.length) {
+                                    return sendText(res, 'Incomplete PIDs', 400)
+                                }
+                                gyroPids.splice(0, gyroPids.length, ...nextPids)
+                            }
+                        }
+                        return sendText(res, 'Gyro configuration updated')
+                    })
                 }
                 if (method === 'POST' && url === '/hardware.json') {
                     return readBody().then((body) => {
