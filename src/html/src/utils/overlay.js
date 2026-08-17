@@ -27,6 +27,16 @@ function clearClickHandler(overlayEl) {
     clickHandler = null
 }
 
+export function addEscapeHandler(handler) {
+    const keyupHandler = (event) => {
+        if (event.key === 'Escape' || event.keyCode === 27) {
+            handler()
+        }
+    }
+    document.addEventListener('keyup', keyupHandler)
+    return () => document.removeEventListener('keyup', keyupHandler)
+}
+
 export function overlay(action, options = {}, childElement) {
     if (action === 'on') return overlayOn(options, childElement)
     if (action === 'off') return overlayOff()

@@ -54,6 +54,31 @@ export async function loadJSON(url, errorMessage = 'Failed to load data', header
   return await response.json()
 }
 
+export async function postJSON(url, data, {errorMessage = 'Request failed', keepalive = false, raw = false} = {}) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data),
+    keepalive,
+  })
+  if (raw) return response
+  if (!response.ok) throw new Error(await response.text() || errorMessage)
+  return response.json()
+}
+
+export async function withRequestState(state, request, errorMessage = 'Request failed') {
+  state.busy = true
+  state.error = ''
+  try {
+    return await request()
+  } catch (error) {
+    state.error = error?.message || errorMessage
+    return null
+  } finally {
+    state.busy = false
+  }
+}
+
 // Generic POST helper that can send JSON, FormData, or file uploads (no UI side-effects)
 export function post(url, data, { headers = {}, timeoutMs = 0, onprogress, onload, onerror, onabort, ontimeout } = {}) {
   const xhr = new XMLHttpRequest()

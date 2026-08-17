@@ -1,0 +1,608 @@
+.gyro-layout,
+.gyro-stack,
+.gyro-top-grid,
+.gyro-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.gyro-layout {
+    margin-bottom: 16px;
+}
+
+.gyro-top-grid {
+    align-items: start;
+    grid-template-columns: minmax(320px, 1fr) minmax(380px, 1.1fr);
+}
+
+.gyro-page-header,
+.gyro-page-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.gyro-page-header {
+    justify-content: space-between;
+}
+
+.gyro-page-actions {
+    margin-left: auto;
+}
+
+.gyro-page-actions .mui-btn {
+    margin: 0;
+}
+
+.gyro-grid--setup,
+.gyro-grid--dialog {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.gyro-grid--mode-map {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+
+.gyro-grid--modes {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.gyro-grid--pids {
+    align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+gyro-main-setup-card,
+gyro-channel-functions-card,
+gyro-attitude-card,
+gyro-tuning-tabs,
+gyro-modes-card,
+gyro-pids-card,
+gyro-stick-range {
+    display: block;
+}
+
+.gyro-tuning-tabs > .mui-tabs__bar {
+    margin-top: -8px;
+}
+
+.gyro-tuning-tabs > .mui-tabs__bar > li > a:focus {
+    outline: none;
+    text-decoration: none;
+}
+
+.gyro-tuning-tabs > .mui-tabs__pane {
+    padding-top: 16px;
+}
+
+.gyro-pid-grid {
+    align-items: end;
+    display: grid;
+    gap: 8px 12px;
+    grid-template-columns: minmax(60px, 1fr) repeat(3, minmax(60px, 1fr));
+}
+
+.gyro-pid-axis {
+    align-self: center;
+    font-weight: 600;
+}
+
+.gyro-pid-grid .mui-textfield {
+    margin-bottom: 0;
+}
+
+.gyro-pid-card.mui-panel {
+    margin-bottom: 0;
+}
+
+.gyro-grid--pids + .gyro-save-row {
+    margin-top: 16px;
+}
+
+.gyro-group-block {
+    display: grid;
+    gap: 8px;
+}
+
+.gyro-group-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.gyro-action-row,
+.gyro-save-row {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.gyro-card.mui-panel,
+.gyro-page-title {
+    margin-bottom: 0;
+}
+
+.gyro-card .mui--text-title {
+    padding-bottom: 12px;
+}
+
+.gyro-section-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.gyro-note,
+.gyro-kv-hint {
+    font-size: 14px;
+}
+
+.alert-body .gyro-save-row > :last-child {
+    margin-left: auto;
+}
+
+.alert-body .gyro-wizard-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.gyro-mode-slot.mui-panel {
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 10px 12px;
+}
+
+.gyro-mode-slot.active,
+.gyro-mode-card.active {
+    background: #eef8f4;
+}
+
+.gyro-mode-slot .pos {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.gyro-mode-slot .mui-select {
+    margin-bottom: 0;
+    margin-top: 6px;
+}
+
+.gyro-grid--setup .mui-textfield,
+.gyro-grid--setup .mui-select,
+.gyro-grid--setup .mui-checkbox,
+.gyro-mode-card .mui-textfield,
+.gyro-mode-card .mui-select {
+    margin-bottom: 0;
+}
+
+.gyro-status-table td {
+    vertical-align: top;
+}
+
+.gyro-status-table th {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.gyro-status-detail {
+    display: grid;
+    gap: 4px;
+}
+
+.gyro-kv-value {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 6px;
+}
+
+.gyro-empty-row td {
+    font-weight: 500;
+}
+
+.gyro-row-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.gyro-row-actions .mui-btn {
+    margin: 0;
+}
+
+.gyro-icon-button {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    min-width: 40px;
+    padding-inline: 10px;
+}
+
+.gyro-icon-button svg {
+    fill: currentColor;
+    height: 16px;
+    width: 16px;
+}
+
+.gyro-compact-input {
+    border: 1px solid #cfd9e4;
+    border-radius: 10px;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    width: 100%;
+}
+
+.gyro-channel-function-actions {
+    justify-content: space-between;
+}
+
+.gyro-channel-function-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.gyro-inline-row {
+    width: 100%;
+}
+
+.gyro-inline-row--double {
+    grid-template-columns: repeat(2, minmax(60px, 1fr));
+}
+
+.gyro-inline-row--triple {
+    grid-template-columns: repeat(3, minmax(60px, 1fr));
+}
+
+.gyro-unit-field {
+    position: relative;
+}
+
+.gyro-unit-field input {
+    padding-right: 2.2em;
+}
+
+.gyro-unit-suffix {
+    bottom: 12px;
+    font-size: 12px;
+    line-height: 1;
+    pointer-events: none;
+    position: absolute;
+    right: 12px;
+    transform: translateY(2px);
+}
+
+.gyro-ogl-stage {
+    height: 312px;
+    margin-bottom: 0;
+    padding: 0;
+    position: relative;
+}
+
+.gyro-ogl-holder {
+    align-items: center;
+    background: rgb(209 230 247);
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    line-height: 0;
+}
+
+.gyro-ogl-holder canvas {
+    display: block;
+    max-height: 100%;
+    max-width: 100%;
+}
+
+.gyro-horizon,
+.gyro-compass {
+    border: 2px solid rgb(255 255 255 / 85%);
+    border-radius: 50%;
+    box-shadow: 0 1px 4px rgb(15 23 42 / 35%);
+    height: 96px;
+    overflow: hidden;
+    pointer-events: none;
+    position: absolute;
+    top: 12px;
+    width: 96px;
+    z-index: 1;
+}
+
+.gyro-horizon {
+    left: 12px;
+}
+
+.gyro-horizon-world {
+    height: 200%;
+    inset: -50%;
+    position: absolute;
+    width: 200%;
+}
+
+.gyro-horizon-sky,
+.gyro-horizon-ground {
+    height: 50%;
+    left: 0;
+    position: absolute;
+    width: 100%;
+}
+
+.gyro-horizon-sky {
+    background: linear-gradient(#276b9f, #b9e0f4);
+    top: 0;
+}
+
+.gyro-horizon-ground {
+    background: linear-gradient(#8d5e3a, #49301e);
+    top: 50%;
+}
+
+.gyro-horizon-reference::before,
+.gyro-horizon-reference::after {
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 60%);
+    content: "";
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.gyro-horizon-reference::before {
+    height: 2px;
+    width: 60%;
+}
+
+.gyro-horizon-reference::after {
+    height: 12px;
+    width: 2px;
+}
+
+.gyro-compass {
+    background: #17212b;
+    color: #fff;
+    right: 12px;
+}
+
+.gyro-compass-disc {
+    background: repeating-conic-gradient(rgb(255 255 255 / 85%) 0deg 2deg, transparent 2deg 15deg);
+    border: 1px solid rgb(255 255 255 / 65%);
+    border-radius: 50%;
+    inset: 8px;
+    position: absolute;
+}
+
+.gyro-compass-disc span {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    position: absolute;
+}
+
+.gyro-compass-north {
+    left: 50%;
+    top: 4px;
+    transform: translateX(-50%);
+}
+
+.gyro-compass-east {
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.gyro-compass-south {
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.gyro-compass-west {
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.gyro-compass-pointer {
+    color: #f44336;
+    font-size: 22px;
+    left: 50%;
+    line-height: 1;
+    position: absolute;
+    text-shadow: 0 1px 2px rgb(15 23 42 / 70%);
+    top: 36px;
+    transform: translateX(-50%);
+}
+
+.gyro-euler-overlay {
+    background: rgb(255 255 255 / 82%);
+    bottom: 12px;
+    display: grid;
+    font-size: 12px;
+    font-weight: 700;
+    gap: 2px;
+    padding: 6px 8px;
+    position: absolute;
+    right: 12px;
+}
+
+.gyro-card-title-row {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.gyro-card-title-row .mui--text-title {
+    padding-bottom: 0;
+}
+
+.gyro-attitude-float-toggle,
+.gyro-attitude-float-button {
+    display: none;
+}
+
+.gyro-stick-range-list {
+    display: grid;
+    gap: 6px;
+    margin: 16px 0;
+}
+
+.gyro-stick-range-card {
+    align-items: center;
+    border: 1px solid #dce5ea;
+    border-radius: 3px;
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(110px, auto) minmax(120px, 1fr) max-content;
+    padding: 6px 10px;
+}
+
+.gyro-stick-range-card--copy {
+    grid-template-columns: minmax(110px, auto) minmax(120px, 1fr) max-content max-content;
+}
+
+.gyro-stick-channel,
+.gyro-stick-range-scale {
+    white-space: nowrap;
+}
+
+.gyro-stick-channel {
+    font-size: 13px;
+}
+
+.gyro-stick-range-scale {
+    color: #738795;
+    font-size: 11px;
+}
+
+.gyro-stick-range {
+    height: 22px;
+    margin: 0;
+    min-width: 0;
+    position: relative;
+}
+
+.gyro-stick-track,
+.gyro-stick-whisker {
+    height: 2px;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 10px;
+}
+
+.gyro-stick-track {
+    background: #cbd8df;
+}
+
+.gyro-stick-whisker {
+    background: #738795;
+    right: auto;
+}
+
+.gyro-stick-marker {
+    background: #fff;
+    border: 2px solid;
+    border-radius: 50%;
+    height: 10px;
+    position: absolute;
+    top: 5px;
+    transform: translateX(-50%);
+    width: 10px;
+    z-index: 1;
+}
+
+.gyro-stick-marker--center {
+    border-color: #2196f3;
+}
+
+.gyro-stick-marker--endpoint {
+    border-color: #738795;
+}
+
+.gyro-stick-input-marker {
+    background: #ff9800;
+    height: 18px;
+    position: absolute;
+    top: 2px;
+    transform: translateX(-50%);
+    width: 2px;
+    z-index: 2;
+}
+
+@media (max-width: 1400px) {
+    .gyro-top-grid {
+        grid-template-areas:
+            "status"
+            "main"
+            "mapping"
+            "attitude";
+        grid-template-columns: 1fr;
+    }
+
+    .gyro-stack {
+        display: contents;
+    }
+
+    .gyro-main-card {
+        grid-area: main;
+    }
+
+    .gyro-channel-functions-card {
+        grid-area: mapping;
+    }
+
+    .gyro-status-card {
+        grid-area: status;
+    }
+
+    .gyro-attitude-card {
+        grid-area: attitude;
+    }
+
+    .gyro-attitude-float-toggle {
+        display: inline-flex;
+    }
+
+    .gyro-attitude-card--floating {
+        bottom: calc(var(--footer-height) + 24px);
+        box-shadow: 0 12px 32px rgb(30 41 59 / 30%);
+        position: fixed;
+        right: 24px;
+        width: min(560px, calc(100vw - 48px));
+        z-index: 10;
+    }
+
+    .gyro-attitude-card--minimized {
+        display: none;
+    }
+
+    .gyro-attitude-float-button {
+        bottom: calc(var(--footer-height) + 24px);
+        display: inline-block;
+        position: fixed;
+        right: 24px;
+    }
+}
+
+@media (max-width: 620px) {
+    .gyro-stick-range-card,
+    .gyro-stick-range-card--copy {
+        grid-template-columns: minmax(110px, auto) 1fr;
+    }
+
+    .gyro-stick-range {
+        grid-column: 1 / -1;
+    }
+
+    .gyro-stick-range-scale {
+        display: none;
+    }
+}

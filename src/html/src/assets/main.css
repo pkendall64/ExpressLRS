@@ -179,6 +179,11 @@ body.hide-sidedrawer #footer {
     text-decoration: none;
 }
 
+#sidedrawer a:focus {
+    outline: none;
+    text-decoration: none;
+}
+
 #sidedrawer a.active {
     background-color: #FAFAFA;
     position: relative;
