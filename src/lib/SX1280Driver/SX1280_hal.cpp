@@ -236,7 +236,7 @@ bool ICACHE_RAM_ATTR SX1280Hal::WaitOnBusy(SX12XX_Radio_Number_t radioNumber)
     SPIEx.wait();
     if (GPIO_PIN_BUSY != UNDEF_PIN)
     {
-        constexpr uint32_t wtimeoutUS = 1000U;
+        constexpr uint32_t wtimeoutUS = 2000U;
         uint32_t startTime = 0;
 
         while (true)
