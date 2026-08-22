@@ -46,13 +46,13 @@ static char pwmModes[] = "50Hz;60Hz;100Hz;160Hz;333Hz;400Hz;10kHzDuty;On/Off;DSh
 #if defined(PLATFORM_ESP32)
 static char gyroOffOn[] = "Off;On"; // Off-ON
 //  needs to match gyro_status_t
-static const char *gyroStatus[] = {"Off","IMU Not Detected","Need RX-Orientation","Need Stick Calibration","Running"};
+static const char *gyroStatus[] = {"Off","!Detected","!Orient.","!Stick cal","Running"};
 
 // Orientation Names in MPU
 extern const char* mpuOrientationNames[];
 
 // Must match mixer.h: gyro_output_channel_function_t
-static char gyroOutputChannelModes[] = "None;Aileron;Elevator;Rudder;Elevon;Elevon_Inv;VTail;VTail_Inv;Mode;Gain";
+static char gyroOutputChannelModes[] = "None;Aileron;Elevator;Rudder;Elevon;Elevon_R;VTail;VTail_R;Mode;Gain";
 // Must match gyro.h gyro_mode_t
 static const char switch_gyroModes[] = "Off;Rate;Envelope;Auto-Level;Launch;Hover";
 static const char switch_gyroPositionCounts[] = "2;3;4;5;6";
@@ -60,7 +60,7 @@ static constexpr uint8_t gyroPositionCounts[] = {2, 3, 4, 5, 6};
 static const char fmodes[] = "Rate;Envelope;Auto-Level;Launch;Hover";
 
 // Must match gyro_pidgroup_t
-static const char gyroPidGroup[] = "Rate (v/100);Level(v/100);AHRS (v/10)";
+static const char gyroPidGroup[] = "Rate;Level;AHRS";
 // Must match gyro_axis_t
 static const char gyroAxis[] = "Roll;Pitch;Yaw";
 
@@ -239,27 +239,27 @@ static folderParameter luaGyroMainFolder = {
 };
 
 static folderParameter luaGyroModelFolder = {
-    {"Model Setup", CRSF_FOLDER},
+    {"Main Setup", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroModesFolder = {
-    {"F-Mode Switch", CRSF_FOLDER},
+    {"Gyro Mode Switch", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroPIDFolder = {
-    {"PIDs (Advanced)", CRSF_FOLDER},
+    {"Advanced (PIDs)", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroOutputFolder = {
-    {"Ch Functions", CRSF_FOLDER},
+    {"Channel Functions", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroSettingsFolder = {
-    {"Gyro Settings", CRSF_FOLDER},
+    {"Gyro Modes", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroFModeFolder = {
-    {"FMode Settings", CRSF_FOLDER},
+    {"Tuning", CRSF_FOLDER},
 };
 
 static folderParameter luaGyroQuickSetupFolder = {
@@ -271,7 +271,7 @@ static folderParameter luaGyroCalibrationFolder = {
 };
 
 static folderParameter luaGyroRxOrientationFolder = {
-    {"RX Orientation", CRSF_FOLDER},
+    {"Orientation", CRSF_FOLDER},
 };
 
 static selectionParameter luaGyroModePositions = {
@@ -329,7 +329,7 @@ static void setGyroModePositionVisibility(uint8_t positions)
 
 //------------  Output Channel Settings -------------
 static int8Parameter luaGyroOutputCh_Select = {
-    {"Output Ch ->", CRSF_UINT8},
+    {"Channel ->", CRSF_UINT8},
     {
         {
             (uint8_t)1,       // value, not zero-based
@@ -348,14 +348,14 @@ static selectionParameter luaGyroOutputCh_Mode = {
 };
 
 static selectionParameter luaGyroOutputCh_Master = {
-    {"Ch Master (Stick)", CRSF_TEXT_SELECTION},
+    {"Primary", CRSF_TEXT_SELECTION},
     0, // value
     gyroOffOn,
     STR_EMPTYSPACE
 };
 
 static selectionParameter luaGyroOutputCh_Inverted = {
-    {"Dir Reverse", CRSF_TEXT_SELECTION},
+    {"Invert", CRSF_TEXT_SELECTION},
     0, // value
     gyroOffOn,
     STR_EMPTYSPACE
@@ -383,7 +383,7 @@ void RXEndpoint::luaparamGyroOutputCh_Select(propertiesCommon *item, uint8_t arg
         if (gyroCh->val.output_mode == FN_GYRO_MODE && i != arg - 1) includeMode = false;
         if (gyroCh->val.output_mode == FN_GYRO_GAIN && i != arg - 1) includeGain = false;
     }
-    char *pos = strstr(gyroOutputChannelModes, "VTail_Inv;");
+    char *pos = strstr(gyroOutputChannelModes, "VTail_R;");
     pos += 10;
     *pos = 0;
     if (includeMode) strcat(pos, "Mode;");
@@ -430,21 +430,21 @@ static void luaparamGyroOutputCh_Inverted(propertiesCommon *item, uint8_t arg)
 
 //------------  Gyro Gains Settings -------------
 static selectionParameter luaGyroPID_Select_Group = {
-    {"PID Group ->", CRSF_TEXT_SELECTION},
+    {"Mode ->", CRSF_TEXT_SELECTION},
     0, // value
     gyroPidGroup,
     STR_EMPTYSPACE
 };
 
 static selectionParameter luaGyroPID_Select_Axis = {
-    {"PID Axis ->", CRSF_TEXT_SELECTION},
+    {"Axis ->", CRSF_TEXT_SELECTION},
     0, // value
     gyroAxis,
     STR_EMPTYSPACE
 };
 
 static int8Parameter luaGyroPID_RateP = {
-    {"P Rate", CRSF_UINT8},
+    {"P gain", CRSF_UINT8},
     {
         {
             (uint8_t)1, // value
@@ -455,7 +455,7 @@ static int8Parameter luaGyroPID_RateP = {
     STR_EMPTYSPACE};
 
 static int8Parameter luaGyroPID_RateI = {
-    {"I Rate", CRSF_UINT8},
+    {"I gain", CRSF_UINT8},
     {
         {
             (uint8_t)1, // value
@@ -466,7 +466,7 @@ static int8Parameter luaGyroPID_RateI = {
     STR_EMPTYSPACE};
 
 static int8Parameter luaGyroPID_RateD = {
-    {"D Rate/LPF HZ", CRSF_UINT8},
+    {"D gain", CRSF_UINT8},
     {
         {
             (uint8_t)1, // value
@@ -504,14 +504,14 @@ static void luaparamGyroPID_RateD(propertiesCommon *item, uint8_t arg)
 
 //------------  Gyro RX Orientation Info -------------
 static selectionParameter luaGyroOrientationH = {
-    {"Hor (Level)", CRSF_TEXT_SELECTION},
+    {"Level", CRSF_TEXT_SELECTION},
     6, // WRONG orintation
     getRxOrientationOptions(),
     STR_EMPTYSPACE
 };
 
 static selectionParameter luaGyroOrientationV = {
-    {"Vert (Nose DOWN)", CRSF_TEXT_SELECTION},
+    {"Nose down", CRSF_TEXT_SELECTION},
     6, // WRONG orintation
     getRxOrientationOptions(),
     STR_EMPTYSPACE};
@@ -519,21 +519,21 @@ static selectionParameter luaGyroOrientationV = {
 //---------  Reset Commands ---------------------
 
 static selectionParameter luaGyroQuickSetup_wingType_Select = {
-    {"Wing Type ->", CRSF_TEXT_SELECTION},
+    {"Wing type ->", CRSF_TEXT_SELECTION},
     0, // value
     wingTypeStr,
     STR_EMPTYSPACE
 };
 
 static selectionParameter luaGyroQuickSetup_tailType_Select = {
-    {"Tail Type  ->", CRSF_TEXT_SELECTION},
+    {"Tail type ->", CRSF_TEXT_SELECTION},
     0, // value
     tailTypeStr,
     STR_EMPTYSPACE
 };
 
 static struct commandParameter luaGyroQuickPreset = {
-    {"Execute", CRSF_COMMAND},
+    {"Apply", CRSF_COMMAND},
     lcsIdle, // step
     STR_EMPTYSPACE
 };
@@ -551,7 +551,7 @@ void RXEndpoint::luaparamGyroQuickPreset(propertiesCommon *item, uint8_t arg)
         newStep = lcsAskConfirm;
         if (luaGyroQuickSetup_wingType_Select.value == 0)
         {
-            msg = "Reset to EMPTY model ?";
+            msg = "Clear model setup?";
         }
         else
         {
@@ -566,7 +566,7 @@ void RXEndpoint::luaparamGyroQuickPreset(propertiesCommon *item, uint8_t arg)
         newStep = lcsExecuting;
         if (step == 0)
         {
-            msg = "Creating Model";
+            msg = "Applying";
             gyroQuickModelSetup(luaGyroQuickSetup_wingType_Select.value, luaGyroQuickSetup_tailType_Select.value);
             step++;
         }
@@ -583,7 +583,7 @@ void RXEndpoint::luaparamGyroQuickPreset(propertiesCommon *item, uint8_t arg)
         {
             // Step 1: Done
             newStep = lcsAskConfirm;
-            msg = "Done: Restart LUA script ";
+            msg = "Done. Restart script";
         }
         else
         {
@@ -602,7 +602,7 @@ void RXEndpoint::luaparamGyroQuickPreset(propertiesCommon *item, uint8_t arg)
 
 //-----------  Gyro Calibration ------------------------
 static struct commandParameter luaGyroCalibration = {
-    {"Gyro Level Calibration", CRSF_COMMAND},
+    {"Level Calibration", CRSF_COMMAND},
     lcsIdle, // step
     STR_EMPTYSPACE
 };
@@ -614,7 +614,7 @@ void RXEndpoint::luaparamGyroCalibration(propertiesCommon *item, uint8_t arg)
     if (arg == lcsClick)
     {
         newStep = lcsAskConfirm;
-        msg = "Plane/RX Level??";
+        msg = "Place aircraft level";
         gyro.pause();
     }
     else if (arg == lcsConfirmed)
@@ -622,7 +622,7 @@ void RXEndpoint::luaparamGyroCalibration(propertiesCommon *item, uint8_t arg)
         // This is generally not seen by the user, since we'll disconnect to commit config
         // and the handset will send another lcdQuery that will overwrite it with idle
         newStep = lcsExecuting;
-        msg = "Level Cal";
+        msg = "Calibrating";
         sendCommandResponse((commandParameter *)item, newStep, msg);
         gyro.calibrate();
         gyro.reload();
@@ -659,7 +659,7 @@ void RXEndpoint::luaparamGyroOrientationCal(propertiesCommon *item, uint8_t arg)
         calStep = 0;
         DBGLN("Calibrating Gyro: Gyro Ready=%s", gyro.initialized ? "True" : "False");
         newStep = lcsAskConfirm;
-        msg = "Plane/RX Level?";
+        msg = "Place aircraft level";
         gyro.pause(); // Suspend Gyro
     }
     else if (arg == lcsConfirmed)
@@ -669,7 +669,7 @@ void RXEndpoint::luaparamGyroOrientationCal(propertiesCommon *item, uint8_t arg)
         newStep = lcsExecuting;
         if (calStep == 0)
         {
-            msg = "Level Cal";
+            msg = "Level calibration";
             sendCommandResponse((commandParameter *)item, newStep, msg);
             calStep++;
             gyro.ahrs->OrientationHorizontalExecute();
@@ -677,7 +677,7 @@ void RXEndpoint::luaparamGyroOrientationCal(propertiesCommon *item, uint8_t arg)
         }
         else if (calStep == 1)
         {
-            msg = "Vertical Det";
+            msg = "Orientation";
             sendCommandResponse((commandParameter *)item, newStep, msg);
             calStep++;
             gyro.ahrs->OrientationVerticalExecute();
@@ -697,13 +697,13 @@ void RXEndpoint::luaparamGyroOrientationCal(propertiesCommon *item, uint8_t arg)
         {
             // Step 2: Vertical
             newStep = lcsAskConfirm;
-            msg = "Plane Nose DOWN?";
+            msg = "Place nose down";
         }
         else if (calStep == 2)
         {
             // Step 3: Done
             newStep = lcsAskConfirm;
-            msg = "Calibration Done";
+            msg = "Orient. detected";
         }
         else
         {
@@ -748,7 +748,7 @@ void RXEndpoint::luaparamGyroStickCal(propertiesCommon *item, uint8_t arg)
         calStep = 0;
         DBGLN("Gyro(): Calibrating Sticks");
         newStep = lcsAskConfirm;
-        msg = "Sticks Centered?";
+        msg = "Center sticks";
     }
     else if (arg == lcsConfirmed)
     {
@@ -757,13 +757,13 @@ void RXEndpoint::luaparamGyroStickCal(propertiesCommon *item, uint8_t arg)
         newStep = lcsExecuting;
         if (calStep == 0)
         {
-            msg = "Stick Center";
+            msg = "Sticks center";
             calStep++;
             gyro.StickCenterCalibration();
         }
         else if (calStep == 1)
         {
-            msg = "Stick Range";
+            msg = "Sticks range";
             calStep++;
         }
         else if (calStep == 2)
@@ -779,14 +779,14 @@ void RXEndpoint::luaparamGyroStickCal(propertiesCommon *item, uint8_t arg)
         {
             // Step 2: Stick Range Cal
             newStep = lcsAskConfirm;
-            msg = "Moved to all Sides/Corners?";
+            msg = "Move over full range";
             gyro.StickLimitCalibration(false); // Start
         }
         else if (calStep == 2)
         {
             // Step 3: Done
             newStep = lcsAskConfirm;
-            msg = "Calibration Done";
+            msg = "Calibration done";
             gyro.StickLimitCalibration(true);
             gyro.reload();
             sendCommandResponse((commandParameter *)item, newStep, msg);
@@ -816,7 +816,7 @@ void RXEndpoint::luaparamGyroStickCal(propertiesCommon *item, uint8_t arg)
 
 // ------------------- Flight Mode Settings ----------------------
 static selectionParameter luaGyroFMode_Select = {
-    {"F-Mode ->", CRSF_TEXT_SELECTION},
+    {"Mode ->", CRSF_TEXT_SELECTION},
     0, // value
     fmodes,
     STR_EMPTYSPACE
@@ -830,7 +830,7 @@ static selectionParameter luaGyroFMode_UseRate = {
 };
 
 static selectionParameter luaGyroFMode_StickPri = {
-    {"Stick Priority", CRSF_TEXT_SELECTION},
+    {"Stck priority", CRSF_TEXT_SELECTION},
     0, // value
     "100%;75%;50%;25%",
     STR_EMPTYSPACE
@@ -842,7 +842,7 @@ static stringParameter luaGyroFMode_AngLimitSubHeader = {
 };
 
 static int8Parameter luaGyroFMode_AngLimitPitch = {
-    {"Limit Pitch", CRSF_UINT8},
+    {"Pitch limit", CRSF_UINT8},
     {
         {
             (uint8_t)10, // value, not zero-based
@@ -854,7 +854,7 @@ static int8Parameter luaGyroFMode_AngLimitPitch = {
 };
 
 static int8Parameter luaGyroFMode_AngLimitRoll = {
-    {"Limit Roll", CRSF_UINT8},
+    {"Roll limit", CRSF_UINT8},
     {
         {
             (uint8_t)30, // value, not zero-based
@@ -871,7 +871,7 @@ static stringParameter luaGyroFMode_TrimSubHeader = {
 };
 
 static int8Parameter luaGyroFMode_TrimPitch = {
-    {"Trim Pitch", CRSF_INT8},
+    {"Pitch trim", CRSF_INT8},
     {
         {
             (uint8_t) 0,    // value
@@ -883,7 +883,7 @@ static int8Parameter luaGyroFMode_TrimPitch = {
 };
 
 static int8Parameter luaGyroFMode_TrimRoll = {
-    {"Trim Roll", CRSF_INT8},
+    {"Roll trim", CRSF_INT8},
     {
         {
             (uint8_t) 0,    // value
@@ -891,7 +891,7 @@ static int8Parameter luaGyroFMode_TrimRoll = {
             (uint8_t) +30,  // max
         }
     },
-    " deg (+Left)"
+    " deg (+Lft)"
 };
 
 static stringParameter luaGyroFMode_Gain_SubHeader = {
@@ -900,7 +900,7 @@ static stringParameter luaGyroFMode_Gain_SubHeader = {
 };
 
 static int8Parameter luaGyroFMode_GainPitch = {
-    {"Gain Pitch", CRSF_UINT8},
+    {"Pitch gain", CRSF_UINT8},
     {
         {
             (uint8_t)1,    // value
@@ -912,7 +912,7 @@ static int8Parameter luaGyroFMode_GainPitch = {
 };
 
 static int8Parameter luaGyroFMode_GainRoll = {
-    {"Gain Roll", CRSF_UINT8},
+    {"Roll gain", CRSF_UINT8},
     {
         {
             (uint8_t)1,    // value
@@ -924,7 +924,7 @@ static int8Parameter luaGyroFMode_GainRoll = {
 };
 
 static int8Parameter luaGyroFMode_GainYaw = {
-    {"Gain Yaw", CRSF_UINT8},
+    {"Yaw gain", CRSF_UINT8},
     {
         {
             (uint8_t)1,    // value
