@@ -454,7 +454,7 @@ export class GyroChannelFunctionsCard extends GyroElement {
                                                                  ?checked=${channelFunctionDraft.master}
                                                                  ?disabled=${this.channelFunctionSaving || channelFunctionHasOtherMaster}
                                                                  @change=${(event) => this._updateChannelFunctionDraft('master', event.target.checked)}><label
-                                        for="gyro-channel-function-master">Master channel</label></div>
+                                        for="gyro-channel-function-master">Primary channel</label></div>
                             ` : html`<p class="gyro-note">Gyro controls use their input directly; servo travel and
                                 direction do not apply.</p>`}
                             <div class="gyro-save-row">
