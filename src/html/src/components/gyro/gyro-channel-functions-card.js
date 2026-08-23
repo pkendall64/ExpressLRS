@@ -447,7 +447,7 @@ export class GyroChannelFunctionsCard extends GyroElement {
                                                                  ?checked=${channelFunctionDraft.invert}
                                                                  ?disabled=${this.channelFunctionSaving}
                                                                  @change=${(event) => this._updateChannelFunctionDraft('invert', event.target.checked)}><label
-                                        for="gyro-channel-function-invert">Reverse direction</label></div>
+                                        for="gyro-channel-function-invert">Invert direction</label></div>
                                 <div class="mui-checkbox"><input id="gyro-channel-function-master" type="checkbox"
                                                                  ?checked=${channelFunctionDraft.master}
                                                                  ?disabled=${this.channelFunctionSaving || channelFunctionHasOtherMaster}
