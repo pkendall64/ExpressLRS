@@ -275,7 +275,7 @@ static folderParameter luaGyroRxOrientationFolder = {
 };
 
 static selectionParameter luaGyroModePositions = {
-    {"Switch Positions", CRSF_TEXT_SELECTION},
+    {"Switch Pos.", CRSF_TEXT_SELECTION},
     1,
     switch_gyroPositionCounts,
     STR_EMPTYSPACE
