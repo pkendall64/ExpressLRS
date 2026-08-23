@@ -316,8 +316,14 @@ static uint8_t gyroPositionCountSelection(uint8_t positions)
     return positions >= 2 && positions <= 6 ? positions - 2 : 1;
 }
 
+static stringParameter luaGyroModePosition_Functions_SubHeader = {
+    {"-- Functions --", CRSF_INFO},
+    STR_EMPTYSPACE
+};
+
 static void setGyroModePositionVisibility(uint8_t positions)
 {
+    LUA_FIELD_VISIBLE(luaGyroModePosition_Functions_SubHeader, true);
     LUA_FIELD_VISIBLE(luaGyroModePos1, positions >= 1);
     LUA_FIELD_VISIBLE(luaGyroModePos2, positions >= 2);
     LUA_FIELD_VISIBLE(luaGyroModePos3, positions >= 3);
@@ -1649,6 +1655,7 @@ void RXEndpoint::registerParameters()
                     gyro.reloadConfig();
                 },
                 luaGyroModesFolder.common.id);
+            registerParameter(&luaGyroModePosition_Functions_SubHeader, nullptr, luaGyroModesFolder.common.id);
             registerParameter(&luaGyroModePos1, [&](propertiesCommon *item, uint8_t arg) { gyroConfig->SetGyroModePos(0, (gyro_mode_t)arg); }, luaGyroModesFolder.common.id);
             registerParameter(&luaGyroModePos2, [&](propertiesCommon *item, uint8_t arg) { gyroConfig->SetGyroModePos(1, (gyro_mode_t)arg); }, luaGyroModesFolder.common.id);
             registerParameter(&luaGyroModePos3, [&](propertiesCommon *item, uint8_t arg) { gyroConfig->SetGyroModePos(2, (gyro_mode_t)arg); }, luaGyroModesFolder.common.id);
