@@ -43,9 +43,6 @@ static char gyroOffOn[] = "Off;On"; // Off-ON
 //  needs to match gyro_status_t
 static const char *gyroStatus[] = {"Off","IMU Not Detected","Need RX-Orientation","Need Stick Calibration","Running"};
 
-// Orientation Names in MPU
-extern const char* mpuOrientationNames[];
-
 // Must match mixer.h: gyro_output_channel_function_t
 static char gyroOutputChannelModes[] = "None;Aileron;Elevator;Rudder;Elevon;Elevon_Inv;VTail;VTail_Inv;Mode;Gain";
 // Must match gyro.h gyro_mode_t
@@ -62,18 +59,6 @@ static const char gyroAxis[] = "Roll;Pitch;Yaw";
 static char gyroStatusStr[30]; // Display Status + Version
 static char gyroIMUStatusStr[30]; // Display Gyro and Errors
 static char gyroIMUErrorStr[30];
-
-static const char gyroRxOrientationsHR[] = 
-    {"UART Up(X+);UART Dn(X-);Pins Up(Y+);Pins Dn(Y-);Lbl Up(Z+);Lbl Dn(Z-);WRONG;WRONG"};
-
-static const char gyroRxOrientationsRM[] = 
-    {"Pins Up(X+);Pins Dn(X-);V-Lbl Up(Y+);V-Lbl Dn(Y-);Lbl Up(Z+);Lbl Dn(Z-);WRONG;WRONG"};
-
-static const char *getRxOrientationOptions() 
-{
-  return OPT_HAS_GYRO_MPU6050?gyroRxOrientationsHR:gyroRxOrientationsRM;
-}
-
 
 #endif
 
@@ -495,14 +480,14 @@ static void luaparamGyroPID_RateD(propertiesCommon *item, uint8_t arg)
 static selectionParameter luaGyroOrientationH = {
     {"Hor (Level)", CRSF_TEXT_SELECTION},
     6, // WRONG orintation
-    getRxOrientationOptions(),
+    STR_EMPTYSPACE,
     STR_EMPTYSPACE
 };
 
 static selectionParameter luaGyroOrientationV = {
     {"Vert (Nose DOWN)", CRSF_TEXT_SELECTION},
     6, // WRONG orintation
-    getRxOrientationOptions(),
+    STR_EMPTYSPACE,
     STR_EMPTYSPACE};
 
 //---------  Reset Commands ---------------------
@@ -1699,8 +1684,8 @@ void RXEndpoint::registerParameters()
             );
 
             // Update orientation Options now that we know what Gyro type do we have
-            setTextSelectionOptions(&luaGyroOrientationH, (char *)(OPT_HAS_GYRO_MPU6050 ? gyroRxOrientationsHR : gyroRxOrientationsRM));
-            setTextSelectionOptions(&luaGyroOrientationV, (char *)(OPT_HAS_GYRO_MPU6050 ? gyroRxOrientationsHR : gyroRxOrientationsRM));
+            setTextSelectionOptions(&luaGyroOrientationH, getGyroOrientationOptions());
+            setTextSelectionOptions(&luaGyroOrientationV, getGyroOrientationOptions());
 
             // ----- Gyro -> Settings - > Calibration -> Gyro Calibration
             registerParameter(&luaGyroCalibration, [this](propertiesCommon *item, uint8_t arg) { luaparamGyroCalibration(item, arg); }, luaGyroCalibrationFolder.common.id);

@@ -96,6 +96,8 @@ export class HardwareLayout extends LitElement {
                 return html`<input id="${row.id}" name="${row.id}" size=${row.size ?? 3} maxlength=${row.size ?? 3} type="text" @keypress="${_uintInput}"/>`
             case 'array':
                 return html`<input id="${row.id}" name="${row.id}" size=${row.size ?? nothing} maxlength=${row.size ?? nothing} type="text" class="array"  @keypress="${_arrayInput}"/>`
+            case 'string':
+                return html`<input id="${row.id}" name="${row.id}" size=${row.size ?? 80} maxlength=${row.size ?? 80} type="text"/>`
         }
     }
 

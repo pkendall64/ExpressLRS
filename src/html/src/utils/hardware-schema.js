@@ -1184,6 +1184,12 @@ const HARDWARE_SCHEMA = [
                 icon: 'input-output',
                 desc: 'I2C data pin used to communicate with I2C Gyro devices'
             },
+            {
+                id: 'gyro_orientation_names',
+                label: 'Gyro Orientations',
+                type: 'string',
+                desc: 'Human readable names for the 6 orientations that relate to the physical layout (X+;X-;Y+;Y-;Z+;Z-)'
+            }
         ]
     },
     /* /FEATURE: NOT IS_TX */
