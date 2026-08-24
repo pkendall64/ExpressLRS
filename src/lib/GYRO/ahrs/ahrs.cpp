@@ -6,6 +6,7 @@
 #include "devGyro.h"
 #include "filter.h"
 #include "logging.h"
+#include "../utils.h"
 
 #define MAX_GYRO_DIFF 200
 #define MAX_ACC_DIFF 500
@@ -17,19 +18,6 @@
 #define ATTITUDE_RESET_ACTIVE_TIME 500 // 500ms - Time to wait for attitude to converge at high gain
 
 #define invSqrt(x) (1.0f / sqrtf(x))
-
-// Generic
-// const char* mpuOrientationNames[8] = {
-//    "FRONT(X+)", "BACK(X-)", "LEFT(Y+)", "RIGHT(Y-)", "UP(Z+)", "DOWN(Z-)", "WRONG", "WRONG"};
-
-char **mpuOrientationNames;
-
-// HR8EG
-static const char *gyroRxOrientationsHR[8] =
-    {"UART Up(X+)", "UART Dn(X-)", "Pins Up(Y+)", "Pins Dn(Y-)", "Lbl Up(Z+)", "Lbl Dn(Z-)", "WRONG", "WRONG"};
-// RM
-static const char *gyroRxOrientationsRM[8] =
-    {"Pins Up(X+)", "Pins Dn(X-)", "V-Lbl Up(Y+)", "V-Lbl Dn(Y-)", "Lbl Up(Z+)", "Lbl Dn(Z-)", "WRONG", "WRONG"};
 
 static int8_t orientationList[36][6] = {
     {3, 3, 3, 0, 0, 0}, 
@@ -89,8 +77,6 @@ bool AHRS::initialize(IMU_Driver *driver)
     memset(&calGyroOffsets, 0, sizeof(calGyroOffsets));
     memset(&calAccelOffets, 0, sizeof(calAccelOffets));
     read_errors = 0;
-
-    mpuOrientationNames = (char **)(OPT_HAS_GYRO_MPU6050 ? gyroRxOrientationsHR : gyroRxOrientationsRM);
 
     return false;
 }
@@ -416,8 +402,9 @@ void AHRS::setupOrientation()
         return;
     }
 
-    DBGLN("Orientation H/top: %s", mpuOrientationNames[imuOrientationH]);
-    DBGLN("Orientation V/nose down: %s", mpuOrientationNames[imuOrientationV]);
+    const char *const *orientationNames = getGyroOrientationNames();
+    DBGLN("Orientation H/top: %s", orientationNames[imuOrientationH]);
+    DBGLN("Orientation V/nose down: %s", orientationNames[imuOrientationV]);
 
     // Reverse the Gravity orientation index for vertical, since is nose DOWN instead of UP
     // but logic expect the face to the front, and not the tail
@@ -509,7 +496,7 @@ void AHRS::OrientationHorizontalExecute() //
         DBGLN("Error during horizontal orientation: direction of gravity has not been found");
         return;
     }
-    DBGLN("Upper face RX (when model is horizontal) is %s", mpuOrientationNames[idx]);
+    DBGLN("Upper face RX (when model is horizontal) is %s", getGyroOrientationNames()[idx]);
     imuOrientationH = idx; // save the orientationH
 
     // Run the calibration, but not saving the offsets
@@ -526,7 +513,7 @@ void AHRS::OrientationVerticalExecute()
     {
         DBGLN("Error during vertical orientation: direction of gravity has not been found");
     }
-    DBGLN("Face Vert/Tail (with nose down) is %s", mpuOrientationNames[idx]);
+    DBGLN("Face Vert/Tail (with nose down) is %s", getGyroOrientationNames()[idx]);
     imuOrientationV = idx; // save the orientationV
 
     gyroConfig->SetGyroOrientation(imuOrientationH, imuOrientationV);
@@ -729,7 +716,7 @@ bool AHRS::calibrateAccel(int8_t loops, rx_config_gyro_calibration_t *offsets)
     axMin = ayMin = azMin = 60000;
     axMax = ayMax = azMax = -60000;
 
-    DBGLN("Stating Accelerometer Calibration. OrientationH: %s", mpuOrientationNames[imuOrientationH]);
+    DBGLN("Stating Accelerometer Calibration. OrientationH: %s", getGyroOrientationNames()[imuOrientationH]);
     isCalibrating = true;
 
     for (int inx = 0; inx < ACCEL_NUM_AVG_SAMPLES; inx++)

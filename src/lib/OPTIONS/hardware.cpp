@@ -10,7 +10,8 @@ typedef enum {
     BOOL,
     FLOAT,
     ARRAY,
-    COUNT
+    COUNT,
+    STRING
 } datatype_t;
 
 static const struct {
@@ -169,6 +170,7 @@ static const struct {
     {HARDWARE_gyro_int, "gyro_int", INT},
     {HARDWARE_gyro_scl, "gyro_scl", INT},
     {HARDWARE_gyro_sda, "gyro_sda", INT},
+    {HARDWARE_gyro_orientation_names, "gyro_orientation_names", STRING},
 };
 
 typedef union {
@@ -176,6 +178,7 @@ typedef union {
     bool bool_value;
     float float_value;
     int16_t *array_value;
+    const char *string_value;
 } data_holder_t;
 
 static data_holder_t hardware[HARDWARE_LAST];
@@ -216,6 +219,9 @@ static void hardware_ClearAllFields()
             case COUNT:
                 hardware[field.position].int_value = 0;
                 break;
+            case STRING:
+                hardware[field.position].string_value = nullptr;
+                break;
         }
     }
 }
@@ -245,6 +251,14 @@ static void hardware_LoadFieldsFromDoc(JsonDocument &doc)
                     {
                         JsonArray array = doc[field.name].as<JsonArray>();
                         hardware[field.position].int_value = (int)array.size();
+                    }
+                    break;
+                case STRING:
+                    {
+                        String str = doc[field.name].as<String>();
+                        char *value = new char[str.length() + 1];
+                        memcpy(value, str.c_str(), str.length() + 1);
+                        hardware[field.position].string_value = value;
                     }
                     break;
             }
@@ -315,5 +329,10 @@ const int16_t* hardware_i16_array(nameType name)
 const uint16_t* hardware_u16_array(nameType name)
 {
     return (uint16_t *)hardware[name].array_value;
+}
+
+const char* hardware_str(nameType name)
+{
+    return hardware[name].string_value;
 }
 #endif

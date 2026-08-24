@@ -90,9 +90,10 @@
 #define OPT_HAS_GYRO (hardware_int(HARDWARE_gyro_type) > 0)
 #define OPT_HAS_GYRO_MPU6050 (hardware_int(HARDWARE_gyro_type) == 1)
 #define OPT_HAS_GYRO_LSM6DXX (hardware_int(HARDWARE_gyro_type) == 2)
+#define OPT_HAS_GYRO_SC7U22 (hardware_int(HARDWARE_gyro_type) == 3)
 #define GPIO_PIN_GYRO_NSS hardware_pin(HARDWARE_gyro_nss)
 #define GPIO_PIN_GYRO_INT hardware_pin(HARDWARE_gyro_int)
-#define OPT_HAS_GYRO_SC7U22 (hardware_int(HARDWARE_gyro_type) == 3)
+#define GYRO_ORIENTATION_NAMES hardware_str(HARDWARE_gyro_orientation_names)
 
 // VTX
 #define OPT_HAS_VTX_SPI (hardware_pin(HARDWARE_vtx_nss) != UNDEF_PIN)

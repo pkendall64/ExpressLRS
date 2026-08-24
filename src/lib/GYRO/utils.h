@@ -6,5 +6,10 @@ float crsf_command_to_float(uint32_t us);
 float us_command_to_float(uint8_t ch, uint16_t us);
 uint16_t float_to_us(uint8_t ch, float value);
 
+// Gyro orientation labels, composed from the hardware definition
+// (GYRO_ORIENTATION_NAMES) with fixed axis suffixes appended.
+// getGyroOrientationNames() returns 8 entries (6 faces + 2x "WRONG"),
+const char *const *getGyroOrientationNames();
+
 // Channel configuration for minimum, subtrim and maximum us values
 // extern uint16_t ch_us[GYRO_MAX_CHANNELS][3];

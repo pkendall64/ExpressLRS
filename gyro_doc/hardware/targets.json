@@ -2099,7 +2099,8 @@
                 "lua_name": "HR HR8EG",
                 "layout_file": "HelloRadio HR8E.json",
                 "overlay": {
-                    "gyro_type": 1
+                    "gyro_type": 1,
+                    "gyro_orientation_names": "UART Up;UART Dn;Pins Up;Pins Dn;Lbl Up;Lbl Dn"
                 },
                 "upload_methods": ["uart", "wifi", "betaflight"],
                 "min_version": "3.4.0",

@@ -96,4 +96,8 @@ bool gyroIsVisible(gyro_mode_t fm, gyro_ui_vibility_t category);
 
 extern int8_t gyro_trim_encode(int8_t n);
 extern int8_t gyro_trim_decode(int8_t n);
+
+// getGyroOrientationOptions() returns a ';'-separated string of all 8.
+const char *getGyroOrientationOptions();
+
 #endif
