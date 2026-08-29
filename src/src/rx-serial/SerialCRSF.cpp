@@ -20,8 +20,11 @@ void SerialCRSF::forwardMessage(const crsf_header_t *message)
             // See https://github.com/tbs-fpv/tbs-crsf-spec/blob/main/crsf.md#frame-details
             data[0] = CRSF_SYNC_BYTE;
             _fifo.lock();
-            _fifo.push(totalBufferLen);
-            _fifo.pushBytes(data, totalBufferLen);
+            if (_fifo.ensure(totalBufferLen + 1))
+            {
+                _fifo.push(totalBufferLen);
+                _fifo.pushBytes(data, totalBufferLen);
+            }
             _fifo.unlock();
         }
     }

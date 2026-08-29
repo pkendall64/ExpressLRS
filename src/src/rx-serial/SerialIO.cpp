@@ -18,7 +18,7 @@ void SerialIO::sendQueuedData(uint32_t maxBytesToSend)
 {
     uint32_t bytesWritten = 0;
 
-    while (_fifo.size() > _fifo.peek() && (bytesWritten + _fifo.peek()) < maxBytesToSend)
+    while (_fifo.size() > _fifo.peek() && (bytesWritten + _fifo.peek()) <= maxBytesToSend)
     {
         _fifo.lock();
         uint8_t OutPktLen = _fifo.pop();
