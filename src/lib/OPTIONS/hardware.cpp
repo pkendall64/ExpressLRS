@@ -38,6 +38,8 @@ typedef enum {
     X(HARDWARE_radio_sck, "radio_sck", INT) \
     X(HARDWARE_radio_dcdc, "radio_dcdc", BOOL) \
     X(HARDWARE_radio_rfo_hf, "radio_rfo_hf", BOOL) \
+    X(HARDWARE_radio_low_band_only_1, "radio_low_band_only_1", BOOL) \
+    X(HARDWARE_radio_high_band_only_2, "radio_high_band_only_2", BOOL) \
     X(HARDWARE_radio_rfsw_ctrl, "radio_rfsw_ctrl", ARRAY) \
     X(HARDWARE_radio_rfsw_ctrl_count, "radio_rfsw_ctrl", COUNT) \
     X(HARDWARE_radio_tcxo, "radio_tcxo", INT) \
