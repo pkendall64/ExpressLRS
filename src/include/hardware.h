@@ -25,6 +25,8 @@ typedef enum {
     HARDWARE_radio_sck,
     HARDWARE_radio_dcdc,
     HARDWARE_radio_rfo_hf,
+    HARDWARE_radio_low_band_only_1,
+    HARDWARE_radio_high_band_only_2,
     HARDWARE_radio_rfsw_ctrl,
     HARDWARE_radio_rfsw_ctrl_count,
     HARDWARE_radio_tcxo,

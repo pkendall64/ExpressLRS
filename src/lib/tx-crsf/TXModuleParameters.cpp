@@ -81,8 +81,82 @@ static constexpr char luastrOffOn[] = "Off;On";
 static char luastrPacketRates[] = STR_LUA_PACKETRATES;
 
 #if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+static constexpr char antennamodeOptsAnt1Only[] = ";Ant 1;;";
+static constexpr char antennamodeOptsAnt2Only[] = ";;Ant 2;";
 static char luastrRFBands[32];
 static RadioBandMod::Band currentRfBand;
+static constexpr uint8_t antennaModeOrder[] = {
+    TX_RADIO_MODE_GEMINI,
+    TX_RADIO_MODE_ANT_1,
+    TX_RADIO_MODE_ANT_2,
+    TX_RADIO_MODE_SWITCH,
+};
+
+static bool isAntennaModeValid(RadioBandMod::Band band, uint8_t antennaMode)
+{
+    switch (band)
+    {
+    case RadioBandMod::BDUAL:
+        return antennaMode == TX_RADIO_MODE_GEMINI;
+    case RadioBandMod::B900:
+        switch (antennaMode)
+        {
+        case TX_RADIO_MODE_GEMINI:
+        case TX_RADIO_MODE_ANT_2:
+        case TX_RADIO_MODE_SWITCH:
+            return !OPT_RADIO_HIGH_BAND_ONLY_2;
+        case TX_RADIO_MODE_ANT_1:
+            return true;
+        }
+        break;
+    case RadioBandMod::B2G4:
+        switch (antennaMode)
+        {
+        case TX_RADIO_MODE_GEMINI:
+        case TX_RADIO_MODE_ANT_1:
+        case TX_RADIO_MODE_SWITCH:
+            return !OPT_RADIO_LOW_BAND_ONLY_1;
+        case TX_RADIO_MODE_ANT_2:
+            return true;
+        }
+        break;
+    }
+
+    return false;
+}
+
+static uint8_t clampAntennaMode(RadioBandMod::Band band, uint8_t antennaMode)
+{
+    if (isAntennaModeValid(band, antennaMode))
+    {
+        return antennaMode;
+    }
+
+    for (uint8_t candidate : antennaModeOrder)
+    {
+        if (isAntennaModeValid(band, candidate))
+        {
+            return candidate;
+        }
+    }
+
+    return TX_RADIO_MODE_GEMINI;
+}
+
+static const char *getAntennaModeOptions(RadioBandMod::Band band)
+{
+    switch (band)
+    {
+    case RadioBandMod::BDUAL:
+        return antennamodeOptsDualBand;
+    case RadioBandMod::B900:
+        return OPT_RADIO_HIGH_BAND_ONLY_2 ? antennamodeOptsAnt1Only : antennamodeOpts;
+    case RadioBandMod::B2G4:
+        return OPT_RADIO_LOW_BAND_ONLY_1 ? antennamodeOptsAnt2Only : antennamodeOpts;
+    }
+
+    return antennamodeOpts;
+}
 
 static selectionParameter luaRFBand = {
     {"RF Band", CRSF_TEXT_SELECTION},
@@ -647,8 +721,12 @@ void TXModuleEndpoint::SetPacketRateIdx(uint8_t idx, bool forceChange)
 
   const auto newModParams = get_elrs_airRateConfig(actualRate);
   uint8_t newSwitchMode = adjustSwitchModeForAirRate((OtaSwitchMode_e)config.GetSwitchMode(), newModParams->PayloadLength);
-  // Force Gemini when using dual band modes.
-  uint8_t newAntennaMode = RadioBandMod::isBDUAL(newModParams->radio_type) ? TX_RADIO_MODE_GEMINI : config.GetAntennaMode();
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+  RadioBandMod::Band newRfBand = RadioBandMod::getBand(newModParams->radio_type);
+  uint8_t newAntennaMode = clampAntennaMode(newRfBand, config.GetAntennaMode());
+#else
+  uint8_t newAntennaMode = config.GetAntennaMode();
+#endif
   // If the switch mode is going to change, block the change while connected
   bool isDisconnected = connectionState == disconnected;
   // Don't allow the switch mode to change if the TX is in mavlink mode
@@ -696,9 +774,12 @@ void TXModuleEndpoint::SetSwitchMode(uint8_t idx)
 
 void TXModuleEndpoint::SetAntennaMode(uint8_t idx)
 {
-  // Force Gemini when using dual band modes.
-  uint8_t newAntennaMode = RadioBandMod::isBDUAL(get_elrs_airRateConfig(config.GetRate())->radio_type) ? TX_RADIO_MODE_GEMINI : idx;
-  config.SetAntennaMode(newAntennaMode);
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+  RadioBandMod::Band currentBand = RadioBandMod::getBand(get_elrs_airRateConfig(config.GetRate())->radio_type);
+  config.SetAntennaMode(clampAntennaMode(currentBand, idx));
+#else
+  config.SetAntennaMode(idx);
+#endif
 }
 
 void TXModuleEndpoint::SetTlmRatio(uint8_t idx)
@@ -1000,7 +1081,11 @@ void TXModuleEndpoint::updateParameters()
   setTextSelectionValue(&luaTlmRate, config.GetTlm());
   luaTlmRate.options = isMavlinkMode ? tlmRatiosMav : tlmRatios;
 
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+  luaAntenna.options = getAntennaModeOptions(currentRfBand);
+#else
   luaAntenna.options = RadioBandMod::isBDUAL(get_elrs_airRateConfig(config.GetRate())->radio_type) ? antennamodeOptsDualBand : antennamodeOpts;
+#endif
 
   setTextSelectionValue(&luaSwitch, config.GetSwitchMode());
   if (isMavlinkMode)
@@ -1014,7 +1099,13 @@ void TXModuleEndpoint::updateParameters()
 
   if (isDualRadio())
   {
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+    uint8_t antennaMode = clampAntennaMode(currentRfBand, config.GetAntennaMode());
+    config.SetAntennaMode(antennaMode);
+    setTextSelectionValue(&luaAntenna, antennaMode);
+#else
     setTextSelectionValue(&luaAntenna, config.GetAntennaMode());
+#endif
   }
   setTextSelectionValue(&luaLinkMode, config.GetLinkMode());
   updateModelID();

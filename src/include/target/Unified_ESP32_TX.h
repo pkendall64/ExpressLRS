@@ -18,6 +18,8 @@
 #define GPIO_PIN_SCK hardware_pin(HARDWARE_radio_sck)
 #define OPT_USE_HARDWARE_DCDC hardware_flag(HARDWARE_radio_dcdc)
 #define OPT_USE_SX1276_RFO_HF hardware_flag(HARDWARE_radio_rfo_hf)
+#define OPT_RADIO_LOW_BAND_ONLY_1 hardware_flag(HARDWARE_radio_low_band_only_1)
+#define OPT_RADIO_HIGH_BAND_ONLY_2 hardware_flag(HARDWARE_radio_high_band_only_2)
 #define LR1121_RFSW_CTRL hardware_u16_array(HARDWARE_radio_rfsw_ctrl)
 #define LR1121_RFSW_CTRL_COUNT hardware_int(HARDWARE_radio_rfsw_ctrl_count)
 

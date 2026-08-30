@@ -119,6 +119,8 @@ export function devMockPlugin() {
         radio_nss_2: 13,
         radio_rst_2: 21,
         radio_rfo_hf: true,
+        radio_low_band_only_1: false,
+        radio_high_band_only_2: true,
         power_apc2: 26,
         power_min: 0,
         power_high: 6,

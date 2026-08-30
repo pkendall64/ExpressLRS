@@ -146,6 +146,40 @@ const HARDWARE_SCHEMA = [
                 desc: 'Reset pin connected to second transceiver'
             },
             /* /FEATURE: NOT IS_8285 */
+            /* FEATURE: IS_TX */
+            /* FEATURE: HAS_LR1121 */
+            {
+                id: 'radio_low_band_only_1',
+                label: 'Radio 1 low-band only',
+                type: 'checkbox',
+                icon: null,
+                desc: 'Limit radio 1 to the low-band front end only; leave unchecked when radio 1 can use both the low band and 2.4GHz'
+            },
+            {
+                id: 'radio_high_band_only_2',
+                label: 'Radio 2 high-band only',
+                type: 'checkbox',
+                icon: null,
+                desc: 'Limit radio 2 to the 2.4GHz front end only; leave unchecked when radio 2 can use both the low band and 2.4GHz'
+            },
+            /* /FEATURE: HAS_LR1121 */
+            /* FEATURE: HAS_LR2021 */
+            {
+                id: 'radio_low_band_only_1',
+                label: 'Radio 1 low-band only',
+                type: 'checkbox',
+                icon: null,
+                desc: 'Limit radio 1 to the low-band front end only; leave unchecked when radio 1 can use both the low band and 2.4GHz'
+            },
+            {
+                id: 'radio_high_band_only_2',
+                label: 'Radio 2 high-band only',
+                type: 'checkbox',
+                icon: null,
+                desc: 'Limit radio 2 to the 2.4GHz front end only; leave unchecked when radio 2 can use both the low band and 2.4GHz'
+            },
+            /* /FEATURE: HAS_LR2021 */
+            /* /FEATURE: IS_TX */
             /* FEATURE: NOT HAS_SX127X */
             {
                 id: 'radio_dcdc',
