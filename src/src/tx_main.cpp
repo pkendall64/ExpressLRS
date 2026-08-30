@@ -80,6 +80,7 @@ LQCALC<100> LqTQly;
 
 volatile bool busyTransmitting;
 static volatile bool ModelUpdatePending;
+static volatile bool RadioParamsUpdatePending;
 
 uint8_t MSPDataPackage[5];
 #define BindingSpamAmount 25
@@ -119,13 +120,52 @@ device_affinity_t ui_devices[] = {
 };
 
 static bool diversityAntennaState = LOW;
+static bool receiverHasTrueDiversity = true;
+
+static uint8_t getOperationalAntennaMode(uint8_t radioType)
+{
+    uint8_t antennaMode = config.GetAntennaMode();
+
+#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
+    switch (RadioBandMod::getBand(radioType))
+    {
+    case RadioBandMod::BDUAL:
+        return TX_RADIO_MODE_GEMINI;
+    case RadioBandMod::B900:
+        if (OPT_RADIO_HIGH_BAND_ONLY_2 && antennaMode != TX_RADIO_MODE_ANT_1)
+        {
+            return TX_RADIO_MODE_ANT_1;
+        }
+        break;
+    case RadioBandMod::B2G4:
+        if (OPT_RADIO_LOW_BAND_ONLY_1 && antennaMode != TX_RADIO_MODE_ANT_2)
+        {
+            return TX_RADIO_MODE_ANT_2;
+        }
+        break;
+    }
+#endif
+
+    // If the RX cannot receive Gemini traffic, fall back to Switch at runtime.
+    if (antennaMode == TX_RADIO_MODE_GEMINI && !receiverHasTrueDiversity)
+    {
+        return TX_RADIO_MODE_SWITCH;
+    }
+
+    return antennaMode;
+}
+
+static uint8_t getOperationalAntennaMode()
+{
+    return getOperationalAntennaMode(ExpressLRS_currAirRate_Modparams->radio_type);
+}
 
 static bool inGeminiMode()
 {
-    return isDualRadio() && config.GetAntennaMode() == TX_RADIO_MODE_GEMINI;
+    return isDualRadio() && getOperationalAntennaMode() == TX_RADIO_MODE_GEMINI;
 }
 
-void switchDiversityAntennas()
+static void switchDiversityAntennas()
 {
   if (GPIO_PIN_ANT_CTRL != UNDEF_PIN)
   {
@@ -157,11 +197,11 @@ void ICACHE_RAM_ATTR LinkStatsFromOta(OTA_LinkStats_s * const ls)
   // -- uplink_TX_Power is updated when sending to the handset, so it updates when missing telemetry
   // -- rf_mode is updated when we change rates
   // -- downlink_Link_quality is updated before the LQ period is incremented
-
-  // The Rx only has a single radio.  Force the Tx out of Gemini mode.
-  if (inGeminiMode() && !ls->trueDiversityAvailable)
+  const uint8_t previousOperationalAntennaMode = getOperationalAntennaMode();
+  receiverHasTrueDiversity = ls->trueDiversityAvailable;
+  if (previousOperationalAntennaMode != getOperationalAntennaMode())
   {
-      config.SetAntennaMode(TX_RADIO_MODE_SWITCH);
+    RadioParamsUpdatePending = true;
   }
 }
 
@@ -491,7 +531,7 @@ void SetRFLinkRate(uint8_t index) // Set speed of RF link
 
   Radio.FuzzySNRThreshold = (RFperf->DynpowerSnrThreshUp == DYNPOWER_SNR_THRESH_NONE) ? 0 : (RFperf->DynpowerSnrThreshUp - RFperf->DynpowerSnrThreshDn);
 
-  if (inGeminiMode() || FHSSuseDualBand)
+  if (getOperationalAntennaMode(ModParams->radio_type) == TX_RADIO_MODE_GEMINI || FHSSuseDualBand)
   {
     Radio.SetFrequencyReg(FHSSgetInitialGeminiFreq(), SX12XX_Radio_2, false);
   }
@@ -616,7 +656,7 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   if (isDualRadio())
   {
     // Single antenna modes: tx on one antenna, and true diversity rx for tlm reception.
-    switch (config.GetAntennaMode())
+    switch (getOperationalAntennaMode())
     {
     case TX_RADIO_MODE_ANT_1:
       transmittingRadio = SX12XX_Radio_1;
@@ -770,6 +810,7 @@ void ResetPower()
 static void ChangeRadioParams()
 {
   ModelUpdatePending = false;
+  RadioParamsUpdatePending = false;
   ResetPower(); // Call before SetRFLinkRate(). The LR1121 Radio lib can now set the correct output power in Config().
   SetRFLinkRate(config.GetRate());
   LbtEnableIfRequired();
@@ -808,7 +849,7 @@ static void ConfigChangeCommit()
 
 static void CheckConfigChangePending()
 {
-  if (config.IsModified() || ModelUpdatePending)
+  if (config.IsModified() || ModelUpdatePending || RadioParamsUpdatePending)
   {
     // Keep transmitting sync packets until the spam counter runs out
     if (syncSpamCounter > 0)
@@ -827,7 +868,15 @@ static void CheckConfigChangePending()
       Radio.SetTxIdleMode();
       TelemetryRcvPhase = ttrpTransmitting;
     }
-    ConfigChangeCommit();
+    if (config.IsModified() || ModelUpdatePending)
+    {
+      ConfigChangeCommit();
+    }
+    else
+    {
+      ChangeRadioParams();
+      commitInProgress = false;
+    }
   }
 }
 

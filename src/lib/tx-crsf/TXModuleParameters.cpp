@@ -158,6 +158,7 @@ static const char *getAntennaModeOptions(RadioBandMod::Band band)
     return antennamodeOpts;
 }
 
+
 static selectionParameter luaRFBand = {
     {"RF Band", CRSF_TEXT_SELECTION},
     0, // value
@@ -721,12 +722,6 @@ void TXModuleEndpoint::SetPacketRateIdx(uint8_t idx, bool forceChange)
 
   const auto newModParams = get_elrs_airRateConfig(actualRate);
   uint8_t newSwitchMode = adjustSwitchModeForAirRate((OtaSwitchMode_e)config.GetSwitchMode(), newModParams->PayloadLength);
-#if defined(RADIO_LR1121) || defined(RADIO_LR2021)
-  RadioBandMod::Band newRfBand = RadioBandMod::getBand(newModParams->radio_type);
-  uint8_t newAntennaMode = clampAntennaMode(newRfBand, config.GetAntennaMode());
-#else
-  uint8_t newAntennaMode = config.GetAntennaMode();
-#endif
   // If the switch mode is going to change, block the change while connected
   bool isDisconnected = connectionState == disconnected;
   // Don't allow the switch mode to change if the TX is in mavlink mode
@@ -739,10 +734,9 @@ void TXModuleEndpoint::SetPacketRateIdx(uint8_t idx, bool forceChange)
     // Deferring it forces it to run in the main loop, which otherwise
     // would cause a race condition with the syncspam needing to get out
     // before the rate change
-    deferExecutionMillis(10, [actualRate, newSwitchMode, newAntennaMode]() {
+    deferExecutionMillis(10, [actualRate, newSwitchMode]() {
       config.SetRate(actualRate);
       config.SetSwitchMode(newSwitchMode);
-      config.SetAntennaMode(newAntennaMode);
       SetSyncSpam();
     });
     setWarningFlag(LUA_FLAG_ERROR_BAUDRATE, actualRate != idx);
@@ -776,6 +770,10 @@ void TXModuleEndpoint::SetAntennaMode(uint8_t idx)
 {
 #if defined(RADIO_LR1121) || defined(RADIO_LR2021)
   RadioBandMod::Band currentBand = RadioBandMod::getBand(get_elrs_airRateConfig(config.GetRate())->radio_type);
+  if (getAntennaModeOptions(currentBand) != antennamodeOpts)
+  {
+    return;
+  }
   config.SetAntennaMode(clampAntennaMode(currentBand, idx));
 #else
   config.SetAntennaMode(idx);
@@ -1100,9 +1098,7 @@ void TXModuleEndpoint::updateParameters()
   if (isDualRadio())
   {
 #if defined(RADIO_LR1121) || defined(RADIO_LR2021)
-    uint8_t antennaMode = clampAntennaMode(currentRfBand, config.GetAntennaMode());
-    config.SetAntennaMode(antennaMode);
-    setTextSelectionValue(&luaAntenna, antennaMode);
+    setTextSelectionValue(&luaAntenna, clampAntennaMode(currentRfBand, config.GetAntennaMode()));
 #else
     setTextSelectionValue(&luaAntenna, config.GetAntennaMode());
 #endif
