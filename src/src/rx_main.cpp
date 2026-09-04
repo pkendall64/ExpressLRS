@@ -1053,7 +1053,7 @@ static bool ICACHE_RAM_ATTR ProcessRfPacket_SYNC(uint32_t const now, OTA_Sync_s 
     // Check if otaProtocol has been updated.
     if (config.IsModified())
     {
-        deferExecutionMillis(100, [](){
+        deferExecutionMillis(0, [](){
             reconfigureSerial();
         });
     }
@@ -2081,11 +2081,6 @@ void loop()
 {
     unsigned long now = millis();
 
-    if (DataUlReceiver.HasFinishedData())
-    {
-        DataUlReceiveComplete();
-    }
-
     devicesUpdate(now);
 
     // read and process any data from serial ports, send any queued non-RC data
@@ -2095,6 +2090,10 @@ void loop()
 
     CheckConfigChangePending();
     executeDeferredFunction(micros());
+    if (DataUlReceiver.HasFinishedData())
+    {
+        DataUlReceiveComplete();
+    }
 
     if (connectionState > MODE_STATES)
     {

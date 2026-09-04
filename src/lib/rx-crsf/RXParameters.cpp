@@ -435,7 +435,7 @@ static void configureSerialPin(uint8_t sibling, uint8_t oldMode, uint8_t newMode
 
   if (oldMode != newMode)
   {
-    deferExecutionMillis(100, [](){
+    deferExecutionMillis(0, [](){
       reconfigureSerial();
     });
   }
@@ -517,7 +517,7 @@ void RXEndpoint::registerParameters()
   registerParameter(&luaSerialProtocol, [](propertiesCommon* item, uint8_t arg){
     config.SetSerialProtocol((eSerialProtocol)arg);
     if (config.IsModified()) {
-      deferExecutionMillis(100, [](){
+      deferExecutionMillis(0, [](){
         reconfigureSerial();
       });
     }
@@ -529,7 +529,7 @@ void RXEndpoint::registerParameters()
     registerParameter(&luaSerial1Protocol, [](propertiesCommon* item, uint8_t arg){
       config.SetSerial1Protocol((eSerial1Protocol)arg);
       if (config.IsModified()) {
-        deferExecutionMillis(100, [](){
+        deferExecutionMillis(0, [](){
           reconfigureSerial1();
         });
       }
