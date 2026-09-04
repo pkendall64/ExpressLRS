@@ -3,6 +3,11 @@
 #include "SerialIO.h"
 #include "FIFO.h"
 
+#ifndef MAVLINK_COMM_NUM_BUFFERS
+#define MAVLINK_COMM_NUM_BUFFERS 1
+#endif
+#include "common/mavlink.h"
+
 #define MAV_INPUT_BUF_LEN       1024
 #define MAV_OUTPUT_BUF_LEN      512
 #define MAV_PAYLOAD_SIZE_MAX    60
@@ -40,4 +45,12 @@ private:
     // Variables / constants for Mavlink //
     FIFO<MAV_INPUT_BUF_LEN> mavlinkInputBuffer;
     FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
+
+    uint8_t currentOutput[MAVLINK_MAX_PACKET_LEN];
+    uint16_t currentOutputSize = 0;
+    uint16_t currentOutputOffset = 0;
+    bool currentOutputIsRadioStatus = false;
+
+    uint8_t pendingRc[MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES];
+    uint16_t pendingRcSize = 0;
 };
