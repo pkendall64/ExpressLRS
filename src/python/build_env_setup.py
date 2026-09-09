@@ -5,6 +5,7 @@ import upload_via_esp8266_backpack
 import esp_compress
 import elrs_helpers
 import BFinitPassthrough
+import APinitPassthrough
 import ETXinitPassthrough
 import UnifiedConfiguration
 
@@ -53,6 +54,16 @@ if platform in ['espressif8266']:
             ]
         )
         env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
+    elif "_ARDUPILOTPASSTHROUGH" in target_name:
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=460800,
+            UPLOADERFLAGS=[
+                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "-c", "esp8266", "--before", "no_reset", "--after", "soft_reset", "write_flash"
+            ]
+        )
+        env.AddPreAction("upload", APinitPassthrough.init_passthrough)
 
 elif platform in ['espressif32']:
     if "_WIFI" in target_name:
@@ -82,6 +93,22 @@ elif platform in ['espressif32']:
             ]
         )
         env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
+    elif "_ARDUPILOTPASSTHROUGH" in target_name:
+        if "ESP32S3" in target_name:
+            chip = "esp32-s3"
+        elif "ESP32C3" in target_name:
+            chip = "esp32-c3"
+        else:
+            chip = "esp32"
+        env.Replace(
+            UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
+            UPLOAD_SPEED=460800,
+            UPLOADERFLAGS=[
+                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "-c", chip, "--before", "no_reset", "--after", "hard_reset", "write_flash"
+            ]
+        )
+        env.AddPreAction("upload", APinitPassthrough.init_passthrough)
 
 if "_WIFI" in target_name:
     add_target_uploadoption("uploadconfirm", "Do not upload, just send confirm")

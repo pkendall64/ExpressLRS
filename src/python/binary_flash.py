@@ -6,6 +6,7 @@ import os
 
 from elrs_helpers import ElrsUploadResult
 import BFinitPassthrough
+import APinitPassthrough
 import ETXinitPassthrough
 import serials_find
 import upload_via_esp8266_backpack
@@ -22,6 +23,7 @@ class UploadMethod(Enum):
     wifi = 'wifi'
     uart = 'uart'
     betaflight = 'bf'
+    ardupilot = 'ap'
     edgetx = 'etx'
     stlink = 'stlink'
     stock = 'stock'
@@ -62,6 +64,27 @@ def upload_esp8266_bf(args, options):
     if args.force == True:
         mode = 'uploadforce'
     retval = BFinitPassthrough.main(['-p', args.port, '-b', str(args.baud), '-r', options.firmware, '-a', mode, '--accept', args.accept])
+    if retval != ElrsUploadResult.Success:
+        return retval
+    try:
+        cmd = ['--passthrough', '--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'soft_reset', 'write_flash']
+        if args.erase: cmd.append('--erase-all')
+        cmd.extend(['0x0000', args.file.name])
+        esptool.main(cmd)
+    except:
+        return ElrsUploadResult.ErrorGeneral
+    return ElrsUploadResult.Success
+
+def upload_esp8266_ap(args, options):
+    if args.port == None:
+        args.port = serials_find.get_serial_port()
+    mode = 'uploadforce' if args.force == True else 'upload'
+    try:
+        args.baud = APinitPassthrough.ap_passthrough_init(args.port, args.baud)
+        retval = APinitPassthrough.reset_to_bootloader_ap(args.port, args.baud, options.firmware, mode, args.accept)
+    except APinitPassthrough.PassthroughFailed as err:
+        print(str(err))
+        return ElrsUploadResult.ErrorGeneral
     if retval != ElrsUploadResult.Success:
         return retval
     try:
@@ -117,6 +140,24 @@ def upload_esp32_bf(args, options):
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
+def upload_esp32_ap(args, options):
+    if args.port == None:
+        args.port = serials_find.get_serial_port()
+    mode = 'uploadforce' if args.force == True else 'upload'
+    try:
+        args.baud = APinitPassthrough.ap_passthrough_init(args.port, args.baud)
+        retval = APinitPassthrough.reset_to_bootloader_ap(args.port, args.baud, options.firmware, mode, args.accept)
+    except APinitPassthrough.PassthroughFailed as err:
+        print(str(err))
+        return ElrsUploadResult.ErrorGeneral
+    if retval != ElrsUploadResult.Success:
+        return retval
+    try:
+        esptool.main(['--passthrough', '--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash', '-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', '0x10000', args.file.name])
+    except:
+        return ElrsUploadResult.ErrorGeneral
+    return ElrsUploadResult.Success
+
 def upload_dir(mcuType, args):
     if mcuType == MCUType.ESP8266:
         shutil.copy2('firmware.bin.gz', os.path.join(args.out, 'firmware.bin.gz'))
@@ -135,6 +176,8 @@ def upload(options: FirmwareOptions, args):
         if options.mcuType == MCUType.ESP8266:
             if args.flash == UploadMethod.betaflight:
                 return upload_esp8266_bf(args, options)
+            elif args.flash == UploadMethod.ardupilot:
+                return upload_esp8266_ap(args, options)
             elif args.flash == UploadMethod.uart:
                 return upload_esp8266_uart(args)
             elif args.flash == UploadMethod.wifi:
@@ -142,6 +185,8 @@ def upload(options: FirmwareOptions, args):
         elif options.mcuType == MCUType.ESP32:
             if args.flash == UploadMethod.betaflight:
                 return upload_esp32_bf(args, options)
+            elif args.flash == UploadMethod.ardupilot:
+                return upload_esp32_ap(args, options)
             elif args.flash == UploadMethod.uart:
                 return upload_esp32_uart(args)
             elif args.flash == UploadMethod.wifi:
