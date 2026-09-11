@@ -59,8 +59,15 @@ BANNER_POLL_SECONDS = 0.02
 ESP_SYNC_WINDOW_SECONDS = 3.0
 ESP_SYNC_INTERVAL_SECONDS = 0.01
 ESP_SYNC_SLIP_FRAME = b"\xc0\x00\x08\x24\x00\x00\x00\x00\x00\x07\x07\x12\x20" + 32 * b"\x55" + b"\xc0"
+ESP_SYNC_COMMAND = 0x08
 BOOTLOADER_BANNER_REGEX = re.compile(br"UNIFIED_ESP.*?\r\n", re.IGNORECASE | re.DOTALL)
 PARAM_READ_TIMEOUT_SECONDS = 0.5
+RECOVERY_UNSUPPORTED_MESSAGE = (
+    'Receiver is already in ESP bootloader; recovery flashing via ArduPilot passthrough is unreliable. '
+    'Use direct UART or reboot the receiver into firmware and retry normal passthrough.'
+)
+STALE_DRAIN_QUIET_SECONDS = 0.1
+STALE_DRAIN_MAX_SECONDS = 1.0
 MAX_SERIAL_PROBE_PORTS = 32
 
 
@@ -324,8 +331,9 @@ def ap_passthrough_init(port, selected_baud):
         client.set_param_int8('SERIAL_PASS1', 0)
         dbg_print(f'  Setting SERIAL_PASS2 = {receiver_port}')
         client.set_param_int8('SERIAL_PASS2', receiver_port)
-    dbg_print(f'Waiting {PASSTHROUGH_SETTLE_SECONDS:.1f}s for ArduPilot UART re-initialization...')
-    time.sleep(PASSTHROUGH_SETTLE_SECONDS)
+        dbg_print(f'Waiting {PASSTHROUGH_SETTLE_SECONDS:.1f}s for ArduPilot UART re-initialization...')
+        time.sleep(PASSTHROUGH_SETTLE_SECONDS)
+        _drain_serial(handle)
     dbg_print('======== ARDUPILOT PASSTHROUGH DONE ========')
     return receiver_baud
 
@@ -336,6 +344,22 @@ def _clear_serial(handle):
         handle.reset_output_buffer()
     except AttributeError:
         pass
+
+def _drain_serial(handle, quiet_seconds=STALE_DRAIN_QUIET_SECONDS, max_seconds=STALE_DRAIN_MAX_SECONDS):
+    deadline = time.monotonic() + max_seconds
+    quiet_deadline = time.monotonic() + quiet_seconds
+    drained = 0
+    while time.monotonic() < deadline and time.monotonic() < quiet_deadline:
+        waiting = getattr(handle, 'in_waiting', 0)
+        if waiting:
+            chunk = handle.read(waiting)
+            drained += len(chunk)
+            quiet_deadline = time.monotonic() + quiet_seconds
+        else:
+            time.sleep(min(0.01, quiet_seconds))
+    if drained:
+        dbg_print(f'Drained {drained} stale passthrough bytes')
+    return drained
 
 
 def _verify_target(rx_target, target, action, accept):
@@ -363,26 +387,69 @@ def _verify_target(rx_target, target, action, accept):
     return ElrsUploadResult.Success
 
 
+def _slip_packets(buffer):
+    packets = []
+    packet = None
+    escaped = False
+    for byte in buffer:
+        if packet is None:
+            if byte == 0xC0:
+                packet = bytearray()
+            continue
+        if escaped:
+            escaped = False
+            if byte == 0xDC:
+                packet.append(0xC0)
+            elif byte == 0xDD:
+                packet.append(0xDB)
+            else:
+                packet = None
+        elif byte == 0xDB:
+            escaped = True
+        elif byte == 0xC0:
+            packets.append(bytes(packet))
+            packet = bytearray()
+        else:
+            packet.append(byte)
+    remainder = b'' if packet is None else bytes([0xC0]) + bytes(packet)
+    if escaped:
+        remainder += b'\xDB'
+    return packets, remainder
+
+
+def _is_esp_response(packet):
+    if len(packet) < 8:
+        return False
+    response, _op, length, _value = struct.unpack('<BBHI', packet[:8])
+    return response == 1 and len(packet[8:]) >= length
+
+
 def _sync_esp_rom(handle):
     dbg_print("\n--- Phase 3: Synchronizing with ESP Bootloader (SLIP Loop) ---")
     _clear_serial(handle)
+    _drain_serial(handle)
     deadline = time.monotonic() + ESP_SYNC_WINDOW_SECONDS
-    next_write = 0.0
     attempts = 0
+    buffer = b''
     while time.monotonic() < deadline:
-        now = time.monotonic()
-        if now >= next_write:
-            attempts += 1
-            handle.write(ESP_SYNC_SLIP_FRAME)
-            handle.flush()
-            next_write = now + ESP_SYNC_INTERVAL_SECONDS
+        attempts += 1
+        handle.write(ESP_SYNC_SLIP_FRAME)
+        handle.flush()
+        time.sleep(ESP_SYNC_INTERVAL_SECONDS)
         waiting = getattr(handle, 'in_waiting', 0)
-        data = handle.read(waiting or 1)
+        if not waiting:
+            continue
+        data = handle.read(waiting)
         if data:
             dbg_print(f"Sync #{attempts} | RX <- {data.hex(' ')}")
-        if b'\xc0' in data:
-            dbg_print(f'ESP bootloader ACK received on sync #{attempts}')
-            return True
+            buffer += data
+            packets, buffer = _slip_packets(buffer)
+            for packet in packets:
+                if _is_esp_response(packet):
+                    dbg_print(f'ESP bootloader response received on sync #{attempts}: {packet.hex(" ")}')
+                    return True
+                elif packet:
+                    dbg_print(f'Ignoring non-ESP SLIP packet: {packet.hex(" ")}')
     return False
 
 
@@ -391,6 +458,11 @@ def reset_to_bootloader_ap(port, baud, target, action, accept=None, chip_type='E
     dbg_print('\n--- Phase 2: Bootloader Trigger & Banner Verification ---')
     init_seq = bootloader.get_init_seq()
     with _open_serial(port=port, baudrate=baud, timeout=1, bytesize=8, parity='N', stopbits=1, xonxoff=0, rtscts=0) as handle:
+        dbg_print('Checking for receiver already in ESP bootloader...')
+        if _sync_esp_rom(handle):
+            dbg_print(RECOVERY_UNSUPPORTED_MESSAGE)
+            return ElrsUploadResult.ErrorGeneral
+
         for attempt in range(1, MAX_TRIGGER_ATTEMPTS + 1):
             dbg_print(f'  Sending reboot trigger (attempt {attempt}/{MAX_TRIGGER_ATTEMPTS})...')
             _clear_serial(handle)
