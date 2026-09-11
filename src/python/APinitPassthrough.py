@@ -45,7 +45,7 @@ CRC_EXTRA = {
 }
 
 SERIAL_PARAM_RE = re.compile(r'^SERIAL([1-9][0-9]*)_(PROTOCOL|BAUD)$')
-CRSF_PROTOCOLS = {23, 29}
+CRSF_PROTOCOLS = {23}
 MAVLINK_PROTOCOLS = {1, 2}
 CRSF_BAUD = 420000
 MAVLINK_BAUD = 460800
@@ -109,7 +109,7 @@ def pack_mavlink1(msgid: int, payload: bytes, seq: int, sysid: int, compid: int,
     return bytes([MAVLINK1_STX]) + header + payload + struct.pack('<H', crc)
 
 
-def collect_serial_params(params: Dict[str, float]) -> Tuple[Dict[int, Tuple[int, int]], Dict[int, Set[str]]]:
+def collect_serial_params(params: Dict[str, float]) -> Tuple[Dict[int, Tuple[int, Optional[int]]], Dict[int, Set[str]]]:
     found = {}
     for name, value in params.items():
         match = SERIAL_PARAM_RE.match(name)
@@ -118,21 +118,23 @@ def collect_serial_params(params: Dict[str, float]) -> Tuple[Dict[int, Tuple[int
         port = int(match.group(1))
         suffix = match.group(2)
         found.setdefault(port, {})[suffix] = value
-
     complete = {}
     incomplete = {}
-    for port, values in found.items():
-        missing = {'PROTOCOL', 'BAUD'} - set(values)
-        if missing:
-            incomplete[port] = missing
-        else:
-            complete[port] = (int(round(float(values['PROTOCOL']))), _baud_value(values['BAUD']))
-    return complete, incomplete
 
+    for port, values in found.items():
+        if 'PROTOCOL' not in values:
+            incomplete[port] = {'PROTOCOL'} | ({'BAUD'} if 'BAUD' not in values else set())
+            continue
+        protocol = int(round(float(values['PROTOCOL'])))
+        baud = _baud_value(values['BAUD']) if 'BAUD' in values else None
+        if baud is None:
+            incomplete[port] = {'BAUD'}
+        complete[port] = (protocol, baud)
+    return complete, incomplete
 
 def _format_complete(complete):
     return ', '.join(
-        f'SERIAL{port} protocol {protocol} baud {baud}'
+        f'SERIAL{port} protocol {protocol}' + (f' baud {baud}' if baud is not None else ' baud <missing>')
         for port, (protocol, baud) in sorted(complete.items()))
 
 
@@ -148,10 +150,7 @@ def choose_receiver_port(params: Dict[str, float]) -> Tuple[int, int, str]:
     unsupported = []
     for port, (protocol, baud) in complete.items():
         if protocol in CRSF_PROTOCOLS:
-            if baud == CRSF_BAUD:
-                candidates.append((port, baud, 'CRSF'))
-            else:
-                unsupported.append((port, protocol, baud, CRSF_BAUD))
+            candidates.append((port, CRSF_BAUD, 'CRSF'))
         elif protocol in MAVLINK_PROTOCOLS:
             if baud == MAVLINK_BAUD:
                 candidates.append((port, baud, 'MAVLink'))
@@ -171,7 +170,7 @@ def choose_receiver_port(params: Dict[str, float]) -> Tuple[int, int, str]:
     details = _format_complete(complete) or 'none'
     if incomplete:
         details += '; incomplete: ' + _format_incomplete(incomplete)
-    raise PassthroughFailed('No receiver serial port matched CRSF 420000 or MAVLink 460800; available: ' + details)
+    raise PassthroughFailed('No receiver serial port matched CRSF protocol 23 or MAVLink 460800; available: ' + details)
 
 
 class MavlinkClient:
@@ -288,8 +287,8 @@ def _read_serial_params(client):
         baud_name = f'SERIAL{port}_BAUD'
         baud = client.read_param(baud_name)
         if baud is None:
-            dbg_print(f'  {baud_name} not present; stopping SERIAL probe')
-            break
+            dbg_print(f'  {baud_name} not present; continuing SERIAL probe')
+            continue
         params[baud_name] = baud
         dbg_print(f'  {baud_name} = {_baud_value(baud)}')
     return params
