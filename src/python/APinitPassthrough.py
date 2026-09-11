@@ -34,12 +34,12 @@ MAV_SYS_ID = 255
 MAV_PARAM_TYPE_INT8 = 1
 
 MSG_HEARTBEAT = 0
-MSG_PARAM_REQUEST_LIST = 21
+MSG_PARAM_REQUEST_READ = 20
 MSG_PARAM_VALUE = 22
 MSG_PARAM_SET = 23
 CRC_EXTRA = {
     MSG_HEARTBEAT: 50,
-    MSG_PARAM_REQUEST_LIST: 159,
+    MSG_PARAM_REQUEST_READ: 214,
     MSG_PARAM_VALUE: 220,
     MSG_PARAM_SET: 168,
 }
@@ -60,6 +60,8 @@ ESP_SYNC_WINDOW_SECONDS = 3.0
 ESP_SYNC_INTERVAL_SECONDS = 0.01
 ESP_SYNC_SLIP_FRAME = b"\xc0\x00\x08\x24\x00\x00\x00\x00\x00\x07\x07\x12\x20" + 32 * b"\x55" + b"\xc0"
 BOOTLOADER_BANNER_REGEX = re.compile(br"UNIFIED_ESP.*?\r\n", re.IGNORECASE | re.DOTALL)
+PARAM_READ_TIMEOUT_SECONDS = 0.5
+MAX_SERIAL_PROBE_PORTS = 32
 
 
 class PassthroughFailed(Exception):
@@ -240,53 +242,18 @@ class MavlinkClient:
             raise SignedMavlink2Unsupported('Signed MAVLink2 unsupported by raw helper; configure unsigned MAVLink or use another upload path')
         raise PassthroughFailed('Timed out waiting for ArduPilot HEARTBEAT')
 
-    def read_params(self, first_timeout=5.0, idle_timeout=1.0):
-        params = {}
-        seen_indexes = set()
-        param_count = None
-        next_request = 0.0
-        first_deadline = time.monotonic() + first_timeout
-        idle_deadline = None
-        started = time.monotonic()
-        next_progress = 100
-
-        dbg_print('Downloading ArduPilot parameter list...')
-        while True:
-            now = time.monotonic()
-            deadline = idle_deadline or first_deadline
-            if now >= deadline:
-                break
-            if idle_deadline is None and now >= next_request:
-                self._send(MSG_PARAM_REQUEST_LIST, struct.pack('<BB', self.target_system, self.target_component))
-                next_request = now + 1.0
-
+    def read_param(self, name, timeout=PARAM_READ_TIMEOUT_SECONDS):
+        deadline = time.monotonic() + timeout
+        self._send(MSG_PARAM_REQUEST_READ, struct.pack('<hBB16s', -1, self.target_system, self.target_component, _param_name(name)))
+        while time.monotonic() < deadline:
             message = self._read_message(deadline)
-            if not message or message[0] != MSG_PARAM_VALUE or len(message[1]) < 25:
-                continue
-
-            value, count, index, param_id, _param_type = struct.unpack('<fHH16sB', message[1][:25])
-            name = _clean_param_name(param_id)
-            if name:
-                params[name] = value
-            seen_indexes.add(index)
-            if param_count is None:
-                param_count = count
-                dbg_print(f'  Expecting {param_count} parameters from ArduPilot')
-            idle_deadline = time.monotonic() + idle_timeout
-            if name.startswith('SERIAL') and (name.endswith('_PROTOCOL') or name.endswith('_BAUD')):
-                dbg_print(f'  {name} = {_baud_value(value) if name.endswith("_BAUD") else int(round(float(value)))}')
-            if len(params) >= next_progress:
-                dbg_print(f'  Received {len(params)}/{param_count or "?"} parameters...')
-                next_progress += 100
-            if param_count and len(seen_indexes) >= param_count:
-                break
-
-        if not params:
-            if self.saw_signed_v2:
-                raise SignedMavlink2Unsupported('Signed MAVLink2 unsupported by raw helper; configure unsigned MAVLink or use another upload path')
-            raise PassthroughFailed('Timed out reading ArduPilot params')
-        dbg_print(f'Parameter download complete: {len(params)} received in {time.monotonic() - started:.1f}s')
-        return params
+            if message and message[0] == MSG_PARAM_VALUE and len(message[1]) >= 25:
+                value, _count, _index, param_id, _param_type = struct.unpack('<fHH16sB', message[1][:25])
+                if _clean_param_name(param_id) == name:
+                    return value
+        if self.saw_signed_v2:
+            raise SignedMavlink2Unsupported('Signed MAVLink2 unsupported by raw helper; configure unsigned MAVLink or use another upload path')
+        return None
 
     def set_param_int8(self, name, value, timeout=5.0):
         deadline = time.monotonic() + timeout
@@ -307,7 +274,25 @@ class MavlinkClient:
 
 
 def _read_serial_params(client):
-    return client.read_params()
+    params = {}
+    dbg_print(f'Probing SERIAL params with {PARAM_READ_TIMEOUT_SECONDS:.1f}s timeout...')
+    for port in range(1, MAX_SERIAL_PROBE_PORTS + 1):
+        protocol_name = f'SERIAL{port}_PROTOCOL'
+        protocol = client.read_param(protocol_name)
+        if protocol is None:
+            dbg_print(f'  {protocol_name} not present; stopping SERIAL probe')
+            break
+        params[protocol_name] = protocol
+        dbg_print(f'  {protocol_name} = {int(round(float(protocol)))}')
+
+        baud_name = f'SERIAL{port}_BAUD'
+        baud = client.read_param(baud_name)
+        if baud is None:
+            dbg_print(f'  {baud_name} not present; stopping SERIAL probe')
+            break
+        params[baud_name] = baud
+        dbg_print(f'  {baud_name} = {_baud_value(baud)}')
+    return params
 
 
 def _open_serial(**kwargs):
