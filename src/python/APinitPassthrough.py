@@ -50,6 +50,7 @@ MAVLINK_PROTOCOLS = {1, 2}
 CRSF_BAUD = 420000
 MAVLINK_BAUD = 460800
 
+PASSTHROUGH_TIMEOUT_SECONDS = 120
 PASSTHROUGH_SETTLE_SECONDS = 2.0
 MAX_TRIGGER_ATTEMPTS = 10
 TRIGGER_BURST_COUNT = 5
@@ -323,10 +324,10 @@ def ap_passthrough_init(port, selected_baud):
         if incomplete:
             dbg_print('  Incomplete serial ports: ' + _format_incomplete(incomplete))
         receiver_port, receiver_baud, mode = choose_receiver_port(params)
-        dbg_print(f'  Receiver serial: SERIAL{receiver_port} {mode} @ {receiver_baud}')
+        dbg_print(f'  Receiver serial: SERIAL{receiver_port} {mode} @ {receiver_baud}; upload link will reopen @ {receiver_baud}')
         dbg_print('Engaging ArduPilot serial passthrough...')
-        dbg_print('  Setting SERIAL_PASSTIMO = 60')
-        client.set_param_int8('SERIAL_PASSTIMO', 60)
+        dbg_print(f'  Setting SERIAL_PASSTIMO = {PASSTHROUGH_TIMEOUT_SECONDS}')
+        client.set_param_int8('SERIAL_PASSTIMO', PASSTHROUGH_TIMEOUT_SECONDS)
         dbg_print('  Setting SERIAL_PASS1 = 0')
         client.set_param_int8('SERIAL_PASS1', 0)
         dbg_print(f'  Setting SERIAL_PASS2 = {receiver_port}')
@@ -518,8 +519,8 @@ def main(custom_args=None):
             return ElrsUploadResult.ErrorGeneral
         args.port = serials_find.get_serial_port()
     try:
-        receiver_baud = ap_passthrough_init(args.port, args.baud)
-        return reset_to_bootloader_ap(args.port, receiver_baud, args.rx, args.action, args.accept, args.type)
+        upload_baud = ap_passthrough_init(args.port, args.baud)
+        return reset_to_bootloader_ap(args.port, upload_baud, args.rx, args.action, args.accept, args.type)
     except PassthroughFailed as err:
         dbg_print(str(err))
         return ElrsUploadResult.ErrorGeneral
