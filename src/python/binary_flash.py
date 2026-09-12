@@ -88,11 +88,12 @@ def upload_esp8266_ap(args, options):
     if retval != ElrsUploadResult.Success:
         return retval
     try:
-        cmd = ['--passthrough', '--chip', 'esp8266', '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'soft_reset', 'write_flash']
+        cmd = ['--passthrough', '--passthrough-baud', str(args.baud), '--trace', '--chip', 'esp8266', '--port', args.port, '--baud', '460800', '--before', 'no_reset', '--after', 'soft_reset', 'write_flash']
         if args.erase: cmd.append('--erase-all')
         cmd.extend(['0x0000', args.file.name])
         esptool.main(cmd)
-    except:
+    except Exception as err:
+        print(f'ArduPilot upload failed: {err}')
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 
@@ -153,8 +154,10 @@ def upload_esp32_ap(args, options):
     if retval != ElrsUploadResult.Success:
         return retval
     try:
-        esptool.main(['--passthrough', '--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash', '-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', '0x10000', args.file.name])
-    except:
+        # The receiver's embedded stub acknowledges baud commands without changing its UART.
+        esptool.main(['--passthrough', '--trace', '--chip', args.platform.replace('-', ''), '--port', args.port, '--baud', str(args.baud), '--before', 'no_reset', '--after', 'hard_reset', 'write_flash', '-z', '--flash_mode', 'dio', '--flash_freq', '40m', '--flash_size', 'detect', '0x10000', args.file.name])
+    except Exception as err:
+        print(f'ArduPilot upload failed: {err}')
         return ElrsUploadResult.ErrorGeneral
     return ElrsUploadResult.Success
 

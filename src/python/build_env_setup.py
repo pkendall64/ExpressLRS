@@ -59,7 +59,7 @@ if platform in ['espressif8266']:
             UPLOADER="$PROJECT_DIR/python/external/esptool/esptool.py",
             UPLOAD_SPEED=460800,
             UPLOADERFLAGS=[
-                "--passthrough", "-b", "$UPLOAD_SPEED", "-p", "$UPLOAD_PORT",
+                "--passthrough", "--passthrough-baud", "$UPLOAD_SPEED", "--trace", "-b", "460800", "-p", "$UPLOAD_PORT",
                 "-c", "esp8266", "--before", "no_reset", "--after", "soft_reset", "write_flash"
             ]
         )
@@ -79,9 +79,9 @@ elif platform in ['espressif32']:
         env.AddPreAction("upload", ETXinitPassthrough.init_passthrough)
     elif "_BETAFLIGHTPASSTHROUGH" in target_name:
         if "ESP32S3" in target_name:
-            chip = "esp32-s3"
+            chip = "esp32s3"
         elif "ESP32C3" in target_name:
-            chip = "esp32-c3"
+            chip = "esp32c3"
         else:
             chip = "esp32"
         env.Replace(
@@ -95,9 +95,9 @@ elif platform in ['espressif32']:
         env.AddPreAction("upload", BFinitPassthrough.init_passthrough)
     elif "_ARDUPILOTPASSTHROUGH" in target_name:
         if "ESP32S3" in target_name:
-            chip = "esp32-s3"
+            chip = "esp32s3"
         elif "ESP32C3" in target_name:
-            chip = "esp32-c3"
+            chip = "esp32c3"
         else:
             chip = "esp32"
         env.Replace(
@@ -124,7 +124,7 @@ if platform != 'native':
 try:
     os.remove(env['PROJECT_BUILD_DIR'] + '/' + env['PIOENV'] +'/'+ env['PROGNAME'] + '.bin')
 except FileNotFoundError:
-    None
+    pass
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", UnifiedConfiguration.appendConfiguration)
 if platform in ['espressif8266'] and "_WIFI" in target_name:
     env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", esp_compress.compressFirmware)

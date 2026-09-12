@@ -113,8 +113,13 @@ def main(argv=None, esp=None):
     # ELRS vvv
     parser.add_argument(
         "--passthrough",
-        help="Doing passthrough flashing, so just use one baudrate for all communications",
+        help="Use passthrough packet sizes and connect at --baud unless --passthrough-baud is set",
         action="store_true",
+    )
+    parser.add_argument(
+        "--passthrough-baud",
+        help="Initial passthrough baud for ROM/stub upload; switch to --baud after the stub starts",
+        type=arg_auto_int,
     )
     # ELRS ^^^
 
@@ -611,6 +616,11 @@ def main(argv=None, esp=None):
 
     args = parser.parse_args(argv)
     print("esptool.py v%s" % __version__)
+    if args.passthrough_baud is not None:
+        if not args.passthrough or args.passthrough_baud <= 0 or args.baud <= 0:
+            parser.error("--passthrough-baud requires --passthrough and positive baud rates")
+        if args.no_stub and args.passthrough_baud != args.baud:
+            parser.error("A passthrough baud transition requires the flasher stub")
 
     # operation function can take 1 arg (args), 2 args (esp, arg)
     # or be a member function of the ESPLoader class.
@@ -639,8 +649,10 @@ def main(argv=None, esp=None):
     if (
         operation_args[0] == "esp"
     ):  # operation function takes an ESPLoader connection object
-        # if args.before != "no_reset_no_sync":
-        if args.before != "no_reset_no_sync" and not args.passthrough: # ELRS added passthrough
+        if args.passthrough_baud is not None:
+            initial_baud = args.passthrough_baud
+            print("Passthrough: ROM/stub at %d baud, flash at %d baud" % (initial_baud, args.baud))
+        elif args.before != "no_reset_no_sync" and not args.passthrough:
             initial_baud = min(
                 ESPLoader.ESP_ROM_BAUD, args.baud
             )  # don't sync faster than the default baud rate
@@ -704,10 +716,17 @@ def main(argv=None, esp=None):
         if args.override_vddsdio:
             esp.override_vddsdio(args.override_vddsdio)
 
-        if args.baud > initial_baud:
+        if args.baud != initial_baud:
+            if args.passthrough_baud is not None and not esp.IS_STUB:
+                raise FatalError("Passthrough baud transition requires a running stub")
             try:
                 esp.change_baud(args.baud)
+                if args.passthrough_baud is not None:
+                    esp.read_reg(ESPLoader.CHIP_DETECT_MAGIC_REG_ADDR)
+                    print("Passthrough communication verified at %d baud" % args.baud)
             except NotImplementedInROMError:
+                if args.passthrough_baud is not None:
+                    raise
                 print(
                     "WARNING: ROM doesn't support changing baud rate. "
                     "Keeping initial baud rate %d" % initial_baud
