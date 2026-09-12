@@ -45,7 +45,7 @@ CRC_EXTRA = {
 }
 
 SERIAL_PARAM_RE = re.compile(r'^SERIAL([1-9][0-9]*)_(PROTOCOL|BAUD)$')
-CRSF_PROTOCOLS = {23}
+CRSF_PROTOCOLS = {23, 29}
 MAVLINK_PROTOCOLS = {1, 2}
 CRSF_BAUD = 420000
 MAVLINK_BAUD = 460800
@@ -325,6 +325,9 @@ def ap_passthrough_init(port, selected_baud):
             dbg_print('  Incomplete serial ports: ' + _format_incomplete(incomplete))
         receiver_port, receiver_baud, mode = choose_receiver_port(params)
         dbg_print(f'  Receiver serial: SERIAL{receiver_port} {mode} @ {receiver_baud}; upload link will reopen @ {receiver_baud}')
+        for name in (f'SERIAL{receiver_port}_OPTIONS', 'RC_OPTIONS'):
+            value = client.read_param(name)
+            dbg_print(f'  {name} = {int(value) if value is not None else "<unavailable>"}')
         dbg_print('Engaging ArduPilot serial passthrough...')
         dbg_print(f'  Setting SERIAL_PASSTIMO = {PASSTHROUGH_TIMEOUT_SECONDS}')
         client.set_param_int8('SERIAL_PASSTIMO', PASSTHROUGH_TIMEOUT_SECONDS)
@@ -332,6 +335,9 @@ def ap_passthrough_init(port, selected_baud):
         client.set_param_int8('SERIAL_PASS1', 0)
         dbg_print(f'  Setting SERIAL_PASS2 = {receiver_port}')
         client.set_param_int8('SERIAL_PASS2', receiver_port)
+        # AP propagates USB CDC line coding to the receiver UART once passthrough starts.
+        handle.baudrate = receiver_baud
+        dbg_print(f'USB serial baud requested: {receiver_baud}')
         dbg_print(f'Waiting {PASSTHROUGH_SETTLE_SECONDS:.1f}s for ArduPilot UART re-initialization...')
         time.sleep(PASSTHROUGH_SETTLE_SECONDS)
         _drain_serial(handle)
@@ -392,10 +398,12 @@ def _slip_packets(buffer):
     packets = []
     packet = None
     escaped = False
-    for byte in buffer:
+    packet_start = 0
+    for index, byte in enumerate(buffer):
         if packet is None:
             if byte == 0xC0:
                 packet = bytearray()
+                packet_start = index
             continue
         if escaped:
             escaped = False
@@ -408,13 +416,14 @@ def _slip_packets(buffer):
         elif byte == 0xDB:
             escaped = True
         elif byte == 0xC0:
-            packets.append(bytes(packet))
+            if packet:
+                packets.append(bytes(packet))
             packet = bytearray()
+            packet_start = index
         else:
             packet.append(byte)
-    remainder = b'' if packet is None else bytes([0xC0]) + bytes(packet)
-    if escaped:
-        remainder += b'\xDB'
+    # Retain wire bytes, not decoded bytes: escaped delimiters must survive the next read.
+    remainder = b'' if packet is None else buffer[packet_start:]
     return packets, remainder
 
 
@@ -422,11 +431,21 @@ def _is_esp_response(packet):
     if len(packet) < 8:
         return False
     response, _op, length, _value = struct.unpack('<BBHI', packet[:8])
-    return response == 1 and len(packet[8:]) >= length
+    return response == 1 and length >= 2 and len(packet) == 8 + length
 
 
-def _sync_esp_rom(handle):
-    dbg_print("\n--- Phase 3: Synchronizing with ESP Bootloader (SLIP Loop) ---")
+def _is_esp_sync_response(packet):
+    if len(packet) not in (10, 12):
+        return False
+    response, op, length, value = struct.unpack('<BBHI', packet[:8])
+    # Installed ELRS ESP32 stubs declare four status bytes but send two.
+    # Accept that SYNC form only for the zero-value stub reply, not truncated ROM replies.
+    valid_length = length == len(packet) - 8 or (length == 4 and len(packet) == 10 and value == 0)
+    return response == 1 and op == ESP_SYNC_COMMAND and valid_length and not any(packet[8:])
+
+
+def _sync_esp(handle, detect_only=False):
+    dbg_print('Probing ESP bootloader...' if detect_only else 'Synchronizing ESP bootloader...')
     _clear_serial(handle)
     _drain_serial(handle)
     deadline = time.monotonic() + ESP_SYNC_WINDOW_SECONDS
@@ -446,12 +465,17 @@ def _sync_esp_rom(handle):
             buffer += data
             packets, buffer = _slip_packets(buffer)
             for packet in packets:
+                if _is_esp_sync_response(packet):
+                    dbg_print(f'ESP SYNC acknowledged on attempt #{attempts}: {packet.hex(" ")}')
+                    return packet
                 if _is_esp_response(packet):
-                    dbg_print(f'ESP bootloader response received on sync #{attempts}: {packet.hex(" ")}')
-                    return True
+                    if detect_only:
+                        dbg_print(f'ESP response detected on attempt #{attempts}: {packet.hex(" ")}')
+                        return packet
+                    dbg_print(f'ESP response is not a successful SYNC: {packet.hex(" ")}')
                 elif packet:
                     dbg_print(f'Ignoring non-ESP SLIP packet: {packet.hex(" ")}')
-    return False
+    return None
 
 
 def reset_to_bootloader_ap(port, baud, target, action, accept=None, chip_type='ESP82') -> int:
@@ -460,7 +484,11 @@ def reset_to_bootloader_ap(port, baud, target, action, accept=None, chip_type='E
     init_seq = bootloader.get_init_seq()
     with _open_serial(port=port, baudrate=baud, timeout=1, bytesize=8, parity='N', stopbits=1, xonxoff=0, rtscts=0) as handle:
         dbg_print('Checking for receiver already in ESP bootloader...')
-        if _sync_esp_rom(handle):
+        response = _sync_esp(handle, detect_only=True)
+        if response is not None:
+            if _is_esp_sync_response(response) and not any(response[4:8]):
+                dbg_print('Receiver flasher stub is already running; no ROM reboot required.')
+                return _verify_target('', target, action, accept)
             dbg_print(RECOVERY_UNSUPPORTED_MESSAGE)
             return ElrsUploadResult.ErrorGeneral
 
@@ -485,8 +513,8 @@ def reset_to_bootloader_ap(port, baud, target, action, accept=None, chip_type='E
                         result = _verify_target(rx_target, target, action, accept)
                         if result != ElrsUploadResult.Success:
                             return result
-                        if not _sync_esp_rom(handle):
-                            dbg_print('ESP ROM sync did not acknowledge')
+                        if _sync_esp(handle) is None:
+                            dbg_print('ESP bootloader/stub sync did not acknowledge')
                             return ElrsUploadResult.ErrorGeneral
                         return ElrsUploadResult.Success
                 else:

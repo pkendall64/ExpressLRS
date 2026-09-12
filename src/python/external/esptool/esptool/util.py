@@ -98,6 +98,7 @@ class FatalError(RuntimeError):
             0x109: "CRC or checksum was invalid",
             0x10A: "Version was invalid",
             0x10B: "MAC address was invalid",
+            0xC100: "Flasher stub data checksum mismatch",
         }
 
         err_code = struct.unpack(">H", result[:2])
