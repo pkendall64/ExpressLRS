@@ -15,6 +15,7 @@
 #include "msptypes.h"
 #include "options.h"
 
+#include "ELRSSerial.h"
 #include "rx-serial/SerialIO.h"
 #include "rx-serial/SerialNOOP.h"
 #include "rx-serial/SerialCRSF.h"
@@ -50,21 +51,6 @@
 #include "esp_task_wdt.h"
 #endif
 
-//
-// Code encapsulated by the ARDUINO_CORE_INVERT_FIX #ifdef temporarily fixes EpressLRS issue #2609 which is caused
-// by the Arduino core (see https://github.com/espressif/arduino-esp32/issues/9896) and fixed
-// by Espressif with Arduino core release 3.0.3 (see https://github.com/espressif/arduino-esp32/pull/9950)
-//
-// With availability of Arduino core 3.0.3 and upgrading ExpressLRS to Arduino core 3.0.3 the temporary fix
-// should be deleted again
-//
-// ARDUINO_CORE_INVERT_FIX PT1
-#define ARDUINO_CORE_INVERT_FIX
-
-#if defined(PLATFORM_ESP32) && defined(ARDUINO_CORE_INVERT_FIX)
-#include "driver/uart.h"
-#endif
-// ARDUINO_CORE_INVERT_FIX PT1 end
 
 //// CONSTANTS ////
 #define SEND_LINK_STATS_TO_FC_INTERVAL 100
@@ -114,6 +100,13 @@ bool pwmSerialDefined = false;
 uint32_t serialBaud;
 
 /* SERIAL_PROTOCOL_TX is used by CRSF output */
+#if defined(PLATFORM_ESP32)
+ELRSSerial Serial(0);
+ELRSSerial Serial1(1);
+#else
+ELRSSerial Serial(0);
+#endif
+
 #define SERIAL_PROTOCOL_TX Serial
 
 #if defined(PLATFORM_ESP32)
@@ -1327,7 +1320,6 @@ static void setupSerial()
     }
     bool invert = config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO;
 
-#if defined(PLATFORM_ESP8266)
     SerialConfig serialConfig = SERIAL_8N1;
 
     if(sbusSerialOutput)
@@ -1339,31 +1331,11 @@ static void setupSerial()
         serialConfig = SERIAL_8N2;
     }
 
-    SerialMode mode = (sbusSerialOutput || sumdSerialOutput)  ? SERIAL_TX_ONLY : SERIAL_FULL;
-    Serial.begin(serialBaud, serialConfig, mode, -1, invert);
-#elif defined(PLATFORM_ESP32)
-    uint32_t serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
+    if (!Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert))
     {
-        serialConfig = SERIAL_8E2;
+        serialIO = new SerialNOOP();
+        return;
     }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
-    // ARDUINO_CORE_INVERT_FIX PT2
-    #if defined(ARDUINO_CORE_INVERT_FIX)
-    if(invert == false)
-    {
-        uart_set_line_inverse(0, UART_SIGNAL_INV_DISABLE);
-    }
-    #endif
-    // ARDUINO_CORE_INVERT_FIX PT2 end
-
-    Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert);
-#endif
 
     if (firmwareOptions.is_airport)
     {
@@ -2014,14 +1986,6 @@ void setup()
     }
     else
     {
-#if defined(PLATFORM_ESP32)
-        // arduino-espressif32 HardwareSerial's constructor for UART0 saves and attaches to GPIO 1 and 3, which
-        // will reset any other use of them when begin() is actually called for UART0 by CRSFHandset/SerialIO.
-        // Calling end() here, will call _uartDetachPins() on the underlying UART implementation so they won't
-        // be saved later (fixed upstream, coming someday)
-        Serial.end();
-#endif
-
         // default to CRSF protocol and the compiled baud rate
         serialBaud = firmwareOptions.uart_baud;
 
