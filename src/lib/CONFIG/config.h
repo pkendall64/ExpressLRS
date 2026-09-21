@@ -17,7 +17,7 @@
 #define RX_CONFIG_MAGIC     (0b10U << 30)
 
 #define TX_CONFIG_VERSION   8U
-#define RX_CONFIG_VERSION   11U
+#define RX_CONFIG_VERSION   13U
 
 class BindphraseConfigurable
 {
@@ -228,11 +228,11 @@ typedef union {
         uint32_t failsafe:11,    // us output during failsafe +476 (e.g. 1024 here would be 1500us)
                  inputChannel:4, // 0-based input channel
                  inverted:1,     // invert channel output
-                 mode:4,         // Output mode (eServoOutputMode)
+                 mode:5,         // Output mode (eServoOutputMode)
                  stretched:1,    // expand the channel input to 500us - 2500us
                  narrow:1,       // Narrow output mode (half pulse width)
                  failsafeMode:2, // failsafe output mode (eServoOutputFailsafeMode)
-                 unused:8;       // FUTURE: When someone complains "everyone" uses inverted polarity PWM or something :/
+                 unused:7;       // FUTURE: When someone complains "everyone" uses inverted polarity PWM or something :/
     } val;
     uint32_t raw;
 } rx_config_pwm_t;
@@ -293,8 +293,12 @@ public:
     bool GetForceTlmOff() const { return m_config.forceTlmOff; }
     uint8_t GetRateInitialIdx() const { return m_config.rateInitialIdx; }
     eSerialProtocol GetSerialProtocol() const { return (eSerialProtocol)m_config.serialProtocol; }
+    uint8_t GetSerialDirectionMask() const;
+    bool IsSerialProtocolAvailable(eSerialProtocol protocol) const;
 #if defined(PLATFORM_ESP32)
     eSerial1Protocol GetSerial1Protocol() const { return (eSerial1Protocol)m_config.serial1Protocol; }
+    uint8_t GetSerial1DirectionMask() const;
+    bool IsSerial1ProtocolAvailable(eSerial1Protocol protocol) const;
 #endif
     uint8_t GetTeamraceChannel() const { return m_config.teamraceChannel; }
     uint8_t GetTeamracePosition() const { return m_config.teamracePosition; }
@@ -337,6 +341,8 @@ private:
     void UpgradeEepromV6();
     void UpgradeEepromV7V8(uint8_t ver);
     void UpgradeEepromV9V10(uint8_t ver);
+    void UpgradeEepromV11();
+    void UpgradeEepromV12();
 
     rx_config_t m_config;
     ELRS_EEPROM *m_eeprom;

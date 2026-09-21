@@ -32,24 +32,13 @@ constexpr uint8_t SIZE_8BIT = 1;
 constexpr uint8_t SIZE_16BIT = 2;
 constexpr uint8_t SIZE_24BIT = 3;
 
-SerialHoTT_TLM::SerialHoTT_TLM(Stream &out, Stream &in, const int8_t serial1TXpin)
-    : SerialIO(&out, &in)
+SerialHoTT_TLM::SerialHoTT_TLM(ELRSSerial &serial, int8_t rxPin, int8_t txPin)
+    : SerialIO(&serial, &serial), _serial(serial)
 {
 #if defined(PLATFORM_ESP32)
-    if (serial1TXpin == UNDEF_PIN)
-    {
-        // we are on UART0, use default TX pin for half duplex if not defined otherwise
-        UTXDoutIdx = U0TXD_OUT_IDX;
-        URXDinIdx = U0RXD_IN_IDX;
-        halfDuplexPin = GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN ? U0TXD_GPIO_NUM : GPIO_PIN_RCSIGNAL_TX;
-    }
-    else
-    {
-        // we are on UART1, use Serial1 TX assigned pin for half duplex
-        UTXDoutIdx = U1TXD_OUT_IDX;
-        URXDinIdx = U1RXD_IN_IDX;
-        halfDuplexPin = serial1TXpin;
-    }
+    serial.beginHalfDuplex(19200, SERIAL_8N2, txPin);
+#else
+    serial.begin(19200, SERIAL_8N2, rxPin, txPin, false);
 #endif
 
     uint32_t now = millis();
@@ -68,17 +57,14 @@ int SerialHoTT_TLM::getMaxSerialReadSize()
 void SerialHoTT_TLM::setTXMode()
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, OUTPUT);                                 // set half duplex GPIO to OUTPUT
-    digitalWrite(halfDuplexPin, HIGH);                              // set half duplex GPIO to high level
-    pinMatrixOutAttach(halfDuplexPin, UTXDoutIdx, false, false);    // attach GPIO as output of UART TX
+    _serial.setHalfDuplexTransmit();
 #endif
 }
 
 void SerialHoTT_TLM::setRXMode()
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, INPUT_PULLUP);                           // set half duplex GPIO to INPUT
-    pinMatrixInAttach(halfDuplexPin, URXDinIdx, false);             // attach half duplex GPIO as input to UART RX
+    _serial.setHalfDuplexReceive();
 #endif
 }
 
@@ -170,7 +156,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
 
         // switch to half duplex TX mode and write CMD byte 1
         setTXMode();
-        _outputPort->write(START_OF_CMD_B);
+        _port->write(START_OF_CMD_B);
         cmdSendState = HOTT_CMD1SENT;
         return;
     }
@@ -178,7 +164,7 @@ void SerialHoTT_TLM::scheduleDevicePolling(uint32_t now)
     // delay sending CMD byte 2 to accomodate for slow devices
     if ((now - lastPoll >= HOTT_CMD_DELAY) && cmdSendState == HOTT_CMD1SENT)
     {
-        _outputPort->write(nextDeviceID);
+        _port->write(nextDeviceID);
         cmdSendState = HOTT_CMD2SENT;
         return;
     }

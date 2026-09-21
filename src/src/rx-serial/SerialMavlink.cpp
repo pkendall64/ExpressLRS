@@ -13,8 +13,8 @@
 
 #define MAV_FTP_OPCODE_OPENFILERO 4
 
-SerialMavlink::SerialMavlink(Stream &out, Stream &in):
-    SerialIO(&out, &in),
+SerialMavlink::SerialMavlink(ELRSSerial &port, int8_t rxPin, int8_t txPin):
+    SerialIO(&port, &port),
 
     //system ID of the device component sending command to FC, can be set using lua options, 0 is the default value for initialized storage, treat it as 255 which is commonly used as GCS SysID
     this_system_id(config.GetSourceSysId() ? config.GetSourceSysId() : 255),
@@ -26,6 +26,7 @@ SerialMavlink::SerialMavlink(Stream &out, Stream &in):
     // Send to all components as we may have ex. gimbal that listens to RC instead of using Autopilot driver
     target_component_id(MAV_COMPONENT::MAV_COMP_ID_ALL)
 {
+    port.begin(460800, SERIAL_8N1, rxPin, txPin, false);
 }
 
 uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
@@ -59,7 +60,7 @@ uint32_t SerialMavlink::sendRCFrame(bool frameAvailable, bool frameMissed, uint3
     mavlink_message_t msg;
     mavlink_msg_rc_channels_override_encode(this_system_id, this_component_id, &msg, &rc_override);
     uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-    _outputPort->write(buf, len);
+    _port->write(buf, len);
 
     return MAVLINK_RC_PACKET_INTERVAL;
 }
@@ -104,7 +105,7 @@ void SerialMavlink::sendQueuedData(uint32_t maxBytesToSend)
         mavlink_message_t msg;
         mavlink_msg_radio_status_encode(this_system_id, this_component_id, &msg, &radio_status);
         uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-        _outputPort->write(buf, len);
+        _port->write(buf, len);
     }
 
     auto size = mavlinkOutputBuffer.size();
@@ -134,7 +135,7 @@ void SerialMavlink::sendQueuedData(uint32_t maxBytesToSend)
             // Forward message to the UART
             uint8_t buf[MAVLINK_MAX_PACKET_LEN];
             uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
-            _outputPort->write(buf, len);
+            _port->write(buf, len);
         }
     }
 }

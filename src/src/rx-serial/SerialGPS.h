@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 
 #include "device.h"
 #include "gpsTelemetry.h"
@@ -44,8 +45,20 @@ public:
      * @param txPin pin driving the GPS RX line, or UNDEF_PIN if the module cannot be talked to,
      * in which case auto-configuration is skipped and the module is only listened to.
      */
-    explicit SerialGPS(HardwareSerial &port, int8_t txPin)
-        : SerialIO(&port, &port), _port(&port), _txPin(txPin) { _active = this; beginProbe(); }
+    SerialGPS(HardwareSerial &port, int8_t txPin)
+        : SerialIO(&port, &port), _port(&port), _txPin(txPin)
+    {
+        _active = this;
+        beginProbe();
+    }
+
+#if defined(TARGET_RX)
+    SerialGPS(ELRSSerial &port, int8_t rxPin, int8_t txPin)
+        : SerialGPS(static_cast<HardwareSerial &>(port), txPin)
+    {
+        port.begin(115200, SERIAL_8N1, rxPin, txPin, false);
+    }
+#endif
     ~SerialGPS() override { if (_active == this) _active = nullptr; }
 
     typedef void (*gpsFieldParser_t)(SerialGPS *ctx, uint8_t fieldIdx, char *field);

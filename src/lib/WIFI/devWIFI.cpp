@@ -496,11 +496,27 @@ static void GetConfiguration(AsyncWebServerRequest *request)
     const auto settings = json["settings"].to<JsonObject>();
     #if defined(TARGET_RX)
     cfg["serial-protocol"] = config.GetSerialProtocol();
+    settings["serial-direction-mask"] = config.GetSerialDirectionMask();
+    uint16_t serialProtocols = 0;
+    for (uint8_t protocol = 0; protocol <= PROTOCOL_GPS; ++protocol)
+    {
+      if (config.IsSerialProtocolAvailable((eSerialProtocol)protocol))
+        serialProtocols |= 1U << protocol;
+    }
+    settings["serial-protocol-mask"] = serialProtocols;
     #if defined(PLATFORM_ESP32)
-    if ((GPIO_PIN_SERIAL1_RX != UNDEF_PIN && GPIO_PIN_SERIAL1_TX != UNDEF_PIN) || GPIO_PIN_PWM_OUTPUTS_COUNT > 0)
+    if (GPIO_PIN_SERIAL1_RX != UNDEF_PIN || GPIO_PIN_SERIAL1_TX != UNDEF_PIN || GPIO_PIN_PWM_OUTPUTS_COUNT > 0)
     {
       cfg["serial1-protocol"] = config.GetSerial1Protocol();
     }
+      settings["serial1-direction-mask"] = config.GetSerial1DirectionMask();
+      uint16_t serial1Protocols = 0;
+      for (uint8_t protocol = 0; protocol <= PROTOCOL_SERIAL1_GPS; ++protocol)
+      {
+        if (config.IsSerial1ProtocolAvailable((eSerial1Protocol)protocol))
+          serial1Protocols |= 1U << protocol;
+      }
+      settings["serial1-protocol-mask"] = serial1Protocols;
     #endif
     cfg["sbus-failsafe"] = config.GetFailsafeMode();
     cfg["modelid"] = config.GetModelId();
@@ -513,22 +529,29 @@ static void GetConfiguration(AsyncWebServerRequest *request)
       channel["pin"] = GPIO_PIN_PWM_OUTPUTS[ch];
       uint8_t features = 0;
       auto pin = GPIO_PIN_PWM_OUTPUTS[ch];
+      if (GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN || pin == GPIO_PIN_RCSIGNAL_TX)
+      {
+        features |= 1; // Serial TX supported
+      }
+      if (!OPT_PWM_OUT_ONLY && (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN || pin == GPIO_PIN_RCSIGNAL_RX))
+      {
+        features |= 2; // Serial RX supported
+      }
       if (!OPT_PWM_OUT_ONLY)
       {
-        if (pin == U0TXD_GPIO_NUM) features |= 1;  // SerialTX supported
-        else if (pin == U0RXD_GPIO_NUM) features |= 2;  // SerialRX supported
-        else if (pin == GPIO_PIN_SCL) features |= 4;  // I2C SCL supported (only on this pin)
+        if (pin == GPIO_PIN_SCL) features |= 4;  // I2C SCL supported (only on this pin)
         else if (pin == GPIO_PIN_SDA) features |= 8;  // I2C SDA supported (only on this pin)
         else if (GPIO_PIN_SCL == UNDEF_PIN || GPIO_PIN_SDA == UNDEF_PIN) features |= 12; // Both I2C SCL/SDA supported (on any pin)
       }
       #if defined(PLATFORM_ESP32)
       if (pin != 0) features |= 16; // DShot supported on all pins but GPIO0
-      if (!OPT_PWM_OUT_ONLY)
+      if (GPIO_PIN_SERIAL1_TX == UNDEF_PIN || pin == GPIO_PIN_SERIAL1_TX)
       {
-        if (pin == GPIO_PIN_SERIAL1_RX) features |= 32;  // SERIAL1 RX supported (only on this pin)
-        else if (pin == GPIO_PIN_SERIAL1_TX) features |= 64;  // SERIAL1 TX supported (only on this pin)
-        else if ((GPIO_PIN_SERIAL1_RX == UNDEF_PIN || GPIO_PIN_SERIAL1_TX == UNDEF_PIN) &&
-                 (!(features & 1) && !(features & 2))) features |= 96; // Both Serial1 RX/TX supported (on any pin if not already featured for Serial 1)
+        features |= 64; // Serial1 TX supported
+      }
+      if (!OPT_PWM_OUT_ONLY && (GPIO_PIN_SERIAL1_RX == UNDEF_PIN || pin == GPIO_PIN_SERIAL1_RX))
+      {
+        features |= 32; // Serial1 RX supported
       }
       #endif
       channel["features"] = features;
@@ -730,8 +753,8 @@ static void UpdateConfiguration(AsyncWebServerRequest *request, JsonVariant &jso
     rx_config_pwm_t pwmChannel;
     pwmChannel.raw = pwm[channel];
     if (OPT_PWM_OUT_ONLY &&
-        (pwmChannel.val.mode == somSerial || pwmChannel.val.mode == somSCL || pwmChannel.val.mode == somSDA ||
-         pwmChannel.val.mode == somSerial1RX || pwmChannel.val.mode == somSerial1TX))
+        (pwmChannel.val.mode == somSerial || pwmChannel.val.mode == somSerialRX || pwmChannel.val.mode == somSCL ||
+         pwmChannel.val.mode == somSDA || pwmChannel.val.mode == somSerial1RX))
     {
       pwmChannel.val.mode = som50Hz;
     }

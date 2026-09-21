@@ -1,10 +1,12 @@
 #pragma once
 
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 
 class SerialSBUS final : public SerialIO {
 public:
-    explicit SerialSBUS(Stream &out, Stream &in) : SerialIO(&out, &in), streamOut(&out) {}
+    SerialSBUS(ELRSSerial &port, int8_t txPin, bool invert)
+        : SerialIO(&port, &port), streamOut(&port) { port.begin(100000, SERIAL_8E2, -1, txPin, invert); }
     ~SerialSBUS() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;

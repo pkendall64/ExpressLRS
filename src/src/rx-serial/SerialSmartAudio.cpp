@@ -19,13 +19,12 @@
 
 GENERIC_CRC8 crc(SMARTAUDIO_CRC_POLY);
 
-SerialSmartAudio::SerialSmartAudio(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in)
+SerialSmartAudio::SerialSmartAudio(ELRSSerial &port, int8_t txPin) : SerialIO(&port, &port), _serial(port)
 {
 #if defined(PLATFORM_ESP32)
-    // we are on UART1, use Serial1 TX assigned pin for half-duplex
-    UTXDoutIdx = U1TXD_OUT_IDX;
-    URXDinIdx = U1RXD_IN_IDX;
-    halfDuplexPin = serial1TXpin;
+    port.beginHalfDuplex(4800, SERIAL_8N2, txPin);
+#else
+    port.begin(4800, SERIAL_8N2, -1, txPin, false);
 #endif
     setRXMode();
     crsfRouter.addConnector(this);
@@ -39,17 +38,14 @@ SerialSmartAudio::~SerialSmartAudio()
 void SerialSmartAudio::setTXMode() const
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, OUTPUT);                                 // set half-duplex GPIO to OUTPUT
-    digitalWrite(halfDuplexPin, HIGH);                              // set half-duplex GPIO to high level
-    pinMatrixOutAttach(halfDuplexPin, UTXDoutIdx, false, false);    // attach GPIO as output of UART TX
+    _serial.setHalfDuplexTransmit();
 #endif
 }
 
 void SerialSmartAudio::setRXMode() const
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, INPUT_PULLUP);                           // set half-duplex GPIO to INPUT
-    pinMatrixInAttach(halfDuplexPin, URXDinIdx, false);             // attach half-duplex GPIO as input to UART RX
+    _serial.setHalfDuplexReceive();
 #endif
 }
 
@@ -66,7 +62,7 @@ void SerialSmartAudio::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _port->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

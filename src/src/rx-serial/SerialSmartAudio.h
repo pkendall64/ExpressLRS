@@ -1,12 +1,13 @@
 #pragma once
 
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 #include "CRSFRouter.h"
 #include "device.h"
 
 class SerialSmartAudio final : public SerialIO, public CRSFConnector {
 public:
-    SerialSmartAudio(Stream &out, Stream &in, int8_t serial1TXpin);
+    SerialSmartAudio(ELRSSerial &port, int8_t txPin);
     ~SerialSmartAudio() override;
 
     void sendQueuedData(uint32_t maxBytesToSend) override;
@@ -15,12 +16,8 @@ public:
     void forwardMessage(const crsf_header_t *message) override;
 
 private:
-    void processBytes(uint8_t *bytes, uint16_t size) override {};
+    void processBytes(uint8_t *bytes, uint16_t size) override {}
+    ELRSSerial &_serial;
     void setTXMode() const;
     void setRXMode() const;
-#if defined(PLATFORM_ESP32)
-    int8_t halfDuplexPin;
-    uint8_t UTXDoutIdx;
-    uint8_t URXDinIdx;
-#endif
 };

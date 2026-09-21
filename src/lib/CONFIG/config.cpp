@@ -884,6 +884,10 @@ void RxConfig::Load()
         case 9: // fallthrough
         case 10:
             UpgradeEepromV9V10(version); break;
+        case 11:
+            UpgradeEepromV11(); break;
+        case 12:
+            UpgradeEepromV12(); break;
     }
     m_modified = EVENT_CONFIG_MODEL_CHANGED; // anything to force write
     Commit();
@@ -1085,6 +1089,49 @@ void RxConfig::UpgradeEepromV9V10(uint8_t ver)
         PwmConfigV9(&old.pwmChannels[ch], &m_config.pwmChannels[ch]);
 }
 
+static uint32_t WidenPwmMode(uint32_t raw)
+{
+    return (raw & 0xffffU) | (((raw >> 16) & 0xfU) << 16) | ((raw >> 20) << 21);
+}
+
+void RxConfig::UpgradeEepromV11()
+{
+    rx_config_t old;
+    m_eeprom->Get(0, old);
+    m_config = old;
+    for (uint8_t ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+    {
+        m_config.pwmChannels[ch].raw = WidenPwmMode(old.pwmChannels[ch].raw);
+    }
+    m_config.version = RX_CONFIG_VERSION | RX_CONFIG_MAGIC;
+
+    for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
+    {
+        if (m_config.pwmChannels[ch].val.mode != somSerial)
+        {
+            continue;
+        }
+
+        const int8_t pin = GPIO_PIN_PWM_OUTPUTS[ch];
+        const bool isRx = pin == GPIO_PIN_RCSIGNAL_RX;
+        const bool isTx = pin == GPIO_PIN_RCSIGNAL_TX;
+        m_config.pwmChannels[ch].val.mode = isRx && !isTx ? somSerialRX :
+                                            isTx && !isRx ? somSerialTX : som50Hz;
+    }
+}
+void RxConfig::UpgradeEepromV12()
+{
+    rx_config_t old;
+    m_eeprom->Get(0, old);
+    m_config = old;
+    m_config.version = RX_CONFIG_VERSION | RX_CONFIG_MAGIC;
+
+    for (uint8_t ch = 0; ch < PWM_MAX_CHANNELS; ++ch)
+    {
+        m_config.pwmChannels[ch].raw = WidenPwmMode(old.pwmChannels[ch].raw);
+    }
+}
+
 /**
  * @brief Upgrade UID and flash_discriminator from old config, using onLoanUid if != null
  */
@@ -1274,27 +1321,31 @@ RxConfig::SetDefaults(bool commit)
     {
         uint8_t mode = som50Hz;
         // setup defaults for hardware-defined I2C & Serial pins that are also IO pins
-        if (!OPT_PWM_OUT_ONLY && ch < GPIO_PIN_PWM_OUTPUTS_COUNT)
+        if (ch < GPIO_PIN_PWM_OUTPUTS_COUNT)
         {
-            if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SCL)
+            const int8_t pin = GPIO_PIN_PWM_OUTPUTS[ch];
+            if (!OPT_PWM_OUT_ONLY && pin == GPIO_PIN_SCL)
             {
                 mode = somSCL;
             }
-            else if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SDA)
+            else if (!OPT_PWM_OUT_ONLY && pin == GPIO_PIN_SDA)
             {
                 mode = somSDA;
             }
-            else if ((GPIO_PIN_RCSIGNAL_RX == U0RXD_GPIO_NUM && GPIO_PIN_PWM_OUTPUTS[ch] == U0RXD_GPIO_NUM) ||
-                     (GPIO_PIN_RCSIGNAL_TX == U0TXD_GPIO_NUM && GPIO_PIN_PWM_OUTPUTS[ch] == U0TXD_GPIO_NUM))
+            else if (!OPT_PWM_OUT_ONLY && pin == GPIO_PIN_RCSIGNAL_RX)
             {
-                mode = somSerial;
+                mode = somSerialRX;
+            }
+            else if (pin == GPIO_PIN_RCSIGNAL_TX)
+            {
+                mode = somSerialTX;
             }
 #if defined(PLATFORM_ESP32)
-            else if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SERIAL1_RX)
+            else if (!OPT_PWM_OUT_ONLY && pin == GPIO_PIN_SERIAL1_RX)
             {
                 mode = somSerial1RX;
             }
-            else if (GPIO_PIN_PWM_OUTPUTS[ch] == GPIO_PIN_SERIAL1_TX)
+            else if (pin == GPIO_PIN_SERIAL1_TX)
             {
                 mode = somSerial1TX;
             }
@@ -1325,6 +1376,22 @@ RxConfig::SetStorageProvider(ELRS_EEPROM *eeprom)
     }
 }
 
+static uint8_t sanitizePwmMode(uint8_t ch, uint8_t mode)
+{
+    const int8_t pin = ch < GPIO_PIN_PWM_OUTPUTS_COUNT ? GPIO_PIN_PWM_OUTPUTS[ch] : UNDEF_PIN;
+    if (mode == somSerial ||
+        (OPT_PWM_OUT_ONLY && (mode == somSerialRX || mode == somSCL || mode == somSDA || mode == somSerial1RX)))
+        return som50Hz;
+
+    if ((mode == somSerialRX && GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN && pin != GPIO_PIN_RCSIGNAL_RX) ||
+        (mode == somSerialTX && GPIO_PIN_RCSIGNAL_TX != UNDEF_PIN && pin != GPIO_PIN_RCSIGNAL_TX) ||
+        (mode == somSerial1RX && GPIO_PIN_SERIAL1_RX != UNDEF_PIN && pin != GPIO_PIN_SERIAL1_RX) ||
+        (mode == somSerial1TX && GPIO_PIN_SERIAL1_TX != UNDEF_PIN && pin != GPIO_PIN_SERIAL1_TX))
+        return som50Hz;
+
+    return mode;
+}
+
 void
 RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inverted, uint8_t mode, uint8_t stretched)
 {
@@ -1336,7 +1403,7 @@ RxConfig::SetPwmChannel(uint8_t ch, uint16_t failsafe, uint8_t inputCh, bool inv
     newConfig.val.failsafe = failsafe;
     newConfig.val.inputChannel = inputCh;
     newConfig.val.inverted = inverted;
-    newConfig.val.mode = mode;
+    newConfig.val.mode = sanitizePwmMode(ch, mode);
     newConfig.val.stretched = stretched;
     if (pwm->raw == newConfig.raw)
         return;
@@ -1351,6 +1418,10 @@ RxConfig::SetPwmChannelRaw(uint8_t ch, uint32_t raw)
     if (ch > PWM_MAX_CHANNELS)
         return;
 
+    rx_config_pwm_t newConfig;
+    newConfig.raw = raw;
+    newConfig.val.mode = sanitizePwmMode(ch, newConfig.val.mode);
+    raw = newConfig.raw;
     rx_config_pwm_t *pwm = &m_config.pwmChannels[ch];
     if (pwm->raw == raw)
         return;
@@ -1358,6 +1429,75 @@ RxConfig::SetPwmChannelRaw(uint8_t ch, uint32_t raw)
     pwm->raw = raw;
     m_modified = EVENT_CONFIG_PWM_CHANGE;
 }
+
+static bool serialDirectionAvailable(const RxConfig &config, int8_t targetPin, eServoOutputMode reservation)
+{
+    for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
+    {
+        if (targetPin == UNDEF_PIN)
+        {
+            if (config.GetPwmChannel(ch)->val.mode == reservation)
+                return true;
+        }
+        else if (GPIO_PIN_PWM_OUTPUTS[ch] == targetPin)
+        {
+            return config.GetPwmChannel(ch)->val.mode == reservation;
+        }
+    }
+    return targetPin != UNDEF_PIN;
+}
+
+static bool serialProtocolAvailable(eSerialProtocolRequirement requirement, uint8_t directions, bool sharedPins)
+{
+    switch (requirement)
+    {
+        case SERIAL_INPUT:
+            return directions & SERIAL_DIRECTION_RX;
+        case SERIAL_OUTPUT:
+        case SERIAL_HALF_DUPLEX:
+            return directions & SERIAL_DIRECTION_TX;
+        case SERIAL_TWO_WAY:
+            return (directions & (SERIAL_DIRECTION_RX | SERIAL_DIRECTION_TX)) ==
+                   (SERIAL_DIRECTION_RX | SERIAL_DIRECTION_TX) && !sharedPins;
+    }
+    return false;
+}
+
+uint8_t RxConfig::GetSerialDirectionMask() const
+{
+    uint8_t mask = 0;
+    if (!OPT_PWM_OUT_ONLY && serialDirectionAvailable(*this, GPIO_PIN_RCSIGNAL_RX, somSerialRX))
+        mask |= SERIAL_DIRECTION_RX;
+    if (serialDirectionAvailable(*this, GPIO_PIN_RCSIGNAL_TX, somSerialTX))
+        mask |= SERIAL_DIRECTION_TX;
+    return mask;
+}
+
+bool RxConfig::IsSerialProtocolAvailable(eSerialProtocol protocol) const
+{
+    return serialProtocolAvailable(serialProtocolRequirement(protocol), GetSerialDirectionMask(),
+                                   GPIO_PIN_RCSIGNAL_RX == GPIO_PIN_RCSIGNAL_TX && GPIO_PIN_RCSIGNAL_RX != UNDEF_PIN);
+}
+
+#if defined(PLATFORM_ESP32)
+uint8_t RxConfig::GetSerial1DirectionMask() const
+{
+    uint8_t mask = 0;
+    if (!OPT_PWM_OUT_ONLY && serialDirectionAvailable(*this, GPIO_PIN_SERIAL1_RX, somSerial1RX))
+        mask |= SERIAL_DIRECTION_RX;
+    if (serialDirectionAvailable(*this, GPIO_PIN_SERIAL1_TX, somSerial1TX))
+        mask |= SERIAL_DIRECTION_TX;
+    return mask;
+}
+
+bool RxConfig::IsSerial1ProtocolAvailable(eSerial1Protocol protocol) const
+{
+    if (protocol == PROTOCOL_SERIAL1_OFF)
+        return true;
+    return serialProtocolAvailable(serial1ProtocolRequirement(protocol), GetSerial1DirectionMask(),
+                                   GPIO_PIN_SERIAL1_RX == GPIO_PIN_SERIAL1_TX && GPIO_PIN_SERIAL1_RX != UNDEF_PIN);
+}
+#endif
 
 void
 RxConfig::SetForceTlmOff(bool forceTlmOff)

@@ -10,7 +10,7 @@
 #include "rxtx_intf.h"
 #include "logging.h"
 
-#define RX_HAS_SERIAL1 (GPIO_PIN_SERIAL1_TX != UNDEF_PIN || OPT_HAS_SERVO_OUTPUT)
+#define RX_HAS_SERIAL1 (GPIO_PIN_SERIAL1_RX != UNDEF_PIN || GPIO_PIN_SERIAL1_TX != UNDEF_PIN || OPT_HAS_SERVO_OUTPUT)
 
 extern void reconfigureSerial();
 #if defined(PLATFORM_ESP32)
@@ -30,23 +30,56 @@ char strPowerLevels[] = "10;25;50;100;250;500;1000;2000;MatchTX ";
 char strPowerLevels[] = "10;25;50;100;250;500;1000;2000;MatchTX ";
 #endif
 static char modelString[] = "000";
-static char pwmModes[] = "50Hz;60Hz;100Hz;160Hz;333Hz;400Hz;10kHzDuty;On/Off;DShot;DShot 3D;Serial RX;Serial TX;I2C SCL;I2C SDA;Serial2 RX;Serial2 TX";
+static char pwmModes[] = "50Hz;60Hz;100Hz;160Hz;333Hz;400Hz;10kHzDuty;On/Off;DShot;DShot 3D;Serial;I2C SCL;I2C SDA;;Serial2 RX;Serial2 TX;Serial RX;Serial TX";
+
+static constexpr const char *serialProtocolOptions[] = {
+    "CRSF", "Inverted CRSF", "SBUS", "Inverted SBUS", "SUMD", "DJI RS Pro", "HoTT Telemetry", "MAVLink", "DisplayPort", "GPS"
+};
+static char luaSerialProtocolOptions[sizeof("CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;MAVLink;DisplayPort;GPS")];
 
 static selectionParameter luaSerialProtocol = {
     {"Protocol", CRSF_TEXT_SELECTION},
     0, // value
-    "CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;MAVLink;DisplayPort;GPS",
+    luaSerialProtocolOptions,
     STR_EMPTYSPACE
 };
 
 #if defined(PLATFORM_ESP32)
+static constexpr const char *serial1ProtocolOptions[] = {
+    "Off", "CRSF", "Inverted CRSF", "SBUS", "Inverted SBUS", "SUMD", "DJI RS Pro", "HoTT Telemetry", "Tramp", "SmartAudio", "DisplayPort", "GPS"
+};
+static char luaSerial1ProtocolOptions[sizeof("Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS")];
+
 static selectionParameter luaSerial1Protocol = {
     {"Protocol2", CRSF_TEXT_SELECTION},
     0, // value
-    "Off;CRSF;Inverted CRSF;SBUS;Inverted SBUS;SUMD;DJI RS Pro;HoTT Telemetry;Tramp;SmartAudio;DisplayPort;GPS",
+    luaSerial1ProtocolOptions,
     STR_EMPTYSPACE
 };
 #endif
+
+static void updateSerialProtocolOptions()
+{
+    luaSerialProtocolOptions[0] = '\0';
+    for (uint8_t protocol = 0; protocol < sizeof(serialProtocolOptions) / sizeof(*serialProtocolOptions); ++protocol)
+    {
+        if (config.IsSerialProtocolAvailable((eSerialProtocol)protocol))
+            strcat(luaSerialProtocolOptions, serialProtocolOptions[protocol]);
+        if (protocol + 1 < sizeof(serialProtocolOptions) / sizeof(*serialProtocolOptions))
+            strcat(luaSerialProtocolOptions, ";");
+    }
+
+#if defined(PLATFORM_ESP32)
+    luaSerial1ProtocolOptions[0] = '\0';
+    for (uint8_t protocol = 0; protocol < sizeof(serial1ProtocolOptions) / sizeof(*serial1ProtocolOptions); ++protocol)
+    {
+        if (config.IsSerial1ProtocolAvailable((eSerial1Protocol)protocol))
+            strcat(luaSerial1ProtocolOptions, serial1ProtocolOptions[protocol]);
+        if (protocol + 1 < sizeof(serial1ProtocolOptions) / sizeof(*serial1ProtocolOptions))
+            strcat(luaSerial1ProtocolOptions, ";");
+    }
+#endif
+}
 
 static selectionParameter luaSBUSFailsafeMode = {
     {"SBUS failsafe", CRSF_TEXT_SELECTION},
@@ -203,7 +236,7 @@ static commandParameter luaBindMode = {
 
 static uint8_t sanitizePwmMode(uint8_t mode)
 {
-    return OPT_PWM_OUT_ONLY && mode >= somSerial ? som50Hz : mode;
+    return mode == somSerial || (OPT_PWM_OUT_ONLY && (mode == somSerialRX || mode == somSCL || mode == somSDA || mode == somSerial1RX)) ? som50Hz : mode;
 }
 
 void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
@@ -275,21 +308,8 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
     }
     strcat(pwmModes, pModeString);
 
-    // SerialIO outputs (1 option)
-    // ;[Serial RX] | [Serial TX]
-    if (!OPT_PWM_OUT_ONLY && GPIO_PIN_PWM_OUTPUTS[arg-1] == U0RXD_GPIO_NUM)
-    {
-        pModeString = serial_RX;
-    }
-    else if (!OPT_PWM_OUT_ONLY && GPIO_PIN_PWM_OUTPUTS[arg-1] == U0TXD_GPIO_NUM)
-    {
-        pModeString = serial_TX;
-    }
-    else
-    {
-        pModeString = no1Option;
-    }
-    strcat(pwmModes, pModeString);
+    // Legacy shared primary serial mode is retained for migration only.
+    strcat(pwmModes, no1Option);
 
     // I2C pins (2 options)
     // ;[I2C SCL] ;[I2C SDA]
@@ -382,7 +402,24 @@ void RXEndpoint::luaparamMappingChannelOut(propertiesCommon *item, uint8_t arg)
         pModeString = no2Options;
     }
     strcat(pwmModes, pModeString);
+#else
+    strcat(pwmModes, no2Options);
 #endif
+    // Primary serial directions are independent and may use arbitrary PWM pins only
+    // when that direction is not declared by the target.
+    if (!OPT_PWM_OUT_ONLY && (GPIO_PIN_RCSIGNAL_RX == UNDEF_PIN || GPIO_PIN_PWM_OUTPUTS[arg-1] == GPIO_PIN_RCSIGNAL_RX))
+    {
+        pModeString = serial_RX;
+    }
+    else if (GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN || GPIO_PIN_PWM_OUTPUTS[arg-1] == GPIO_PIN_RCSIGNAL_TX)
+    {
+        pModeString = serial_TX;
+    }
+    else
+    {
+        pModeString = no2Options;
+    }
+    strcat(pwmModes, pModeString);
 
     // trim off trailing semicolons (assumes pwmModes has at least 1 non-semicolon)
     for (auto lastPos = strlen(pwmModes)-1; pwmModes[lastPos] == ';'; lastPos--)
@@ -407,39 +444,6 @@ static void luaparamMappingChannelIn(propertiesCommon *item, uint8_t arg)
   config.SetPwmChannelRaw(ch, newPwmCh.raw);
 }
 
-static void configureSerialPin(uint8_t sibling, uint8_t oldMode, uint8_t newMode)
-{
-  for (int ch=0 ; ch<GPIO_PIN_PWM_OUTPUTS_COUNT ; ch++)
-  {
-    if (GPIO_PIN_PWM_OUTPUTS[ch] == sibling)
-    {
-      // Retain as much of the sibling's current config as possible
-      rx_config_pwm_t siblingPinConfig;
-      siblingPinConfig.raw = config.GetPwmChannel(ch)->raw;
-
-      // If the new mode is serial, the sibling is also forced to serial
-      if (newMode == somSerial)
-      {
-        siblingPinConfig.val.mode = somSerial;
-      }
-      // If the new mode is not serial, and the sibling is serial, set the sibling to PWM (50Hz)
-      else if (siblingPinConfig.val.mode == somSerial)
-      {
-        siblingPinConfig.val.mode = som50Hz;
-      }
-
-      config.SetPwmChannelRaw(ch, siblingPinConfig.raw);
-      break;
-    }
-  }
-
-  if (oldMode != newMode)
-  {
-    deferExecutionMillis(100, [](){
-      reconfigureSerial();
-    });
-  }
-}
 
 static void luaparamMappingOutputMode(propertiesCommon *item, uint8_t arg)
 {
@@ -450,14 +454,14 @@ static void luaparamMappingOutputMode(propertiesCommon *item, uint8_t arg)
   uint8_t oldMode = newPwmCh.val.mode;
   newPwmCh.val.mode = sanitizePwmMode(arg);
 
-  // Check if pin == 1/3 and do other pin adjustment accordingly
-  if (GPIO_PIN_PWM_OUTPUTS[ch] == 1)
+  if (oldMode != newPwmCh.val.mode)
   {
-    configureSerialPin(3, oldMode, newPwmCh.val.mode);
-  }
-  else if (GPIO_PIN_PWM_OUTPUTS[ch] == 3)
-  {
-    configureSerialPin(1, oldMode, newPwmCh.val.mode);
+    deferExecutionMillis(100, [](){
+      reconfigureSerial();
+#if defined(PLATFORM_ESP32)
+      reconfigureSerial1();
+#endif
+    });
   }
   config.SetPwmChannelRaw(ch, newPwmCh.raw);
 }
@@ -596,6 +600,7 @@ void RXEndpoint::registerParameters()
   registerParameter(&luaBindStorage, [](propertiesCommon* item, uint8_t arg) {
     config.SetBindStorage((rx_config_bindstorage_t)arg);
   });
+  updateSerialProtocolOptions();
   registerParameter(&luaBindMode, [this](propertiesCommon* item, uint8_t arg){
     // Complete when TX polls for status i.e. going back to idle, because we're going to lose connection
     if (arg == lcsQuery) {
@@ -618,6 +623,7 @@ static void updateBindModeLabel()
 
 void RXEndpoint::updateParameters()
 {
+  updateSerialProtocolOptions();
   setTextSelectionValue(&luaSerialProtocol, config.GetSerialProtocol());
 #if defined(PLATFORM_ESP32)
   if (RX_HAS_SERIAL1)

@@ -4,7 +4,8 @@ import {elrsState, saveConfig} from "../utils/state.js"
 import {_} from "../utils/libs.js"
 import {postWithFeedback} from "../utils/feedback.js"
 
-export const PWM_MODE_SERIAL = 10
+export const PWM_MODE_SERIAL_RX = 16
+export const PWM_MODE_SERIAL_TX = 17
 export const PWM_MODE_SERIAL2RX = 14
 export const PWM_MODE_SERIAL2TX = 15
 
@@ -166,9 +167,9 @@ class ConnectionsPanel extends LitElement {
             const failsafe = (item.config & 2047) + 476; // 11 bits
             const ch = (item.config >> 11) & 15; // 4 bits
             const inv = (item.config >> 15) & 1
-            const mode = (item.config >> 16) & 15; // 4 bits
-            const stretch = (item.config >> 20) & 1
-            const failsafeMode = (item.config >> 22) & 3; // 2 bits
+            const mode = (item.config >> 16) & 31 // 5 bits
+            const stretch = (item.config >> 21) & 1
+            const failsafeMode = (item.config >> 23) & 3 // 2 bits
             const features = item.features
             const modes = ['50Hz', '60Hz', '100Hz', '160Hz', '333Hz', '400Hz', '10KHzDuty', 'On/Off']
             if (features & 16) {
@@ -176,20 +177,14 @@ class ConnectionsPanel extends LitElement {
             } else {
                 modes.push(undefined, undefined)
             }
-            if (features & 1) {
-                this.pinRxIndex = index
-                modes.push('Serial TX')
-            } else if (features & 2) {
-                this.pinTxIndex = index
-                modes.push('Serial RX')
-            } else {
-                modes.push(undefined)
-            }
+            modes.push(undefined) // legacy shared primary serial mode
             modes.push(features & 4 ? 'I2C SCL' : undefined)
             modes.push(features & 8 ? 'I2C SDA' : undefined)
             modes.push(undefined)  // true PWM (not yet supported)
             modes.push(features & 32 ? 'Serial2 RX' : undefined)
             modes.push(features & 64 ? 'Serial2 TX' : undefined)
+            modes.push(features & 2 ? 'Serial RX' : undefined)
+            modes.push(features & 1 ? 'Serial TX' : undefined)
             const selectedMode = modes[mode] ? mode : 0
 
             htmlFields.push(html`
@@ -221,57 +216,9 @@ class ConnectionsPanel extends LitElement {
             _(`pwm_${index}_fsmode`).disabled = onoff
         }
 
-        // disable extra fields for serial & i2c pins
+        // Serial and I2C modes do not have a channel output.
         setDisabled(index, Number.parseInt(pinMode.value) >= PWM_MODE_SERIAL)
-
-        const updateOthers = (value, enable) => {
-            if (value > PWM_MODE_SERIAL) { // disable others
-                elrsState.config.pwm.forEach((item, other) => {
-                    if (other !== index) {
-                        document.querySelectorAll(`#pwm_${other}_mode option`).forEach(opt => {
-                            if (opt.value === value) {
-                                opt.disabled = enable
-                            }
-                        })
-                    }
-                })
-            }
-        }
-        updateOthers(pinMode.value, true) // disable others
-        updateOthers(this.pinModes[index], false) // enable others
         this.pinModes[index] = pinMode.value
-
-        // put some constraints on pinRx/Tx mode selects
-        if (this.pinRxIndex !== undefined && this.pinTxIndex !== undefined) {
-            const pinRxMode = _(`pwm_${this.pinRxIndex}_mode`)
-            const pinTxMode = _(`pwm_${this.pinTxIndex}_mode`)
-            const pinRxModeValue = Number.parseInt(pinRxMode.value)
-            const pinTxModeValue = Number.parseInt(pinTxMode.value)
-            if (index === this.pinRxIndex) {
-                if (pinRxModeValue === PWM_MODE_SERIAL) { // Serial
-                    pinTxMode.value = PWM_MODE_SERIAL
-                    setDisabled(this.pinRxIndex, true)
-                    setDisabled(this.pinTxIndex, true)
-                    pinTxMode.disabled = true
-                }
-                else if (pinTxModeValue === PWM_MODE_SERIAL) {
-                    pinTxMode.value = 0
-                    setDisabled(this.pinRxIndex, false)
-                    setDisabled(this.pinTxIndex, false)
-                    pinTxMode.disabled = false
-                }
-            }
-            if (index === this.pinTxIndex) {
-                if (pinTxModeValue === PWM_MODE_SERIAL) { // Serial
-                    pinRxMode.value = PWM_MODE_SERIAL
-                    setDisabled(this.pinRxIndex, true)
-                    setDisabled(this.pinTxIndex, true)
-                    pinTxMode.disabled = true
-                }
-            }
-            const pinTx = pinTxMode.value
-            if (pinRxModeValue !== PWM_MODE_SERIAL) pinTxMode.value = pinTx
-        }
 
     }
 
@@ -310,7 +257,7 @@ class ConnectionsPanel extends LitElement {
             if (normalizeFields) failsafeField.value = failsafe
             let failsafeMode = failsafeModeField.value
 
-            const raw = (failsafeMode << 22) | (stretch << 20) | (mode << 16) | (invert << 15) | (inChannel << 11) | (failsafe - 476)
+            const raw = (failsafeMode << 23) | (stretch << 21) | (mode << 16) | (invert << 15) | (inChannel << 11) | (failsafe - 476)
             // console.log(`PWM ${ch} mode=${mode} input=${inChannel} fs=${failsafe} fsmode=${failsafeMode} inv=${invert} stretch=${stretch} raw=${raw}`)
             outData.push(raw)
             ++ch

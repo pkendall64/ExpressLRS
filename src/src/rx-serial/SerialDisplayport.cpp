@@ -54,10 +54,10 @@ uint32_t SerialDisplayport::sendRCFrame(bool frameAvailable, bool frameMissed, u
     status.extra_flags = 0;
 
     // Send status MSP
-    send(MSP_STATUS, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS, &status, sizeof(status), _port);
 
     // Send extended status MSP
-    send(MSP_STATUS_EX, &status, sizeof(status), _outputPort);
+    send(MSP_STATUS_EX, &status, sizeof(status), _port);
 
     return MSP_MSG_PERIOD_MS;   // Send MSP msgs to DJI at 10Hz
 }

@@ -1,9 +1,9 @@
 import {html, LitElement} from "lit"
 import {customElement, state} from "lit/decorators.js"
-import {_renderOptions} from "../utils/libs.js"
 import {elrsState, saveOptionsAndConfig} from "../utils/state.js"
-import {PWM_MODE_SERIAL, PWM_MODE_SERIAL2RX, PWM_MODE_SERIAL2TX} from "./connections-panel.js"
 import {SERIAL_OPTIONS1, SERIAL_OPTIONS2} from "../utils/globals.js"
+import {PWM_MODE_SERIAL_RX, PWM_MODE_SERIAL_TX, PWM_MODE_SERIAL2RX, PWM_MODE_SERIAL2TX} from "./connections-panel.js"
+
 
 @customElement('serial-panel')
 class SerialPanel extends LitElement {
@@ -39,7 +39,7 @@ class SerialPanel extends LitElement {
                     ${this._hasSerial1() ? html`
                     <div class="mui-select">
                         <select name='serial-protocol' @change=${this._updateSerial1}>
-                            ${_renderOptions(SERIAL_OPTIONS1, this.serial1Protocol)}
+                            ${this._renderProtocolOptions(SERIAL_OPTIONS1, this.serial1Protocol, this._serialProtocolMask())}
                         </select>
                         <label>Serial 1 Protocol</label>
                     </div>
@@ -47,7 +47,7 @@ class SerialPanel extends LitElement {
                     ${this._hasSerial2() ? html`
                     <div class="mui-select">
                         <select name='serial1-protocol' @change=${this._updateSerial2}>
-                            ${_renderOptions(SERIAL_OPTIONS2, this.serial2Protocol)}
+                            ${this._renderProtocolOptions(SERIAL_OPTIONS2, this.serial2Protocol, this._serial1ProtocolMask())}
                         </select>
                         <label>Serial 2 Protocol</label>
                     </div>
@@ -113,34 +113,53 @@ class SerialPanel extends LitElement {
         return elrsState.config.pwm.some((pwm) => (pwm.features & (3 | 96)) !== 0)
     }
 
+    _pwmSerialDirections(rxMode, txMode) {
+        let directions = elrsState.settings.has_serial_pins ? 3 : 0
+        for (const pwm of elrsState.config.pwm || []) {
+            const mode = (pwm.config >> 16) & 31
+            if (mode === rxMode) directions |= 1
+            if (mode === txMode) directions |= 2
+        }
+        return directions
+    }
+
+    _serialProtocolMask() {
+        const mask = elrsState.settings['serial-protocol-mask']
+        if (mask !== undefined) return Number(mask)
+
+        const directions = this._pwmSerialDirections(PWM_MODE_SERIAL_RX, PWM_MODE_SERIAL_TX)
+        let protocols = 0
+        if ((directions & 3) === 3) protocols |= (1 << 0) | (1 << 1) | (1 << 7) | (1 << 10)
+        if (directions & 2) protocols |= (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 8)
+        if (directions & 1) protocols |= 1 << 9
+        return protocols
+    }
+
+    _serial1ProtocolMask() {
+        const mask = elrsState.settings['serial1-protocol-mask']
+        if (mask !== undefined) return Number(mask)
+
+        const directions = this._pwmSerialDirections(PWM_MODE_SERIAL2RX, PWM_MODE_SERIAL2TX)
+        let protocols = 1 // Off
+        if ((directions & 3) === 3) protocols |= (1 << 1) | (1 << 2)
+        if (directions & 2) protocols |= (1 << 3) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10)
+        if (directions & 1) protocols |= 1 << 11
+        return protocols
+    }
+
+    _renderProtocolOptions(options, selected, available) {
+        return options.map((label, index) =>
+            available & (1 << index)
+                ? html`<option .value="${index.toString()}" ?selected="${index === selected}">${label}</option>`
+                : '')
+    }
+
     _hasSerial1() {
-        // If theres no PWM pins then serial must be enabled
-        if (!elrsState.config['pwm']) return true
-        // If a PWM pin is defined as serial, then it should be enabled
-        for(const pwm of elrsState.config.pwm) {
-            const mode = (pwm.config >> 16) & 0xF
-            if (mode === PWM_MODE_SERIAL && (pwm.features & 3) !== 0)
-                return true
-        }
-        // If any of the PWM pins are defined to support serial (but it's not selected) then disabled serial
-        for(const pwm of elrsState.config.pwm) {
-            if ((pwm.features & 3) !== 0)
-                return false
-        }
-        // No PWM pins are defined as serial so use what the hardware dictates
-        return !!elrsState.settings.has_serial_pins
+        return this._serialProtocolMask() !== 0
     }
 
     _hasSerial2() {
-        if (!elrsState.config['pwm']) {
-            return elrsState.config['serial1-protocol'] !== undefined
-        }
-        for(const pwm of elrsState.config.pwm) {
-            const mode = (pwm.config >> 16) & 15
-            if ((mode === PWM_MODE_SERIAL2RX || mode === PWM_MODE_SERIAL2TX) && (pwm.features & 96) !== 0)
-                return true
-        }
-        return false
+        return this._serial1ProtocolMask() > 1
     }
 
     _updateSerial1(e) {
@@ -161,15 +180,18 @@ class SerialPanel extends LitElement {
     }
 
     _displayBaudRate() {
-        return this.isAirport || this.serial1Protocol === 0 || this.serial1Protocol === 1 || this.serial2Protocol === 1 || this.serial2Protocol === 2
+        return (this._hasSerial1() && (this.isAirport || this.serial1Protocol === 0 || this.serial1Protocol === 1)) ||
+            (this._hasSerial2() && (this.serial2Protocol === 1 || this.serial2Protocol === 2))
     }
 
     _sbusSelected() {
-        return this.serial1Protocol === 2 || this.serial1Protocol === 3 || this.serial2Protocol === 3 || this.serial2Protocol === 4
+        return (this._hasSerial1() && (this.serial1Protocol === 2 || this.serial1Protocol === 3)) ||
+            (this._hasSerial2() && (this.serial2Protocol === 3 || this.serial2Protocol === 4))
     }
 
     _displayPortSelected() {
-        return this.serial1Protocol === 8 || this.serial2Protocol === 9
+        return (this._hasSerial1() && this.serial1Protocol === 8) ||
+            (this._hasSerial2() && this.serial2Protocol === 9)
     }
 
     _configChanged() {

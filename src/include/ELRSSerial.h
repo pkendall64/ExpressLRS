@@ -2,6 +2,8 @@
 
 #if defined(__cplusplus) && defined(TARGET_RX)
 
+#include "targets.h"
+
 #include <HardwareSerial.h>
 
 #if defined(PLATFORM_ESP32)
@@ -52,13 +54,13 @@ public:
             setHalfDuplexReceive();
         }
 #else
-        if ((rxPin != -1 && rxPin != 3) || (txPin != -1 && txPin != 1) || (rxPin == -1 && txPin == -1))
+        if ((rxPin != -1 && rxPin != U0RXD_GPIO_NUM) || (txPin != -1 && txPin != U0TXD_GPIO_NUM) || (rxPin == -1 && txPin == -1))
         {
             return false;
         }
 
         const SerialMode mode = rxPin == -1 ? SERIAL_TX_ONLY : txPin == -1 ? SERIAL_RX_ONLY : SERIAL_FULL;
-        HardwareSerial::begin(baud, config, mode, 1, invert);
+        HardwareSerial::begin(baud, config, mode, U0TXD_GPIO_NUM, invert);
 #endif
         return true;
     }

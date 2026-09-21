@@ -12,19 +12,18 @@
 // band/channel or frequency in MHz (3 bits for the band and 3 bits for the channel)
 #define VTXCOMMON_MSP_BANDCHAN_CHKVAL ((uint16_t)((7 << 3) + 7))
 
-SerialTramp::SerialTramp(Stream &out, Stream &in, int8_t serial1TXpin) : SerialIO(&out, &in)
+SerialTramp::SerialTramp(ELRSSerial &port, int8_t txPin) : SerialIO(&port, &port), _serial(port)
 {
 #if defined(PLATFORM_ESP32)
-    // we are on UART1, use Serial1 TX assigned pin for half-duplex
-    UTXDoutIdx = U1TXD_OUT_IDX;
-    URXDinIdx = U1RXD_IN_IDX;
-    halfDuplexPin = serial1TXpin;
+    port.beginHalfDuplex(9600, SERIAL_8N1, txPin);
+#else
+    port.begin(9600, SERIAL_8N1, -1, txPin, false);
 #endif
     setRXMode();
     crsfRouter.addConnector(this);
 }
 
- SerialTramp::~SerialTramp()
+SerialTramp::~SerialTramp()
 {
     crsfRouter.removeConnector(this);
 }
@@ -32,17 +31,14 @@ SerialTramp::SerialTramp(Stream &out, Stream &in, int8_t serial1TXpin) : SerialI
 void SerialTramp::setTXMode() const
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, OUTPUT);                                 // set half-duplex GPIO to OUTPUT
-    digitalWrite(halfDuplexPin, HIGH);                              // set half-duplex GPIO to high level
-    pinMatrixOutAttach(halfDuplexPin, UTXDoutIdx, false, false);    // attach GPIO as output of UART TX
+    _serial.setHalfDuplexTransmit();
 #endif
 }
 
 void SerialTramp::setRXMode() const
 {
 #if defined(PLATFORM_ESP32)
-    pinMode(halfDuplexPin, INPUT_PULLUP);                           // set half-duplex GPIO to INPUT
-    pinMatrixInAttach(halfDuplexPin, URXDinIdx, false);             // attach half-duplex GPIO as input to UART RX
+    _serial.setHalfDuplexReceive();
 #endif
 }
 
@@ -70,7 +66,7 @@ void SerialTramp::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(frame, frameSize);
         _fifo.unlock();
         setTXMode();
-        _outputPort->write(frame, frameSize);
+        _port->write(frame, frameSize);
         bytesWritten += frameSize;
         lastSendTime = millis();
     }

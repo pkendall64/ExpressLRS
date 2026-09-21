@@ -1,14 +1,16 @@
 #pragma once
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 
 #include "CRSFParser.h"
 #include "CRSFRouter.h"
 
 class SerialCRSF final : public SerialIO, public CRSFConnector {
 public:
-    explicit SerialCRSF(Stream &out, Stream &in)
-        : SerialIO(&out, &in)
+    SerialCRSF(ELRSSerial &port, uint32_t baud, int8_t rxPin, int8_t txPin, bool invert)
+        : SerialIO(&port, &port)
     {
+        port.begin(baud, SERIAL_8N1, rxPin, txPin, invert);
         crsfRouter.addConnector(this);
     }
     ~SerialCRSF() override

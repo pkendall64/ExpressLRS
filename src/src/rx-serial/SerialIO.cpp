@@ -9,8 +9,8 @@ void SerialIO::processSerialInput()
 {
     auto maxBytes = getMaxSerialReadSize();
     uint8_t buffer[maxBytes];
-    auto size = min(_inputPort->available(), maxBytes);
-    _inputPort->readBytes(buffer, size);
+    auto size = min(_port->available(), maxBytes);
+    _port->readBytes(buffer, size);
     processBytes(buffer, size);
 }
 
@@ -26,7 +26,7 @@ void SerialIO::sendQueuedData(uint32_t maxBytesToSend)
         _fifo.popBytes(OutData, OutPktLen);
         _fifo.unlock();
         noInterrupts();
-        this->_outputPort->write(OutData, OutPktLen); // write the packet out
+        this->_port->write(OutData, OutPktLen); // write the packet out
         interrupts();
         bytesWritten += OutPktLen;
     }

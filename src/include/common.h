@@ -201,12 +201,14 @@ enum eServoOutputMode : uint8_t
     somOnOff,       // 7:  Digital 0/1 mode
     somDShot,       // 8:  DShot300
     somDShot3D,     // 9:  DShot300 3D
-    somSerial,      // 10:  primary Serial
+    somSerial,      // 10: legacy primary Serial; migration only
     somSCL,         // 11: I2C clock signal
     somSDA,         // 12: I2C data line
     somPwm,         // 13: true PWM mode (NOT SUPPORTED)
     somSerial1RX,   // 14: secondary Serial RX
     somSerial1TX,   // 15: secondary Serial TX
+    somSerialRX,    // 16: primary Serial RX
+    somSerialTX,    // 17: primary Serial TX
 };
 
 enum eServoOutputFailsafeMode : uint8_t
@@ -246,6 +248,59 @@ enum eSerial1Protocol : uint8_t
     PROTOCOL_SERIAL1_MSP_DISPLAYPORT,
     PROTOCOL_SERIAL1_GPS
 };
+#endif
+
+enum eSerialDirection : uint8_t
+{
+    SERIAL_DIRECTION_RX = 1,
+    SERIAL_DIRECTION_TX = 2,
+};
+
+enum eSerialProtocolRequirement : uint8_t
+{
+    SERIAL_INPUT,
+    SERIAL_OUTPUT,
+    SERIAL_HALF_DUPLEX,
+    SERIAL_TWO_WAY,
+};
+
+inline eSerialProtocolRequirement serialProtocolRequirement(eSerialProtocol protocol)
+{
+    switch (protocol)
+    {
+        case PROTOCOL_CRSF:
+        case PROTOCOL_INVERTED_CRSF:
+        case PROTOCOL_MAVLINK:
+            return SERIAL_TWO_WAY;
+        case PROTOCOL_HOTT_TLM:
+#if defined(PLATFORM_ESP32)
+            return SERIAL_HALF_DUPLEX;
+#else
+            return SERIAL_TWO_WAY;
+#endif
+        case PROTOCOL_GPS:
+            return SERIAL_INPUT;
+        default:
+            return SERIAL_OUTPUT;
+    }
+}
+
+#if defined(PLATFORM_ESP32)
+inline eSerialProtocolRequirement serial1ProtocolRequirement(eSerial1Protocol protocol)
+{
+    switch (protocol)
+    {
+        case PROTOCOL_SERIAL1_CRSF:
+        case PROTOCOL_SERIAL1_INVERTED_CRSF:
+            return SERIAL_TWO_WAY;
+        case PROTOCOL_SERIAL1_HOTT_TLM:
+            return SERIAL_HALF_DUPLEX;
+        case PROTOCOL_SERIAL1_GPS:
+            return SERIAL_INPUT;
+        default:
+            return SERIAL_OUTPUT;
+    }
+}
 #endif
 
 enum eFailsafeMode : uint8_t

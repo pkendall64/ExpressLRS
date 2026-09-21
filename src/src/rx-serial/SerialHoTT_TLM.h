@@ -3,6 +3,7 @@
 #if defined(TARGET_RX)
 
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 #include "device.h"
 
 #define PACKED __attribute__((packed))
@@ -274,7 +275,7 @@ enum {
 class SerialHoTT_TLM final : public SerialIO
 {
 public:
-    SerialHoTT_TLM(Stream &out, Stream &in, int8_t serial1TXpin = UNDEF_PIN);
+    SerialHoTT_TLM(ELRSSerial &serial, int8_t rxPin, int8_t txPin);
     ~SerialHoTT_TLM() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override { return DURATION_IMMEDIATELY; };
@@ -283,11 +284,7 @@ public:
     void sendQueuedData(uint32_t maxBytesToSend) override;
 
 private:
-#if defined(PLATFORM_ESP32)
-    int8_t halfDuplexPin;
-    uint8_t UTXDoutIdx;
-    uint8_t URXDinIdx;
-#endif
+    ELRSSerial &_serial;
 
     void setTXMode();
     void setRXMode();

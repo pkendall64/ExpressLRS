@@ -17,6 +17,7 @@ CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
 
 #pragma once
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 
 #define MSP_STATUS          101
 #define MSP_STATUS_EX       150
@@ -42,7 +43,8 @@ struct msp_status_t
 class SerialDisplayport final : public SerialIO
 {
 public:
-    explicit SerialDisplayport(Stream &out, Stream &in) : SerialIO(&out, &in), m_receivedBytes(0), m_receivedTimestamp(0) {}
+    SerialDisplayport(ELRSSerial &port, int8_t txPin)
+        : SerialIO(&port, &port), m_receivedBytes(0), m_receivedTimestamp(0) { port.begin(115200, SERIAL_8N1, -1, txPin, false); }
     ~SerialDisplayport() override = default;
 
     void sendQueuedData(uint32_t maxBytesToSend) override {};

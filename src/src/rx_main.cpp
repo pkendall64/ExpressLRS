@@ -1261,13 +1261,32 @@ void DataUlReceiveComplete()
     DataUlReceiver.Unlock();
 }
 
+static int8_t resolveSerialPin(int8_t targetPin, eServoOutputMode reservation)
+{
+    if (targetPin != UNDEF_PIN)
+    {
+        for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
+        {
+            if (GPIO_PIN_PWM_OUTPUTS[ch] == targetPin)
+            {
+                return config.GetPwmChannel(ch)->val.mode == reservation ? targetPin : UNDEF_PIN;
+            }
+        }
+        return targetPin;
+    }
+
+    for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ++ch)
+    {
+        if (config.GetPwmChannel(ch)->val.mode == reservation)
+        {
+            return GPIO_PIN_PWM_OUTPUTS[ch];
+        }
+    }
+    return UNDEF_PIN;
+}
+
 static void setupSerial()
 {
-    bool sbusSerialOutput = false;
-	bool sumdSerialOutput = false;
-    bool mavlinkSerialOutput = false;
-    bool hottTlmSerial = false;
-
     if (OPT_CRSF_RCVR_NO_SERIAL)
     {
         // For PWM receivers with no serial pins defined, only turn on the Serial port if logging is on
@@ -1286,90 +1305,68 @@ static void setupSerial()
         serialIO = new SerialNOOP();
         return;
     }
-    if (config.GetSerialProtocol() == PROTOCOL_CRSF || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || firmwareOptions.is_airport)
-    {
-        serialBaud = firmwareOptions.uart_baud;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
-    {
-        sbusSerialOutput = true;
-        serialBaud = 100000;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
-    {
-        sumdSerialOutput = true;
-        serialBaud = 115200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
-    {
-        mavlinkSerialOutput = true;
-        serialBaud = 460800;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
-    {
-        serialBaud = 115200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
-    {
-        hottTlmSerial = true;
-        serialBaud = 19200;
-    }
-    else if (config.GetSerialProtocol() == PROTOCOL_GPS)
-    {
-        serialBaud = 115200;
-    }
-    bool invert = config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO;
-
-    SerialConfig serialConfig = SERIAL_8N1;
-
-    if(sbusSerialOutput)
-    {
-        serialConfig = SERIAL_8E2;
-    }
-    else if(hottTlmSerial)
-    {
-        serialConfig = SERIAL_8N2;
-    }
-
-    if (!Serial.begin(serialBaud, serialConfig, GPIO_PIN_RCSIGNAL_RX, GPIO_PIN_RCSIGNAL_TX, invert))
+    if (!config.IsSerialProtocolAvailable(config.GetSerialProtocol()))
     {
         serialIO = new SerialNOOP();
         return;
     }
 
+    bool invert = config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_CRSF || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO;
+    const eSerialProtocolRequirement requirement = serialProtocolRequirement(config.GetSerialProtocol());
+    int8_t serialRxPin = UNDEF_PIN;
+    int8_t serialTxPin = UNDEF_PIN;
+    if (requirement == SERIAL_INPUT || requirement == SERIAL_TWO_WAY)
+        serialRxPin = OPT_PWM_OUT_ONLY ? UNDEF_PIN : resolveSerialPin(GPIO_PIN_RCSIGNAL_RX, somSerialRX);
+    if (requirement == SERIAL_OUTPUT || requirement == SERIAL_HALF_DUPLEX || requirement == SERIAL_TWO_WAY ||
+        (requirement == SERIAL_INPUT && !OPT_PWM_OUT_ONLY))
+        serialTxPin = resolveSerialPin(GPIO_PIN_RCSIGNAL_TX, somSerialTX);
+    if (requirement == SERIAL_HALF_DUPLEX)
+        serialRxPin = serialTxPin;
+    if (requirement == SERIAL_INPUT && serialRxPin == serialTxPin)
+        serialTxPin = UNDEF_PIN;
+    if (serialRxPin == UNDEF_PIN && serialTxPin == UNDEF_PIN)
+    {
+        serialIO = new SerialNOOP();
+        return;
+    }
+    if (requirement == SERIAL_TWO_WAY && serialRxPin == serialTxPin)
+    {
+        serialIO = new SerialNOOP();
+        return;
+    }
+
+
     if (firmwareOptions.is_airport)
     {
-        serialIO = new SerialAirPort(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialAirPort(Serial, firmwareOptions.uart_baud, serialRxPin, serialTxPin);
     }
-    else if (sbusSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_SBUS || config.GetSerialProtocol() == PROTOCOL_INVERTED_SBUS || config.GetSerialProtocol() == PROTOCOL_DJI_RS_PRO)
     {
-        serialIO = new SerialSBUS(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialSBUS(Serial, serialTxPin, invert);
     }
-    else if (sumdSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_SUMD)
     {
-        serialIO = new SerialSUMD(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialSUMD(Serial, serialTxPin);
     }
-    else if (mavlinkSerialOutput)
+    else if (config.GetSerialProtocol() == PROTOCOL_MAVLINK)
     {
-        serialIO = new SerialMavlink(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialMavlink(Serial, serialRxPin, serialTxPin);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_MSP_DISPLAYPORT)
     {
-        serialIO = new SerialDisplayport(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialDisplayport(Serial, serialTxPin);
     }
     else if (config.GetSerialProtocol() == PROTOCOL_GPS)
     {
-        // Serial(0) is always assigned in a way that it uses two pins, only Serial1 is allowed to not have both RX/TX
-        const int8_t gpsTxPin = (GPIO_PIN_RCSIGNAL_TX == UNDEF_PIN) ? U0TXD_GPIO_NUM : GPIO_PIN_RCSIGNAL_TX;
-        serialIO = new SerialGPS(SERIAL_PROTOCOL_RX, gpsTxPin);
+        serialIO = new SerialGPS(Serial, serialRxPin, serialTxPin);
     }
-    else if (hottTlmSerial)
+    else if (config.GetSerialProtocol() == PROTOCOL_HOTT_TLM)
     {
-        serialIO = new SerialHoTT_TLM(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialHoTT_TLM(Serial, serialRxPin, serialTxPin);
     }
     else
     {
-        serialIO = new SerialCRSF(SERIAL_PROTOCOL_TX, SERIAL_PROTOCOL_RX);
+        serialIO = new SerialCRSF(Serial, firmwareOptions.uart_baud, serialRxPin, serialTxPin, invert);
     }
 
 #if defined(DEBUG_ENABLED)
@@ -1397,84 +1394,68 @@ static void serial1Shutdown()
 
 static void setupSerial1()
 {
-    //
-    // init secondary serial and protocol
-    //
-    int8_t serial1RXpin = GPIO_PIN_SERIAL1_RX;
+    const eSerial1Protocol protocol = config.GetSerial1Protocol();
+    if (protocol == PROTOCOL_SERIAL1_OFF || !config.IsSerial1ProtocolAvailable(protocol))
+        return;
 
-    if (serial1RXpin == UNDEF_PIN)
-    {
-        for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ch++)
-        {
-            if (config.GetPwmChannel(ch)->val.mode == somSerial1RX)
-                serial1RXpin = GPIO_PIN_PWM_OUTPUTS[ch];
-        }
-    }
-
-    int8_t serial1TXpin = GPIO_PIN_SERIAL1_TX;
-
-    if (serial1TXpin == UNDEF_PIN)
-    {
-        for (uint8_t ch = 0; ch < GPIO_PIN_PWM_OUTPUTS_COUNT; ch++)
-        {
-            if (config.GetPwmChannel(ch)->val.mode == somSerial1TX)
-                serial1TXpin = GPIO_PIN_PWM_OUTPUTS[ch];
-        }
-    }
-
-    switch(config.GetSerial1Protocol())
+    const eSerialProtocolRequirement requirement = serial1ProtocolRequirement(protocol);
+    int8_t serial1RXpin = UNDEF_PIN;
+    int8_t serial1TXpin = UNDEF_PIN;
+    if (requirement == SERIAL_INPUT || requirement == SERIAL_TWO_WAY)
+        serial1RXpin = OPT_PWM_OUT_ONLY ? UNDEF_PIN : resolveSerialPin(GPIO_PIN_SERIAL1_RX, somSerial1RX);
+    if (requirement == SERIAL_OUTPUT || requirement == SERIAL_HALF_DUPLEX || requirement == SERIAL_TWO_WAY ||
+        (requirement == SERIAL_INPUT && !OPT_PWM_OUT_ONLY))
+        serial1TXpin = resolveSerialPin(GPIO_PIN_SERIAL1_TX, somSerial1TX);
+    if (requirement == SERIAL_HALF_DUPLEX)
+        serial1RXpin = serial1TXpin;
+    if (requirement == SERIAL_INPUT && serial1RXpin == serial1TXpin)
+        serial1TXpin = UNDEF_PIN;
+    if (serial1RXpin == UNDEF_PIN && serial1TXpin == UNDEF_PIN)
+        return;
+    if (requirement == SERIAL_TWO_WAY && serial1RXpin == serial1TXpin)
+        return;
+    switch(protocol)
     {
         case PROTOCOL_SERIAL1_OFF:
             break;
         case PROTOCOL_SERIAL1_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-            serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialCRSF(Serial1, firmwareOptions.uart_baud, serial1RXpin, serial1TXpin, false);
             break;
         case PROTOCOL_SERIAL1_INVERTED_CRSF:
-            Serial1.begin(firmwareOptions.uart_baud, SERIAL_8N1, serial1RXpin, serial1TXpin, true);
-            serial1IO = new SerialCRSF(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialCRSF(Serial1, firmwareOptions.uart_baud, serial1RXpin, serial1TXpin, true);
             break;
         case PROTOCOL_SERIAL1_SBUS:
         case PROTOCOL_SERIAL1_DJI_RS_PRO:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, true);
-            serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialSBUS(Serial1, serial1TXpin, true);
             break;
         case PROTOCOL_SERIAL1_INVERTED_SBUS:
-            Serial1.begin(100000, SERIAL_8E2, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSBUS(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialSBUS(Serial1, serial1TXpin, false);
             break;
         case PROTOCOL_SERIAL1_SUMD:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSUMD(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialSUMD(Serial1, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_HOTT_TLM:
-            Serial1.begin(19200, SERIAL_8N2, serial1RXpin, serial1TXpin, false);
-            serial1IO = new SerialHoTT_TLM(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+            serial1IO = new SerialHoTT_TLM(Serial1, serial1RXpin, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_TRAMP:
-            Serial1.begin(9600, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialTramp(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+            serial1IO = new SerialTramp(Serial1, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_SMARTAUDIO:
-            Serial1.begin(4800, SERIAL_8N2, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialSmartAudio(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX, serial1TXpin);
+            serial1IO = new SerialSmartAudio(Serial1, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_MSP_DISPLAYPORT:
-            Serial1.begin(115200, SERIAL_8N1, UNDEF_PIN, serial1TXpin, false);
-            serial1IO = new SerialDisplayport(SERIAL1_PROTOCOL_TX, SERIAL1_PROTOCOL_RX);
+            serial1IO = new SerialDisplayport(Serial1, serial1TXpin);
             break;
         case PROTOCOL_SERIAL1_GPS:
             // Without an RX pin there is nothing to listen to, and without a TX pin (or with it
             // shared with RX) the GPS can be read but not configured
             if (serial1RXpin != UNDEF_PIN)
             {
-                Serial1.begin(115200, SERIAL_8N1, serial1RXpin, serial1TXpin, false);
-                serial1IO = new SerialGPS(SERIAL1_PROTOCOL_TX, serial1TXpin == serial1RXpin ? UNDEF_PIN : serial1TXpin);
+                serial1IO = new SerialGPS(Serial1, serial1RXpin, serial1TXpin == serial1RXpin ? UNDEF_PIN : serial1TXpin);
             }
             break;
     }
 }
-
 void reconfigureSerial1()
 {
     serial1Shutdown();
@@ -2007,7 +1988,7 @@ void setup()
             for (int i = 0 ; i < GPIO_PIN_PWM_OUTPUTS_COUNT ; i++)
             {
                 eServoOutputMode pinMode = (eServoOutputMode)config.GetPwmChannel(i)->val.mode;
-                if (pinMode == somSerial)
+                if (pinMode == somSerialRX || pinMode == somSerialTX)
                 {
                     pwmSerialDefined = true;
                     break;

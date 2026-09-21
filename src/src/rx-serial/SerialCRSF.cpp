@@ -76,9 +76,9 @@ uint32_t SerialCRSF::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
     uint8_t crc = crsfRouter.crsf_crc.calc(outBuffer[2]);
     crc = crsfRouter.crsf_crc.calc((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut), crc);
 
-    _outputPort->write(outBuffer, sizeof(outBuffer));
-    _outputPort->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
-    _outputPort->write(crc);
+    _port->write(outBuffer, sizeof(outBuffer));
+    _port->write((byte *)&PackedRCdataOut, sizeof(PackedRCdataOut));
+    _port->write(crc);
     return DURATION_IMMEDIATELY;
 }
 

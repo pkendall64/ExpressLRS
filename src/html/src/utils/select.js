@@ -74,10 +74,15 @@ class SelectMenu {
         const [menuEl, selectedRow] = this.createMenuEl()
         this.menuEl = menuEl
 
-        wrapperEl.appendChild(menuEl)
+        document.body.appendChild(menuEl)
         const props = getMenuPosition(wrapperEl, menuEl, selectedRow)
+        const wrapperRect = wrapperEl.getBoundingClientRect()
+        menuEl.style.position = 'fixed'
+        menuEl.style.left = `${wrapperRect.left}px`
+        menuEl.style.width = `${wrapperRect.width}px`
+        menuEl.style.minWidth = `${wrapperRect.width}px`
         menuEl.style.height = props.height
-        menuEl.style.top = props.top
+        menuEl.style.top = `${wrapperRect.top + Number.parseFloat(props.top)}px`
         menuEl.scrollTop = props.scrollTop
 
         this.onMenuClick = this.onMenuClick.bind(this)

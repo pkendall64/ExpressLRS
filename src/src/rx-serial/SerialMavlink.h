@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SerialIO.h"
+#include "ELRSSerial.h"
 #include "FIFO.h"
 
 #define MAV_INPUT_BUF_LEN       1024
@@ -13,7 +14,7 @@ extern FIFO<MAV_OUTPUT_BUF_LEN> mavlinkOutputBuffer;
 
 class SerialMavlink final : public SerialIO {
 public:
-    explicit SerialMavlink(Stream &out, Stream &in);
+    SerialMavlink(ELRSSerial &port, int8_t rxPin, int8_t txPin);
     ~SerialMavlink() override = default;
 
     uint32_t sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData) override;
