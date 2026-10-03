@@ -75,14 +75,14 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
         PackedRCdataOut.ch5 = channelData[5];
         PackedRCdataOut.ch6 = channelData[6];
         PackedRCdataOut.ch7 = channelData[7];
-        PackedRCdataOut.ch8 = channelData[8];
-        PackedRCdataOut.ch9 = channelData[9];
-        PackedRCdataOut.ch10 = channelData[10];
-        PackedRCdataOut.ch11 = channelData[11];
-        PackedRCdataOut.ch12 = channelData[12];
-        PackedRCdataOut.ch13 = channelData[13];
-        PackedRCdataOut.ch14 = channelData[14];
-        PackedRCdataOut.ch15 = channelData[15];
+        PackedRCdataOut.ch8 = OtaNumChannels > 8 ? channelData[8] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch9 = OtaNumChannels > 8 ? channelData[9] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch10 = OtaNumChannels > 8 ? channelData[10] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch11 = OtaNumChannels > 8 ? channelData[11] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch12 = OtaNumChannels > 12 ? channelData[12] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch13 = OtaNumChannels > 12 ? channelData[13] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch14 = OtaNumChannels > 12 ? channelData[14] : CRSF_CHANNEL_VALUE_MID;
+        PackedRCdataOut.ch15 = OtaNumChannels > 12 ? channelData[15] : CRSF_CHANNEL_VALUE_MID;
     }
 
     uint8_t extraData = 0;
