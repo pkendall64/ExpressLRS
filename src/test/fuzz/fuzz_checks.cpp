@@ -210,7 +210,7 @@ void checkOutput()
                 fuzzViolation("harness", "unexpected bytes on the SUMD port");
             for (unsigned i = 0; i < CRSF_NUM_CHANNELS; i++)
                 v[slotToCh[i]] = ((b[pos + 3 + 2 * i] << 8) | b[pos + 4 + 2 * i]) >> 3;
-            checkFrame(v, false, false);
+            checkFrame(v, b[pos + 1] == 0x81, false);
         }
     }
     b.erase(b.begin(), b.begin() + pos);
