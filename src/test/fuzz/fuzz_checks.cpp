@@ -124,13 +124,13 @@ static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe)
     if (!modesAgree())
         return;
 
-    const bool crsfLinkStatsChannels = proto == PROTO_CRSF && !(txIsFullRes() && OtaSwitchModeCurrent == smHybridOr16ch);
+    const bool crsfLinkStatsChannels = !(txIsFullRes() && OtaSwitchModeCurrent == smHybridOr16ch);
     for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS; ch++)
     {
         if (crsfLinkStatsChannels && ch >= 14)
             continue;
         const bool unset = ChannelData[ch] == CRSF_CHANNEL_VALUE_UNSET;
-        const uint32_t minVal = proto == PROTO_SUMD ? CRSF_to_US(CRSF_CHANNEL_VALUE_EXT_MIN) : CRSF_CHANNEL_VALUE_EXT_MIN;
+        const uint32_t midVal = proto == PROTO_SUMD ? CRSF_to_US(CRSF_CHANNEL_VALUE_MID) : CRSF_CHANNEL_VALUE_MID;
         if (txSendsChannel(ch))
         {
             const uint32_t want = expected[txIsFullRes()][tx.mode][ch];
@@ -140,9 +140,9 @@ static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe)
             if (!unset && !forgedCrcUsed && emitted[ch] != wantWire && enabled("wrong-value"))
                 failChannel("wrong-value", ch, emitted[ch], wantWire);
         }
-        else if (unset && emitted[ch] != minVal && enabled("unset-not-min"))
+        else if (unset && emitted[ch] != midVal && enabled("unset-not-mid"))
         {
-            failChannel("unset-not-min", ch, emitted[ch], minVal);
+            failChannel("unset-not-mid", ch, emitted[ch], midVal);
         }
     }
 }
