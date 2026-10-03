@@ -107,18 +107,18 @@ static void unpack11(const uint8_t *p, uint32_t *out)
 }
 
 // Runs the checks on one RC frame the RX emitted
-static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe)
+static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe, bool missed)
 {
     if (fuzzTrace)
     {
-        fprintf(stderr, "    %s frame%s:", protoNames[proto], flaggedFailsafe ? " (failsafe)" : "");
+        fprintf(stderr, "    %s frame%s%s:", protoNames[proto], flaggedFailsafe ? " (failsafe)" : "", missed ? " (missed)" : "");
         for (unsigned ch = 0; ch < CRSF_NUM_CHANNELS; ch++)
             fprintf(stderr, " %u", emitted[ch]);
         fprintf(stderr, "\n");
     }
     // The frame that goes out between the link dropping and the driver being told carries the last
     // values, which may have been decoded in a switch mode the RX has since left
-    if (flaggedFailsafe || connectionState == disconnected)
+    if (flaggedFailsafe || missed || connectionState == disconnected)
         return;
     packetsWithoutOutput = 0;
     if (!modesAgree())
@@ -185,7 +185,7 @@ void checkOutput()
             if (b[pos + 2] == CRSF_FRAMETYPE_RC_CHANNELS_PACKED && len == 26)
             {
                 unpack11(&b[pos + 3], v);
-                checkFrame(v, false);
+                checkFrame(v, false, false);
             }
             pos += len;
         }
@@ -197,7 +197,7 @@ void checkOutput()
             if (b[pos] != 0x0F)
                 fuzzViolation("harness", "unexpected bytes on the SBUS port");
             unpack11(&b[pos + 1], v);
-            checkFrame(v, b[pos + 23] & (1 << 3));
+            checkFrame(v, b[pos + 23] & (1 << 3), b[pos + 23] & (1 << 2));
         }
     }
     else
@@ -210,7 +210,7 @@ void checkOutput()
                 fuzzViolation("harness", "unexpected bytes on the SUMD port");
             for (unsigned i = 0; i < CRSF_NUM_CHANNELS; i++)
                 v[slotToCh[i]] = ((b[pos + 3 + 2 * i] << 8) | b[pos + 4 + 2 * i]) >> 3;
-            checkFrame(v, false);
+            checkFrame(v, false, false);
         }
     }
     b.erase(b.begin(), b.begin() + pos);
