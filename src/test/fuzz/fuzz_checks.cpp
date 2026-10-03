@@ -257,7 +257,7 @@ void checkRxFrames()
                 const uint8_t *value = &b[pos + SUMD_CHANNELS_AT + 2 * i];
                 v[slotToCh[i]] = ((value[0] << 8) | value[1]) >> SUMD_EIGHTHS_SHIFT;
             }
-            checkFrame(v, false, false);
+            checkFrame(v, b[pos + 1] == 0x81, false);
         }
     }
     b.erase(b.begin(), b.begin() + pos);
