@@ -25,7 +25,7 @@ enum teamraceOutputInhibitState_e {
 typedef struct devserial_ctx_s {
   SerialIO **io;
   bool frameAvailable;
-  bool frameMissed ;
+  bool frameMissed;
   connectionState_e lastConnectionState;
   uint8_t lastTeamracePosition;
   teamraceOutputInhibitState_e teamraceOutputInhibitState;
@@ -126,11 +126,6 @@ static uint8_t teamraceChannelToConfigValue()
 */
 static bool confirmFrameAvailable(devserial_ctx_t *ctx)
 {
-    if (!ctx->frameAvailable)
-        return false;
-
-    ctx->frameAvailable = false;
-
     // ModelMatch failure always prevents passing the frame on
     if (!connectionHasModelMatch)
         return false;
@@ -195,6 +190,13 @@ static bool confirmFrameAvailable(devserial_ctx_t *ctx)
 
 static int timeout(devserial_ctx_t *ctx)
 {
+    noInterrupts();
+    bool missed = ctx->frameMissed;
+    ctx->frameMissed = false;
+    bool sendChannels = ctx->frameAvailable;
+    ctx->frameAvailable = false;
+    interrupts();
+
     if (*(ctx->io) == nullptr)
     {
         return NO_SERIALIO_INTERVAL;
@@ -220,13 +222,7 @@ static int timeout(devserial_ctx_t *ctx)
      * Commiting this anyway though to work out a better resolution
     */
 
-    noInterrupts();
-    bool missed = ctx->frameMissed;
-    ctx->frameMissed = false;
-    interrupts();
-
-    // Verify there is new ChannelData and they should be sent on
-    bool sendChannels = confirmFrameAvailable(ctx);
+    sendChannels = sendChannels && confirmFrameAvailable(ctx);
 
     // Copy the current ChannelData to a local buffer as we don't know how many accesses
     // there will be to each channel slot in the array, and the global buffer may be updated
@@ -242,26 +238,37 @@ static int timeout(devserial_ctx_t *ctx)
 
 void sendImmediateRC()
 {
+    WORD_ALIGNED_ATTR uint32_t localChannelData[CRSF_NUM_CHANNELS];
+    for (unsigned i = 0; i < CRSF_NUM_CHANNELS; i++)
+    {
+        const uint32_t crsfVal = ChannelData[i];
+        localChannelData[i] = (crsfVal == CRSF_CHANNEL_VALUE_UNSET) ? CRSF_CHANNEL_VALUE_EXT_MIN : crsfVal;
+    }
+
+    bool missed = serial0.frameMissed;
+    serial0.frameMissed = false;
+
+    // Verify there is new ChannelData and they should be sent on
+    bool sendChannels = serial0.frameAvailable;
+    serial0.frameAvailable = false;
+
     if (*(serial0.io) != nullptr && (*(serial0.io))->sendImmediateRC() && connectionState != serialUpdate)
     {
-        const bool missed = serial0.frameMissed;
-        serial0.frameMissed = false;
-
-        // Verify there is new ChannelData and they should be sent on
-        const bool sendChannels = confirmFrameAvailable(&serial0);
-
-        (*(serial0.io))->sendRCFrame(sendChannels, missed, ChannelData);
+        sendChannels = sendChannels && confirmFrameAvailable(&serial0);
+        (*(serial0.io))->sendRCFrame(sendChannels, missed, localChannelData);
     }
 #if defined(PLATFORM_ESP32)
+    missed = serial1.frameMissed;
+    serial1.frameMissed = false;
+
+    // Verify the new channel data should be sent on
+    sendChannels = serial1.frameAvailable;
+    serial1.frameAvailable = false;
+
     if (*(serial1.io) != nullptr && (*(serial1.io))->sendImmediateRC() && connectionState != serialUpdate)
     {
-        const bool missed = serial1.frameMissed;
-        serial1.frameMissed = false;
-
-        // Verify the new channel data should be sent on
-        const bool sendChannels = confirmFrameAvailable(&serial1);
-
-        (*(serial1.io))->sendRCFrame(sendChannels, missed, ChannelData);
+        sendChannels = sendChannels && confirmFrameAvailable(&serial1);
+        (*(serial1.io))->sendRCFrame(sendChannels, missed, localChannelData);
     }
 #endif
 }
