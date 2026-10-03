@@ -2,6 +2,7 @@
 
 #include "OTA.h"
 #include "common.h"
+#include "config.h"
 #include "crsf_protocol.h"
 #include "device.h"
 
@@ -10,10 +11,19 @@
 #define SUMD_CRC_SIZE			2														// 16 bit CRC
 #define SUMD_FRAME_16CH_LEN		(SUMD_HEADER_SIZE+SUMD_DATA_SIZE_16CH+SUMD_CRC_SIZE)
 
-const auto SUMD_CALLBACK_INTERVAL_MS = 10;
+constexpr auto SUMD_CALLBACK_INTERVAL_MS = 10;
 
 uint32_t SerialSUMD::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t *channelData)
 {
+    const bool effectivelyFailsafed = failsafe || !connectionHasModelMatch || !teamraceHasModelMatch;
+    if (effectivelyFailsafed && config.GetFailsafeMode() == FAILSAFE_NO_PULSES)
+    {
+        return SUMD_CALLBACK_INTERVAL_MS;
+    }
+    if (frameMissed && !OtaIsChannelDataComplete(channelData))
+    {
+        return SUMD_CALLBACK_INTERVAL_MS;
+    }
     if (!frameAvailable)
     {
         return DURATION_IMMEDIATELY;
@@ -22,7 +32,7 @@ uint32_t SerialSUMD::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
 	uint8_t outBuffer[SUMD_FRAME_16CH_LEN];
 
 	outBuffer[0] = 0xA8;	//Graupner
-	outBuffer[1] = 0x01;    //SUMD
+	outBuffer[1] = effectivelyFailsafed && config.GetFailsafeMode() != FAILSAFE_LAST_POSITION ? 0x81 : 0x01;    //SUMD
 	outBuffer[2] = 0x10;	//16CH
 
     uint16_t us = CRSF_to_US(channelData[0]) << 3;
