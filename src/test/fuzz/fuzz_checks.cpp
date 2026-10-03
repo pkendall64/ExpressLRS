@@ -122,10 +122,11 @@ static void checkFailsafeFrame(const uint32_t *emitted)
 }
 
 // Runs the checks on one RC frame the RX emitted
-static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe)
+static void checkFrame(const uint32_t *emitted, bool flaggedFailsafe, bool missed)
 {
     if (fuzzTrace)
-        trace("    %s frame%s:%s\n", protoNames[proto], flaggedFailsafe ? " (failsafe)" : "", channelList(emitted, false).c_str());
+        trace("    %s frame%s%s:%s\n", protoNames[proto], flaggedFailsafe ? " (failsafe)" : "", missed ? " (missed)" : "", channelList(emitted, false).c_str());
+
     if (flaggedFailsafe)
     {
         checkFailsafeFrame(emitted);
@@ -197,6 +198,7 @@ constexpr size_t SBUS_FRAME_LEN = 25;
 constexpr uint8_t SBUS_HEADER = 0x0F;
 constexpr size_t SBUS_CHANNELS_AT = 1;
 constexpr size_t SBUS_FLAGS_AT = 23;
+constexpr uint8_t SBUS_FLAG_MISSED = 1 << 2;
 constexpr uint8_t SBUS_FLAG_FAILSAFE = 1 << 3;
 
 // SUMD frame: 3 header bytes, 16 big-endian channels in eighths of a microsecond, CRC16
@@ -227,7 +229,7 @@ void checkRxFrames()
             if (b[pos + CRSF_TYPE_AT] == CRSF_FRAMETYPE_RC_CHANNELS_PACKED && len == CRSF_RC_FRAME_LEN)
             {
                 unpackChannels(&b[pos + CRSF_PAYLOAD_AT], v);
-                checkFrame(v, false);
+                checkFrame(v, false, false);
             }
             pos += len;
         }
@@ -239,7 +241,7 @@ void checkRxFrames()
             if (b[pos] != SBUS_HEADER)
                 fuzzViolation("harness", "unexpected bytes on the SBUS port");
             unpackChannels(&b[pos + SBUS_CHANNELS_AT], v);
-            checkFrame(v, b[pos + SBUS_FLAGS_AT] & SBUS_FLAG_FAILSAFE);
+            checkFrame(v, b[pos + SBUS_FLAGS_AT] & SBUS_FLAG_FAILSAFE, b[pos + SBUS_FLAGS_AT] & SBUS_FLAG_MISSED);
         }
     }
     else
@@ -255,7 +257,7 @@ void checkRxFrames()
                 const uint8_t *value = &b[pos + SUMD_CHANNELS_AT + 2 * i];
                 v[slotToCh[i]] = ((value[0] << 8) | value[1]) >> SUMD_EIGHTHS_SHIFT;
             }
-            checkFrame(v, false);
+            checkFrame(v, false, false);
         }
     }
     b.erase(b.begin(), b.begin() + pos);
