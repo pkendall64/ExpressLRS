@@ -80,9 +80,22 @@ uint32_t SerialSBUS::sendRCFrame(bool frameAvailable, bool frameMissed, uint32_t
         PackedRCdataOut.ch10 = OtaNumChannels > 8 ? channelData[10] : CRSF_CHANNEL_VALUE_MID;
         PackedRCdataOut.ch11 = OtaNumChannels > 8 ? channelData[11] : CRSF_CHANNEL_VALUE_MID;
         PackedRCdataOut.ch12 = OtaNumChannels > 12 ? channelData[12] : CRSF_CHANNEL_VALUE_MID;
-        PackedRCdataOut.ch13 = OtaNumChannels > 12 ? channelData[13] : CRSF_CHANNEL_VALUE_MID;
-        PackedRCdataOut.ch14 = OtaNumChannels > 12 ? channelData[14] : CRSF_CHANNEL_VALUE_MID;
-        PackedRCdataOut.ch15 = OtaNumChannels > 12 ? channelData[15] : CRSF_CHANNEL_VALUE_MID;
+    }
+    PackedRCdataOut.ch13 = channelData[13]; // data or arm switch
+    // In 16ch mode, do not output RSSI/LQ on channels
+    if (OtaNumChannels > 12)
+    {
+        PackedRCdataOut.ch14 = channelData[14];
+        PackedRCdataOut.ch15 = channelData[15];
+    }
+    else
+    {
+        // Not in 16-channel mode, send LQ and RSSI dBm
+        int32_t rssiDBM = linkStats.active_antenna == 0 ? -linkStats.uplink_RSSI_1 : -linkStats.uplink_RSSI_2;
+
+        PackedRCdataOut.ch14 = UINT10_to_CRSF(fmap(linkStats.uplink_Link_quality, 0, 100, 0, 1023));
+        PackedRCdataOut.ch15 = UINT10_to_CRSF(map(constrain(rssiDBM, ExpressLRS_currAirRate_RFperfParams->RXsensitivity, -50),
+                                                   ExpressLRS_currAirRate_RFperfParams->RXsensitivity, -50, 0, 1023));
     }
 
     uint8_t extraData = 0;
