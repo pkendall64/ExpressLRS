@@ -8,10 +8,11 @@ SEED ?= $(shell od -An -N4 -tu4 /dev/urandom | tr -d ' ')
 COUNT ?= 1000000
 
 LIBDIRS := $(wildcard $(SRC)/lib/*/)
-CXXFLAGS := -std=c++17 -g -O1 -w -fsanitize=address,undefined -fno-sanitize=shift-base -fno-sanitize-recover=undefined \
+CXXFLAGS := -arch x86_64 -std=c++17 -g -O1 -w -fsanitize=address,undefined -fno-sanitize=shift-base -fno-sanitize-recover=undefined \
 	-DTARGET_NATIVE -DTARGET_RX -DRADIO_SX128X=1 -DPROGMEM= \
 	-Istubs -include stubs/arduino_stubs.h -include $(SRC)/include/target/Unified_ESP_RX.h \
 	-I$(SRC)/include $(addprefix -I,$(LIBDIRS)) -I$(SRC)/src -I$(SRC)/src/rx-serial
+LDFLAGS=-arch x86_64
 
 # The firmware as built for an RX, minus what sim_hardware.cpp replaces: radio driver, hardware timer,
 # EEPROM, options and the device modules that need real peripherals
