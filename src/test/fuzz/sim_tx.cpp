@@ -138,7 +138,8 @@ void txBuildPacket(OTA_Packet_s *pkt)
         s->fhssIndex = tx.fhssPtr;
         s->nonce = tx.nonce;
         s->rfRateEnum = tx.rate->enum_rate;
-        s->switchEncMode = tx.mode;
+        s->switchEncMode = tx.mode & 1;
+        s->switchEncMode12 = tx.mode >> 1;
         s->newTlmRatio = tx.tlmRatio - TLM_RATIO_NO_TLM;
         s->UID4 = UID[4];
         s->UID5 = UID[5];
